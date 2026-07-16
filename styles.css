@@ -479,7 +479,7 @@
     border-radius: 999px;
     background: var(--surface-strong);
     color: var(--muted);
-    font-size: 0.64rem;
+    font-size: 0.7rem;
   }
 
   .tool-button[aria-pressed="true"] .tool-badge {
@@ -491,6 +491,13 @@
     position: relative;
     display: grid;
     place-items: center;
+  }
+
+  /* Pointer focus (tabindex="-1" focused by mouse/touch) never paints a ring;
+     only keyboard / programmatic focus (:focus-visible) shows the on-brand
+     outline, matching the button focus treatment. */
+  .board-stage:focus {
+    outline: none;
   }
 
   .board-stage:focus-visible {
@@ -533,11 +540,15 @@
     display: block;
   }
 
-  /* Digraphs keep the full single-letter cap height; the glyph pair is
-     condensed horizontally so both letters fit inside the tile. */
+  /* Digraphs render as two clearly separate glyphs inside the single tile:
+     a moderately smaller font plus positive tracking gives the pair visible
+     air ("D H" feel) while leaving generous padding on each side. The negative
+     right margin cancels the trailing letter-spacing so the pair stays
+     optically centred. Weight and cap height match single letters. */
   .tile.is-digraph .tile-letter {
-    transform: scaleX(0.7);
-    letter-spacing: -0.04em;
+    font-size: 0.8em;
+    letter-spacing: 0.06em;
+    margin-right: -0.06em;
   }
 
   .tile.is-filled:not(.is-correct, .is-present, .is-absent) {
@@ -872,6 +883,10 @@
   .result-panel {
     padding: 20px 0 22px;
     border-bottom: 1px solid var(--line);
+  }
+
+  .result-panel:focus {
+    outline: none;
   }
 
   .result-panel:focus-visible {
@@ -1785,10 +1800,9 @@
     position: absolute;
     top: -4px;
     right: -4px;
-    min-width: 17px;
-    height: 17px;
+    min-width: 18px;
+    height: 18px;
     padding: 0 4px;
-    font-size: 0.57rem;
   }
 
   .keyboard-section {
@@ -1904,8 +1918,11 @@
     margin-top: 5px;
   }
 
+  /* Keep the 44px minimum tap target even on short viewports; the page
+     already scrolls here, so the extra height is preferable to a sub-44px
+     touch target. */
   .key {
-    height: 40px;
+    height: 44px;
   }
 }
 
