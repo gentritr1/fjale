@@ -312,6 +312,136 @@ export function sanitizeDailyResults(raw, maxGuesses = 6) {
   );
 }
 
+// The four game modes each keep an independent, honest statistics bucket. The
+// legacy top-level profile fields stay as the "Overall" record; these buckets
+// only start counting once per-mode tracking ships.
+export const MODE_STATS_KEYS = Object.freeze([
+  "daily",
+  "archive",
+  "practice",
+  "challenge",
+]);
+
+// Stable identifiers for the post-game word ratings. The human-facing Albanian
+// labels live in the UI layer; only these keys are persisted.
+export const WORD_RATING_VALUES = Object.freeze([
+  "e_drejte",
+  "e_veshtire_por_e_drejte",
+  "e_rralle",
+  "nuk_e_njihja",
+  "ka_gabim",
+]);
+
+const WORD_RATING_SET = new Set(WORD_RATING_VALUES);
+
+function safeCount(value) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function emptyModeBucket(distributionLength) {
+  return { played: 0, won: 0, distribution: Array(distributionLength).fill(0) };
+}
+
+// Build a fully zeroed modeStats object. Used both as the default for a fresh
+// or legacy profile and as the skeleton sanitizeModeStats fills in.
+export function createEmptyModeStats(distributionLength = 6) {
+  return Object.fromEntries(
+    MODE_STATS_KEYS.map((mode) => [mode, emptyModeBucket(distributionLength)]),
+  );
+}
+
+// Validate a stored modeStats object. Every mode is always present; played/won
+// are coerced to non-negative integers and distribution to a fixed-length array
+// of non-negative integers. Any invalid shape collapses to zeros, so a legacy
+// profile (no modeStats) yields an all-zero record rather than throwing.
+export function sanitizeModeStats(raw, distributionLength = 6) {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+
+  return Object.fromEntries(
+    MODE_STATS_KEYS.map((mode) => {
+      const bucket = source[mode];
+      const distributionSource = Array.isArray(bucket?.distribution)
+        ? bucket.distribution
+        : [];
+      return [
+        mode,
+        {
+          played: safeCount(bucket?.played),
+          won: safeCount(bucket?.won),
+          distribution: Array.from({ length: distributionLength }, (_, index) =>
+            safeCount(distributionSource[index]),
+          ),
+        },
+      ];
+    }),
+  );
+}
+
+// Validate a stored wordRatings map: puzzleId -> { word, rating, at }. Invalid
+// entries are dropped; when more than `cap` valid entries exist the most recent
+// (largest `at`) are kept. Non-object input yields an empty map.
+export function sanitizeWordRatings(raw, cap = 500) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
+  }
+
+  const valid = Object.entries(raw).filter(
+    ([key, value]) =>
+      typeof key === "string" &&
+      key.length > 0 &&
+      key.length <= 100 &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      typeof value.word === "string" &&
+      value.word.length > 0 &&
+      value.word.length <= 40 &&
+      WORD_RATING_SET.has(value.rating) &&
+      Number.isInteger(value.at) &&
+      value.at > 0,
+  );
+
+  valid.sort((left, right) => right[1].at - left[1].at);
+
+  return Object.fromEntries(
+    valid
+      .slice(0, Math.max(0, cap))
+      .map(([key, value]) => [
+        key,
+        { word: value.word, rating: value.rating, at: value.at },
+      ]),
+  );
+}
+
+// Validate a stored reportedWords list: trimmed, non-empty strings, deduped
+// (case-insensitively, Albanian locale), capped at `cap` keeping the most
+// recently appended. Non-array input yields an empty list.
+export function sanitizeReportedWords(raw, cap = 200) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const cleaned = [];
+  for (const entry of raw) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const word = entry.trim();
+    if (!word || word.length > 40) {
+      continue;
+    }
+    const key = word.toLocaleLowerCase("sq-AL");
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    cleaned.push(word);
+  }
+
+  return cleaned.slice(-Math.max(0, cap));
+}
+
 export function formatDuration(seconds) {
   if (!Number.isFinite(seconds)) {
     throw new TypeError("seconds must be a finite number");

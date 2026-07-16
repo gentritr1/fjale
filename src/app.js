@@ -11,8 +11,12 @@ import {
   normalizeWord,
   removeLastToken,
   sanitizeDailyResults,
+  sanitizeModeStats,
+  sanitizeReportedWords,
+  sanitizeWordRatings,
   secondsUntilNextTiranaDay,
   tokenizeAlbanian,
+  WORD_RATING_VALUES,
 } from "./game.js";
 import { ACCEPTED_GUESSES, ANSWERS } from "./words.js";
 
@@ -37,6 +41,15 @@ const STATUS_LABEL = Object.freeze({
   correct: "është në vendin e saktë",
 });
 const SHARE_MARK = Object.freeze({ absent: "⬛×", present: "🟨•", correct: "🟩✓" });
+const REPORT_EMAIL = "gentrit.rashiti2@gmail.com";
+// Human-facing Albanian labels for the persisted rating keys, in display order.
+const WORD_RATING_LABELS = Object.freeze({
+  e_drejte: "E drejtë",
+  e_veshtire_por_e_drejte: "E vështirë, por e drejtë",
+  e_rralle: "E rrallë",
+  nuk_e_njihja: "Nuk e njihja",
+  ka_gabim: "Ka një gabim",
+});
 const DIGRAPH_SET = new Set(ALBANIAN_DIGRAPHS);
 const ALPHABET_SET = new Set(ALBANIAN_ALPHABET);
 const ANSWER_SET = new Set(ANSWERS.map((entry) => entry.word));
@@ -107,6 +120,7 @@ const elements = {
   besaDescription: document.querySelector("#besa-description"),
   board: document.querySelector("#board"),
   boardMessage: document.querySelector("#board-message"),
+  boardReport: document.querySelector("#board-report"),
   calendarBody: document.querySelector("#calendar-body"),
   calendarHead: document.querySelector("#calendar-head"),
   calendarNext: document.querySelector("#calendar-next"),
@@ -147,13 +161,24 @@ const elements = {
   screenReaderStatus: document.querySelector("#screen-reader-status"),
   shareButton: document.querySelector("#share-button"),
   soundToggle: document.querySelector("#sound-toggle"),
+  statArchivePlayed: document.querySelector("#stat-archive-played"),
+  statArchiveWon: document.querySelector("#stat-archive-won"),
   statBesa: document.querySelector("#stat-besa"),
   statBest: document.querySelector("#stat-best"),
+  statChallengeCount: document.querySelector("#stat-challenge-count"),
+  statChallengeLine: document.querySelector("#stats-challenge"),
+  statDailyPlayed: document.querySelector("#stat-daily-played"),
+  statDailyWinRate: document.querySelector("#stat-daily-win-rate"),
+  statDailyWon: document.querySelector("#stat-daily-won"),
+  dailyDistribution: document.querySelector("#daily-distribution"),
   statPlayed: document.querySelector("#stat-played"),
+  statPracticePlayed: document.querySelector("#stat-practice-played"),
+  statPracticeWon: document.querySelector("#stat-practice-won"),
   statStreak: document.querySelector("#stat-streak"),
   statWinRate: document.querySelector("#stat-win-rate"),
   themeSelect: document.querySelector("#theme-select"),
   toast: document.querySelector("#toast"),
+  wordRating: document.querySelector("#word-rating"),
 };
 
 let preferences = loadPreferences();
@@ -169,6 +194,10 @@ let revealTimer = null;
 let countdownTimer = null;
 let calendarView = null;
 let audioContext = null;
+// Set when a game concludes live in this session, so the post-game rating row
+// appears only for a genuine completion — never on reload of a game that
+// finished before ratings existed, or in a previous session without a rating.
+let justCompletedPuzzleId = null;
 
 if (ANSWERS.length < DAILY_POOL_SIZE) {
   throw new Error(`Daily pool requires at least ${DAILY_POOL_SIZE} answers.`);
@@ -615,6 +644,10 @@ function inputLetter(letter) {
     return;
   }
 
+  // Any input attempt after a rejection dismisses the report link for that word,
+  // even a no-op keypress on an already-full row.
+  hideReportLink();
+
   const before = state.current;
   const normalized = normalizeWord(letter);
   const next = DIGRAPH_SET.has(normalized)
@@ -660,7 +693,8 @@ function submitGuess() {
 
   const guessWord = state.current.join("");
   if (!ACCEPTED_GUESSES.has(guessWord) && !ANSWER_SET.has(guessWord)) {
-    showInvalid("S’e gjejmë në fjalor. Provo një formë tjetër.");
+    showInvalid("Kjo fjalë nuk është ende në listën tonë.");
+    showReportLink(guessWord);
     return;
   }
 
@@ -708,6 +742,7 @@ function submitGuess() {
 
 function finishGame() {
   recordCompletedGame();
+  justCompletedPuzzleId = state.puzzleId;
   persistGame();
   renderAll();
   elements.resultPanel.focus({ preventScroll: true });
@@ -742,6 +777,60 @@ function showInvalid(message) {
     invalidPulse = false;
     elements.board.classList.remove("is-invalid");
   }, 360);
+}
+
+// Build a mailto: link that pre-fills a "missing word" report. When a rating is
+// supplied (the "Ka një gabim" path) it is named in the body so the note is
+// self-explanatory even without the surrounding UI.
+function buildReportMailto(word, rating = null) {
+  const subject = "FJALË — fjalë që mungon";
+  const body = [
+    `Fjala: ${word.toLocaleUpperCase("sq-AL")}`,
+    rating ? `Vlerësimi: ${WORD_RATING_LABELS[rating]}` : null,
+    "",
+    "Shënim (opsional): ",
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+
+  return `mailto:${REPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function buildReportLink(word, rating = null) {
+  const link = document.createElement("a");
+  link.className = "report-link";
+  link.href = buildReportMailto(word, rating);
+  link.textContent = "Mungon një fjalë? Na e trego.";
+  // Persist the report locally too, so it survives even if the mail is never
+  // actually sent. The click still follows through to the mail client.
+  link.addEventListener("click", () => recordReportedWord(word));
+  return link;
+}
+
+// Show the quiet report link beneath the board for a freshly rejected word.
+// It clears on the next input via resetBoardMessage -> hideReportLink.
+function showReportLink(word) {
+  elements.boardReport.replaceChildren(buildReportLink(word));
+  elements.boardReport.hidden = false;
+}
+
+function hideReportLink() {
+  if (!elements.boardReport.hidden) {
+    elements.boardReport.replaceChildren();
+    elements.boardReport.hidden = true;
+  }
+}
+
+function recordReportedWord(word) {
+  const normalized = normalizeWord(word);
+  if (!normalized) {
+    return;
+  }
+
+  // Re-read so a concurrent tab's reports are not clobbered.
+  profile = loadProfile();
+  profile.reportedWords = sanitizeReportedWords([...profile.reportedWords, normalized]);
+  saveProfile();
 }
 
 function revealHint() {
@@ -1058,6 +1147,7 @@ function renderPassport() {
 function renderResult() {
   const isComplete = state.status !== "playing" && !isAnimating;
   elements.resultPanel.hidden = !isComplete;
+  renderWordRating(isComplete);
 
   if (!isComplete) {
     return;
@@ -1085,20 +1175,121 @@ function renderResult() {
   elements.resultExample.textContent = `“${answer.example}”`;
 }
 
+// Render the post-game word rating row. Interactive chips appear only for a game
+// that just concluded live and has not been rated; a game already rated collapses
+// to a subtle thanks; anything else (still playing, or a completion predating this
+// feature) shows nothing.
+function renderWordRating(isComplete) {
+  const container = elements.wordRating;
+  container.replaceChildren();
+
+  const existing = profile.wordRatings?.[state.puzzleId] ?? null;
+  const justCompleted = justCompletedPuzzleId === state.puzzleId;
+
+  if (!isComplete || (!existing && !justCompleted)) {
+    container.hidden = true;
+    return;
+  }
+
+  container.hidden = false;
+
+  if (existing) {
+    const thanks = document.createElement("p");
+    thanks.className = "word-rating-thanks";
+    thanks.textContent = "Faleminderit!";
+    container.append(thanks);
+    if (existing.rating === "ka_gabim") {
+      container.append(buildReportLink(existing.word, existing.rating));
+    }
+    return;
+  }
+
+  const prompt = document.createElement("p");
+  prompt.className = "word-rating-prompt";
+  prompt.textContent = "Si ishte fjala?";
+
+  const chips = document.createElement("div");
+  chips.className = "word-rating-chips";
+  chips.setAttribute("role", "group");
+  chips.setAttribute("aria-label", "Vlerëso fjalën");
+
+  for (const value of WORD_RATING_VALUES) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "word-rating-chip";
+    chip.textContent = WORD_RATING_LABELS[value];
+    chip.setAttribute("aria-label", `Vlerëso fjalën: ${WORD_RATING_LABELS[value]}`);
+    chip.addEventListener("click", () => rateWord(value));
+    chips.append(chip);
+  }
+
+  container.append(prompt, chips);
+}
+
+function rateWord(rating) {
+  if (!WORD_RATING_LABELS[rating] || state.status === "playing") {
+    return;
+  }
+
+  const answer = getAnswer();
+  // Re-read so a concurrent tab's ratings are not clobbered, then upsert.
+  profile = loadProfile();
+  profile.wordRatings[state.puzzleId] = {
+    word: answer.word,
+    rating,
+    at: Date.now(),
+  };
+  profile.wordRatings = sanitizeWordRatings(profile.wordRatings);
+  saveProfile();
+
+  renderWordRating(true);
+  announce("Faleminderit për vlerësimin.");
+}
+
 function renderStats() {
-  const winRate = profile.played > 0 ? Math.round((profile.won / profile.played) * 100) : 0;
-  elements.statPlayed.textContent = String(profile.played);
-  elements.statWinRate.textContent = `${winRate}%`;
+  const modeStats = profile.modeStats;
+  const daily = modeStats.daily;
+
+  // Sot (Daily) — the player's identity: streak first, then the daily record
+  // sourced strictly from modeStats (starts at zero for returning players).
   elements.statStreak.textContent = String(profile.currentStreak);
   elements.statBest.textContent = String(profile.bestStreak);
-  elements.statBesa.textContent = String(profile.besaWins);
+  elements.statDailyPlayed.textContent = String(daily.played);
+  elements.statDailyWon.textContent = String(daily.won);
+  elements.statDailyWinRate.textContent = formatWinRate(daily.won, daily.played);
+  renderDistribution(elements.dailyDistribution, daily.distribution, null);
 
-  const maxValue = Math.max(1, ...profile.distribution);
-  elements.distribution.replaceChildren();
-  profile.distribution.forEach((value, index) => {
+  // Arkiva — played/won only; the calendar stays in this section.
+  elements.statArchivePlayed.textContent = String(modeStats.archive.played);
+  elements.statArchiveWon.textContent = String(modeStats.archive.won);
+
+  // Pa fund — practice played/won, plus challenge count when nonzero.
+  elements.statPracticePlayed.textContent = String(modeStats.practice.played);
+  elements.statPracticeWon.textContent = String(modeStats.practice.won);
+  const challengePlayed = modeStats.challenge.played;
+  elements.statChallengeLine.hidden = challengePlayed === 0;
+  elements.statChallengeCount.textContent = String(challengePlayed);
+
+  // Gjithsej (Overall) — the untouched legacy totals and distribution.
+  elements.statPlayed.textContent = String(profile.played);
+  elements.statWinRate.textContent = formatWinRate(profile.won, profile.played);
+  elements.statBesa.textContent = String(profile.besaWins);
+  renderDistribution(elements.distribution, profile.distribution, profile.lastWinGuesses);
+
+  renderCalendar();
+}
+
+function formatWinRate(won, played) {
+  return `${played > 0 ? Math.round((won / played) * 100) : 0}%`;
+}
+
+function renderDistribution(container, distribution, highlightGuesses) {
+  const maxValue = Math.max(1, ...distribution);
+  container.replaceChildren();
+  distribution.forEach((value, index) => {
     const row = document.createElement("div");
     row.className = "distribution-row";
-    row.classList.toggle("is-current", profile.lastWinGuesses === index + 1);
+    row.classList.toggle("is-current", highlightGuesses === index + 1);
 
     const label = document.createElement("span");
     label.textContent = String(index + 1);
@@ -1110,10 +1301,8 @@ function renderStats() {
     bar.style.setProperty("--bar-width", `${Math.max(8, (value / maxValue) * 100)}%`);
     track.append(bar);
     row.append(label, track);
-    elements.distribution.append(row);
+    container.append(row);
   });
-
-  renderCalendar();
 }
 
 function renderCountdown() {
@@ -1339,6 +1528,17 @@ function recordCompletedGame() {
   profile.completedPuzzles.push(state.puzzleId);
   profile.completedPuzzles = profile.completedPuzzles.slice(-500);
 
+  // Per-mode bucket, tracked alongside (never in place of) the legacy Overall
+  // fields. modeStats always contains every mode after sanitizeModeStats.
+  const modeBucket = profile.modeStats[state.mode];
+  if (modeBucket) {
+    modeBucket.played += 1;
+    if (state.status === "won") {
+      modeBucket.won += 1;
+      modeBucket.distribution[state.guesses.length - 1] += 1;
+    }
+  }
+
   if (state.status === "won") {
     profile.won += 1;
     profile.distribution[state.guesses.length - 1] += 1;
@@ -1521,6 +1721,7 @@ function renderDefaultBoardMessage() {
 }
 
 function resetBoardMessage() {
+  hideReportLink();
   const message = renderDefaultBoardMessage();
   setBoardMessage(message.text, message.tone);
 }
@@ -1675,6 +1876,12 @@ function loadProfile() {
     completedPuzzles,
     // Additive field: old profiles simply produce an empty map, no data loss.
     dailyResults: sanitizeDailyResults(saved?.dailyResults, ROW_COUNT),
+    // Additive per-mode statistics. A legacy profile with no modeStats yields an
+    // all-zero record; the legacy top-level fields above remain the "Overall".
+    modeStats: sanitizeModeStats(saved?.modeStats, ROW_COUNT),
+    // Additive trust fields; both default to empty for legacy profiles.
+    wordRatings: sanitizeWordRatings(saved?.wordRatings),
+    reportedWords: sanitizeReportedWords(saved?.reportedWords),
   };
 }
 

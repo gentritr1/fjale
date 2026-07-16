@@ -1245,12 +1245,70 @@
     text-align: center;
   }
 
+  .stats-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stats-section {
+    padding-top: 18px;
+    margin-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  .stats-section:first-child {
+    padding-top: 0;
+    margin-top: 0;
+    border-top: 0;
+  }
+
+  /* Sot (Daily) is the player's identity — give it the most visual weight. */
+  .stats-daily .stats-summary strong {
+    font-size: 1.6rem;
+  }
+
+  .stats-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .stats-scope {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 640;
+    text-align: right;
+    text-wrap: balance;
+  }
+
+  .stats-scope strong {
+    color: var(--ink-soft);
+    font-weight: 800;
+  }
+
+  .stats-mode-line {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.76rem;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .stats-mode-line strong {
+    color: var(--ink);
+    font-weight: 800;
+  }
+
   .stats-summary {
+    margin-top: 12px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--line);
+  }
+
+  .stats-summary-overall {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .stats-summary div {
@@ -1270,12 +1328,19 @@
     margin-top: 3px;
     color: var(--muted);
     font-size: 0.69rem;
+    text-align: center;
   }
 
   .dialog-content h3 {
-    margin-top: 20px;
     font-size: 0.84rem;
     font-weight: 790;
+  }
+
+  .stats-subhead {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 760;
   }
 
   .distribution {
@@ -1319,16 +1384,85 @@
     color: var(--on-correct);
   }
 
-  .stats-besa {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 0.78rem;
+  .board-report {
+    padding: 2px 8px 0;
+    text-align: center;
   }
 
-  .stats-besa strong {
+  .board-report[hidden] {
+    display: none;
+  }
+
+  .report-link {
+    display: inline-block;
+    min-height: 32px;
+    padding: 6px 4px;
+    color: var(--primary-deep);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .report-link:hover {
     color: var(--ink);
+  }
+
+  .word-rating {
+    margin-top: 16px;
+    padding-top: 15px;
+    border-top: 1px solid var(--line);
+  }
+
+  .word-rating[hidden] {
+    display: none;
+  }
+
+  .word-rating-prompt {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 750;
+  }
+
+  .word-rating-chips {
+    margin-top: 9px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .word-rating-chip {
+    min-height: 44px;
+    padding: 6px 13px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.76rem;
+    font-weight: 720;
+    transition: background-color 150ms var(--ease-standard), border-color 150ms var(--ease-standard), transform 120ms var(--ease-out);
+  }
+
+  .word-rating-chip:hover {
+    background: var(--surface);
+    border-color: var(--primary-deep);
+  }
+
+  .word-rating-chip:active {
+    transform: scale(0.97);
+  }
+
+  .word-rating-thanks {
+    color: var(--correct);
+    font-size: 0.82rem;
+    font-weight: 780;
+  }
+
+  .word-rating-thanks + .report-link {
+    display: block;
+    margin-top: 4px;
   }
 
   .result-countdown {
@@ -1349,24 +1483,6 @@
 
   .result-countdown[hidden] {
     display: none;
-  }
-
-  .calendar {
-    margin-top: 20px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line);
-  }
-
-  .calendar-intro h3 {
-    margin-top: 0;
-  }
-
-  .calendar-intro p {
-    margin-top: 3px;
-    color: var(--muted);
-    font-size: 0.76rem;
-    line-height: 1.4;
-    text-wrap: pretty;
   }
 
   .calendar-nav {
@@ -1882,6 +1998,10 @@
 
   .stats-summary strong {
     font-size: 1.2rem;
+  }
+
+  .stats-daily .stats-summary strong {
+    font-size: 1.35rem;
   }
 
   .stats-summary span {

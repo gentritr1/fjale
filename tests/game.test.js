@@ -6,16 +6,22 @@ import {
   ALBANIAN_DIGRAPHS,
   appendPhysicalCharacter,
   createChallengeCode,
+  createEmptyModeStats,
   decodeChallengeCode,
   evaluateGuess,
   formatDuration,
   getDailyIndex,
   getTiranaDateKey,
+  MODE_STATS_KEYS,
   normalizeWord,
   removeLastToken,
   sanitizeDailyResults,
+  sanitizeModeStats,
+  sanitizeReportedWords,
+  sanitizeWordRatings,
   secondsUntilNextTiranaDay,
   tokenizeAlbanian,
+  WORD_RATING_VALUES,
 } from "../src/game.js";
 
 test("exports the 36-letter Albanian alphabet with all nine digraphs", () => {
@@ -194,6 +200,102 @@ test("sanitizeDailyResults keeps valid entries and drops invalid keys and values
 test("sanitizeDailyResults honors a custom maxGuesses bound", () => {
   const raw = { "2026-07-16": 4, "2026-07-17": 3 };
   assert.deepEqual(sanitizeDailyResults(raw, 3), { "2026-07-17": 3 });
+});
+
+test("createEmptyModeStats zero-fills every mode with a length-6 distribution", () => {
+  const stats = createEmptyModeStats();
+  assert.deepEqual(Object.keys(stats), [...MODE_STATS_KEYS]);
+  for (const mode of MODE_STATS_KEYS) {
+    assert.deepEqual(stats[mode], {
+      played: 0,
+      won: 0,
+      distribution: [0, 0, 0, 0, 0, 0],
+    });
+  }
+});
+
+test("sanitizeModeStats zero-fills missing modes and non-object input", () => {
+  assert.deepEqual(sanitizeModeStats(null), createEmptyModeStats());
+  assert.deepEqual(sanitizeModeStats("nope"), createEmptyModeStats());
+  assert.deepEqual(sanitizeModeStats([1, 2, 3]), createEmptyModeStats());
+  assert.deepEqual(sanitizeModeStats({ daily: null }), createEmptyModeStats());
+});
+
+test("sanitizeModeStats keeps valid counts and repairs bad distributions", () => {
+  const raw = {
+    daily: { played: 5, won: 3, distribution: [0, 1, 2, 0, 0, 0] },
+    archive: { played: 2, won: 2, distribution: "broken" },
+    practice: { played: -4, won: 9.5, distribution: [1, 2] },
+    challenge: { played: 1, won: 1, distribution: [1, 0, 0, 0, 0, 0, 99] },
+  };
+  const stats = sanitizeModeStats(raw);
+
+  assert.deepEqual(stats.daily, {
+    played: 5,
+    won: 3,
+    distribution: [0, 1, 2, 0, 0, 0],
+  });
+  // Non-array distribution zero-fills; length is always six.
+  assert.deepEqual(stats.archive.distribution, [0, 0, 0, 0, 0, 0]);
+  // Negative and non-integer counts drop to zero.
+  assert.deepEqual(stats.practice, {
+    played: 0,
+    won: 0,
+    distribution: [1, 2, 0, 0, 0, 0],
+  });
+  // A too-long distribution is truncated to six.
+  assert.equal(stats.challenge.distribution.length, 6);
+  assert.deepEqual(stats.challenge.distribution, [1, 0, 0, 0, 0, 0]);
+});
+
+test("sanitizeWordRatings drops invalid shapes and keeps valid entries", () => {
+  assert.deepEqual(sanitizeWordRatings(null), {});
+  assert.deepEqual(sanitizeWordRatings([["a", 1]]), {});
+
+  const raw = {
+    "daily-2026-07-16": { word: "anije", rating: "e_rralle", at: 1000 },
+    "daily-2026-07-17": { word: "ardhje", rating: "not-a-rating", at: 1000 },
+    "daily-2026-07-18": { word: "", rating: "e_drejte", at: 1000 },
+    "daily-2026-07-19": { word: "dritë", rating: "e_drejte", at: 0 },
+    "daily-2026-07-20": { word: "dritë", rating: "e_drejte", at: 2.5 },
+    "daily-2026-07-21": "nope",
+  };
+
+  assert.deepEqual(sanitizeWordRatings(raw), {
+    "daily-2026-07-16": { word: "anije", rating: "e_rralle", at: 1000 },
+  });
+  assert.ok(WORD_RATING_VALUES.includes("e_rralle"));
+});
+
+test("sanitizeWordRatings enforces the cap keeping the most recent by timestamp", () => {
+  const raw = {};
+  for (let index = 0; index < 10; index += 1) {
+    raw[`daily-${index}`] = { word: "fjala", rating: "e_drejte", at: index + 1 };
+  }
+  const kept = sanitizeWordRatings(raw, 3);
+
+  assert.equal(Object.keys(kept).length, 3);
+  assert.deepEqual(
+    new Set(Object.keys(kept)),
+    new Set(["daily-9", "daily-8", "daily-7"]),
+  );
+});
+
+test("sanitizeReportedWords trims, dedupes case-insensitively, and drops non-strings", () => {
+  assert.deepEqual(sanitizeReportedWords(null), []);
+  assert.deepEqual(
+    sanitizeReportedWords(["  qeraj ", "QERAJ", 42, "", "  ", "dritë"]),
+    ["qeraj", "dritë"],
+  );
+});
+
+test("sanitizeReportedWords caps to the most recently appended words", () => {
+  const raw = Array.from({ length: 250 }, (_, index) => `fjala${index}`);
+  const capped = sanitizeReportedWords(raw, 200);
+
+  assert.equal(capped.length, 200);
+  assert.equal(capped[0], "fjala50");
+  assert.equal(capped.at(-1), "fjala249");
 });
 
 test("formatDuration clamps negatives, floors fractions, and adds hours when needed", () => {
