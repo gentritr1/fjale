@@ -43,7 +43,7 @@ npm run check
 
 ## PWA dhe përditësimet
 
-Service worker-i përdor strategjinë **network first** për skedarët lokalë: kur ka internet merr gjithmonë versionin e fundit dhe rifreskon cache-in; offline përdor kopjen e fundit të suksesshme. Rrugët e panjohura nuk zëvendësohen me `index.html`.
+Service worker-i përdor strategjinë **network first** për HTML/JS/CSS: kur ka internet merr gjithmonë versionin e fundit dhe rifreskon cache-in; offline përdor kopjen e fundit të suksesshme. Ikonat (`favicon.svg`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`) përdorin **cache first**, sepse nuk ndryshojnë pa ndryshuar URL-në, dhe kështu shmangen kërkesa të panevojshme rrjeti. Rrugët e panjohura nuk zëvendësohen me `index.html`.
 
 Aplikacioni e regjistron worker-in nga kodi i klientit:
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v3";
+const CACHE_NAME = "fjale-shell-v4";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
@@ -15,6 +15,16 @@ const APP_SHELL = [
   "/icon-512.png",
   "/icon-maskable-512.png"
 ];
+
+// Icons never change without a filename/URL change, so serve them straight
+// from the cache with no network request. Everything else stays network-first
+// so HTML/JS/CSS updates propagate immediately (see README PWA section).
+const CACHE_FIRST_ASSETS = new Set([
+  "/favicon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png"
+]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(precacheAppShell());
@@ -45,8 +55,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (CACHE_FIRST_ASSETS.has(url.pathname)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
   event.respondWith(networkFirst(request, url));
 });
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) {
+    return cached;
+  }
+
+  const networkResponse = await fetch(request);
+  if (networkResponse.ok && networkResponse.type === "basic") {
+    await cache.put(request, networkResponse.clone());
+  }
+  return networkResponse;
+}
 
 async function precacheAppShell() {
   const cache = await caches.open(CACHE_NAME);
