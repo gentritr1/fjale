@@ -1,0 +1,106 @@
+const CACHE_NAME = "fjale-shell-v3";
+const CACHE_PREFIX = "fjale-";
+const INDEX_ROUTES = new Set(["/", "/index.html"]);
+const APP_SHELL = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/src/app.js",
+  "/src/game.js",
+  "/src/words.js",
+  "/src/accepted-words.js",
+  "/manifest.webmanifest",
+  "/favicon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(precacheAppShell());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME).map((name) => caches.delete(name))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET" || request.headers.has("range")) {
+    return;
+  }
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  if (url.pathname === "/service-worker.js") {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
+  event.respondWith(networkFirst(request, url));
+});
+
+async function precacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const requests = APP_SHELL.map((url) => new Request(url, { cache: "reload" }));
+  const responses = await Promise.all(
+    requests.map(async (request) => {
+      const response = await fetch(request);
+      if (!response.ok) {
+        throw new Error(`App shell request failed: ${request.url}`);
+      }
+      return response;
+    })
+  );
+
+  await Promise.all(
+    requests.map((request, index) => cache.put(request, responses[index]))
+  );
+}
+
+async function networkFirst(request, url) {
+  const cache = await caches.open(CACHE_NAME);
+  let networkResponse = null;
+
+  try {
+    networkResponse = await fetch(request);
+    if (networkResponse.status >= 500) {
+      throw new Error(`Temporary server error: ${networkResponse.status}`);
+    }
+    if (networkResponse.ok && networkResponse.type === "basic") {
+      await cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) {
+      return cached;
+    }
+
+    // Preserve server semantics: only the real index route can fall back to
+    // the cached application shell. Unknown routes do not become index.html.
+    if (request.mode === "navigate" && INDEX_ROUTES.has(url.pathname)) {
+      const indexResponse = (await cache.match("/")) || (await cache.match("/index.html"));
+      if (indexResponse) {
+        return indexResponse;
+      }
+    }
+
+    if (networkResponse) {
+      return networkResponse;
+    }
+
+    return new Response("Nuk ka lidhje me internetin dhe kjo faqe nuk është në memorie.\n", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
+}

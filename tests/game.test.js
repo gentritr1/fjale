@@ -1,0 +1,217 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  ALBANIAN_ALPHABET,
+  ALBANIAN_DIGRAPHS,
+  appendPhysicalCharacter,
+  createChallengeCode,
+  decodeChallengeCode,
+  evaluateGuess,
+  formatDuration,
+  getDailyIndex,
+  getTiranaDateKey,
+  normalizeWord,
+  removeLastToken,
+  sanitizeDailyResults,
+  secondsUntilNextTiranaDay,
+  tokenizeAlbanian,
+} from "../src/game.js";
+
+test("exports the 36-letter Albanian alphabet with all nine digraphs", () => {
+  assert.equal(ALBANIAN_ALPHABET.length, 36);
+  assert.deepEqual(ALBANIAN_DIGRAPHS, [
+    "dh",
+    "gj",
+    "ll",
+    "nj",
+    "rr",
+    "sh",
+    "th",
+    "xh",
+    "zh",
+  ]);
+  assert.ok(ALBANIAN_ALPHABET.includes("ç"));
+  assert.ok(ALBANIAN_ALPHABET.includes("ë"));
+  assert.ok(ALBANIAN_DIGRAPHS.every((token) => ALBANIAN_ALPHABET.includes(token)));
+});
+
+test("normalizeWord trims, lowercases, and NFC-normalizes Ë and Ç", () => {
+  assert.equal(normalizeWord("  C\u0327ELE\u0308S  "), "çelës");
+  assert.equal(normalizeWord("ËNDRRA"), "ëndrra");
+});
+
+test("tokenizeAlbanian uses Albanian digraphs as single, longest-first tokens", () => {
+  assert.deepEqual(tokenizeAlbanian("GJYSHJA"), ["gj", "y", "sh", "j", "a"]);
+  assert.deepEqual(tokenizeAlbanian("XHAXHA"), ["xh", "a", "xh", "a"]);
+  assert.deepEqual(tokenizeAlbanian("DHELPËR"), ["dh", "e", "l", "p", "ë", "r"]);
+});
+
+test("appendPhysicalCharacter merges separately typed digraphs without mutation", () => {
+  const original = ["a", "b", "c", "d", "s"];
+  const merged = appendPhysicalCharacter(original, "H");
+
+  assert.deepEqual(original, ["a", "b", "c", "d", "s"]);
+  assert.deepEqual(merged, ["a", "b", "c", "d", "sh"]);
+  assert.deepEqual(appendPhysicalCharacter(merged, "a"), merged);
+  assert.deepEqual(appendPhysicalCharacter([], "E\u0308"), ["ë"]);
+  assert.deepEqual(appendPhysicalCharacter(["ç"], "!"), ["ç"]);
+});
+
+test("removeLastToken removes one Albanian letter, including a whole digraph", () => {
+  const tokens = ["gj", "y", "sh"];
+  assert.deepEqual(removeLastToken(tokens), ["gj", "y"]);
+  assert.deepEqual(tokens, ["gj", "y", "sh"]);
+  assert.deepEqual(removeLastToken([]), []);
+});
+
+test("evaluateGuess gives exact matches priority when letters repeat", () => {
+  assert.deepEqual(
+    evaluateGuess(
+      ["a", "r", "a", "s", "t"],
+      ["a", "a", "a", "r", "r"],
+    ),
+    ["correct", "absent", "correct", "present", "absent"],
+  );
+});
+
+test("evaluateGuess treats Albanian digraphs and accented letters as atomic", () => {
+  assert.deepEqual(
+    evaluateGuess(
+      ["gj", "y", "sh", "ç", "ë"],
+      ["sh", "y", "gj", "ç", "ë"],
+    ),
+    ["present", "correct", "present", "correct", "correct"],
+  );
+});
+
+test("getTiranaDateKey follows summer and winter midnight in Europe/Tirane", () => {
+  assert.equal(getTiranaDateKey(new Date("2026-07-15T21:59:59Z")), "2026-07-15");
+  assert.equal(getTiranaDateKey(new Date("2026-07-15T22:00:00Z")), "2026-07-16");
+  assert.equal(getTiranaDateKey(new Date("2026-01-01T22:59:59Z")), "2026-01-01");
+  assert.equal(getTiranaDateKey(new Date("2026-01-01T23:00:00Z")), "2026-01-02");
+});
+
+test("getDailyIndex is stable within a Tirana day and changes on the next day", () => {
+  const count = 997;
+  const beforeMidnight = getDailyIndex(new Date("2026-07-15T21:59:59Z"), count);
+  const afterMidnight = getDailyIndex(new Date("2026-07-15T22:00:00Z"), count);
+  const laterSameDay = getDailyIndex(new Date("2026-07-16T12:00:00Z"), count);
+
+  assert.equal(laterSameDay, afterMidnight);
+  assert.notEqual(afterMidnight, beforeMidnight);
+  assert.equal(getDailyIndex(new Date("2026-07-16T12:00:00Z"), 1), 0);
+});
+
+test("getDailyIndex uses every answer once before the daily pool repeats", () => {
+  const count = 62;
+  const start = Date.parse("2026-01-10T12:00:00Z");
+  const indices = Array.from({ length: count }, (_, offset) =>
+    getDailyIndex(new Date(start + offset * 86_400_000), count),
+  );
+
+  assert.equal(new Set(indices).size, count);
+});
+
+test("secondsUntilNextTiranaDay counts down to the next Tirana midnight on a normal day", () => {
+  // 2026-01-10 13:00 Tirana (CET, UTC+1); next midnight is 2026-01-11 00:00 CET.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-01-10T12:00:00Z")),
+    11 * 3600,
+  );
+  // One second before midnight resolves to exactly one second.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-01-10T22:59:59Z")),
+    1,
+  );
+});
+
+test("secondsUntilNextTiranaDay handles the spring-forward day as 23 hours", () => {
+  // Europe/Tirane springs forward on 2026-03-29 (02:00 CET -> 03:00 CEST).
+  // Tirana midnight 2026-03-29 00:00 (CET) == 2026-03-28T23:00:00Z; the next
+  // midnight 2026-03-30 00:00 (CEST) == 2026-03-29T22:00:00Z, i.e. 23 hours.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-03-28T23:00:00Z")),
+    23 * 3600,
+  );
+  // Just before that shortened day's end.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-03-29T21:59:59Z")),
+    1,
+  );
+});
+
+test("secondsUntilNextTiranaDay handles the fall-back day as 25 hours", () => {
+  // Europe/Tirane falls back on 2026-10-25 (03:00 CEST -> 02:00 CET).
+  // Tirana midnight 2026-10-25 00:00 (CEST) == 2026-10-24T22:00:00Z; the next
+  // midnight 2026-10-26 00:00 (CET) == 2026-10-25T23:00:00Z, i.e. 25 hours.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-10-24T22:00:00Z")),
+    25 * 3600,
+  );
+});
+
+test("secondsUntilNextTiranaDay rolls over across a month and year boundary", () => {
+  // 2026-12-31 21:00 Tirana (CET); next midnight is 2027-01-01 00:00 CET.
+  assert.equal(
+    secondsUntilNextTiranaDay(new Date("2026-12-31T20:00:00Z")),
+    3 * 3600,
+  );
+  assert.throws(() => secondsUntilNextTiranaDay(new Date("invalid")), RangeError);
+});
+
+test("sanitizeDailyResults returns an empty map for any non-object input", () => {
+  assert.deepEqual(sanitizeDailyResults(null), {});
+  assert.deepEqual(sanitizeDailyResults(undefined), {});
+  assert.deepEqual(sanitizeDailyResults("2026-07-16"), {});
+  assert.deepEqual(sanitizeDailyResults(42), {});
+  assert.deepEqual(sanitizeDailyResults([["2026-07-16", 3]]), {});
+});
+
+test("sanitizeDailyResults keeps valid entries and drops invalid keys and values", () => {
+  const raw = {
+    "2026-07-16": 3,
+    "2026-07-17": "X",
+    "2026-07-18": 1,
+    "2026-07-19": 6,
+    "2026-7-20": 2, // malformed key
+    "not-a-date": 4, // malformed key
+    "2026-07-21": 0, // below range
+    "2026-07-22": 7, // above range (maxGuesses = 6)
+    "2026-07-23": 2.5, // not an integer
+    "2026-07-24": "L", // not "X"
+    "2026-07-25": null, // not a result
+  };
+
+  assert.deepEqual(sanitizeDailyResults(raw), {
+    "2026-07-16": 3,
+    "2026-07-17": "X",
+    "2026-07-18": 1,
+    "2026-07-19": 6,
+  });
+});
+
+test("sanitizeDailyResults honors a custom maxGuesses bound", () => {
+  const raw = { "2026-07-16": 4, "2026-07-17": 3 };
+  assert.deepEqual(sanitizeDailyResults(raw, 3), { "2026-07-17": 3 });
+});
+
+test("formatDuration clamps negatives, floors fractions, and adds hours when needed", () => {
+  assert.equal(formatDuration(-2), "00:00");
+  assert.equal(formatDuration(65.9), "01:05");
+  assert.equal(formatDuration(3661), "1:01:01");
+});
+
+test("challenge codes round-trip, are case-insensitive, and reject invalid ranges", () => {
+  for (const index of [0, 1, 35, 499]) {
+    const code = createChallengeCode(index);
+    assert.match(code, /^SQ-[0-9A-Z]+$/);
+    assert.equal(decodeChallengeCode(code, 500), index);
+    assert.equal(decodeChallengeCode(` ${code.toLowerCase()} `, 500), index);
+  }
+
+  assert.equal(decodeChallengeCode("not-a-code", 500), null);
+  assert.equal(decodeChallengeCode("SQ-0", 500), null);
+  assert.equal(decodeChallengeCode(createChallengeCode(500), 500), null);
+  assert.throws(() => createChallengeCode(-1), RangeError);
+});

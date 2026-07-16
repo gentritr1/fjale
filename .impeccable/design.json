@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-16T06:45:00.000Z",
+  "title": "Design System: FJALË",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Literal White",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.39 0 0)", "oklch(0.51 0 0)", "oklch(0.63 0 0)", "oklch(0.75 0 0)", "oklch(0.87 0 0)", "oklch(1 0 0)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Coffee Ink",
+        "canonical": "oklch(0.19 0.014 65)",
+        "tonalRamp": ["oklch(0.15 0.014 65)", "oklch(0.27 0.014 65)", "oklch(0.39 0.014 65)", "oklch(0.51 0.014 65)", "oklch(0.63 0.014 65)", "oklch(0.75 0.012 65)", "oklch(0.87 0.008 65)", "oklch(0.95 0.004 65)"]
+      },
+      "honey": {
+        "role": "primary",
+        "displayName": "Coffee Honey",
+        "canonical": "oklch(0.68 0.146 74.6)",
+        "tonalRamp": ["oklch(0.15 0.07 74.6)", "oklch(0.27 0.10 74.6)", "oklch(0.39 0.125 74.6)", "oklch(0.51 0.14 74.6)", "oklch(0.63 0.146 74.6)", "oklch(0.75 0.13 74.6)", "oklch(0.87 0.09 74.6)", "oklch(0.95 0.04 74.6)"]
+      },
+      "correct": {
+        "role": "secondary",
+        "displayName": "Answer Green",
+        "canonical": "oklch(0.5 0.125 145)",
+        "tonalRamp": ["oklch(0.15 0.05 145)", "oklch(0.27 0.08 145)", "oklch(0.39 0.11 145)", "oklch(0.51 0.125 145)", "oklch(0.63 0.11 145)", "oklch(0.75 0.085 145)", "oklch(0.87 0.055 145)", "oklch(0.95 0.025 145)"]
+      },
+      "present": {
+        "role": "tertiary",
+        "displayName": "Position Gold",
+        "canonical": "oklch(0.62 0.14 75)",
+        "tonalRamp": ["oklch(0.15 0.06 75)", "oklch(0.27 0.09 75)", "oklch(0.39 0.12 75)", "oklch(0.51 0.14 75)", "oklch(0.63 0.14 75)", "oklch(0.75 0.12 75)", "oklch(0.87 0.08 75)", "oklch(0.95 0.035 75)"]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Dialog titles and the post-game answer." },
+      "title": { "displayName": "Title", "purpose": "Side-rail and result headings." },
+      "body": { "displayName": "Body", "purpose": "Instructions, definitions, and examples." },
+      "label": { "displayName": "Label", "purpose": "Tabs, buttons, metadata, and compact controls." }
+    },
+    "shadows": [
+      { "name": "dialog-lift", "value": "0 22px 55px oklch(0.08 0 0 / 0.2)", "purpose": "Native modal sheets only." },
+      { "name": "switch-thumb", "value": "0 1px 4px oklch(0.08 0 0 / 0.22)", "purpose": "Structural lift for the moving switch thumb." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Press, entrance, and completion feedback." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Color and state transitions." },
+      { "name": "tile-reveal", "value": "360ms", "purpose": "One tile status flip; row delays are 72ms apart." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "380px" },
+      { "name": "mobile", "value": "600px" },
+      { "name": "single-column", "value": "880px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive result or dialog action.",
+      "html": "<button class=\"ds-btn-primary\">Ndaje rezultatin</button>",
+      "css": ".ds-btn-primary { min-height: 46px; padding: 0 17px; border: 0; border-radius: 7px; background: var(--ink, oklch(0.19 0.014 65)); color: var(--bg, oklch(1 0 0)); font: 790 0.9rem/1 ui-sans-serif, system-ui, sans-serif; transition: background 160ms, transform 120ms; } .ds-btn-primary:hover { background: var(--ink-soft, oklch(0.34 0.014 65)); } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 3px solid var(--focus, oklch(0.55 0.18 252)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A reversible or lower-priority action.",
+      "html": "<button class=\"ds-btn-secondary\">Sfido një mik</button>",
+      "css": ".ds-btn-secondary { min-height: 46px; padding: 0 17px; border: 1px solid var(--line-strong, oklch(0.72 0.009 75)); border-radius: 7px; background: transparent; color: var(--ink, oklch(0.19 0.014 65)); font: 790 0.9rem/1 ui-sans-serif, system-ui, sans-serif; transition: background 160ms, transform 120ms; } .ds-btn-secondary:hover { background: var(--surface, oklch(0.972 0 0)); } .ds-btn-secondary:active { transform: scale(0.98); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--focus, oklch(0.55 0.18 252)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Tool Pill",
+      "kind": "button",
+      "refersTo": "tool-pill",
+      "description": "Compact access to Gjurmë or Besa beside the puzzle label.",
+      "html": "<button class=\"ds-tool-pill\">Gjurmë <span>3</span></button>",
+      "css": ".ds-tool-pill { min-height: 44px; padding: 0 11px; border: 1px solid var(--line, oklch(0.86 0.006 75)); border-radius: 999px; background: var(--bg, oklch(1 0 0)); color: var(--ink-soft, oklch(0.34 0.014 65)); font: 760 0.76rem/1 ui-sans-serif, system-ui, sans-serif; } .ds-tool-pill span { margin-left: 6px; padding: 3px 6px; border-radius: 999px; background: var(--surface-strong, oklch(0.93 0.004 75)); } .ds-tool-pill:hover { background: var(--surface, oklch(0.972 0 0)); } .ds-tool-pill:focus-visible { outline: 3px solid var(--focus, oklch(0.55 0.18 252)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Correct Albanian Tile",
+      "kind": "custom",
+      "refersTo": "game-tile",
+      "description": "A solved tile with a redundant non-color status mark.",
+      "html": "<div class=\"ds-tile-correct\">SH<small>✓</small></div>",
+      "css": ".ds-tile-correct { position: relative; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 7px; background: var(--correct, oklch(0.5 0.125 145)); color: oklch(1 0 0); font: 860 1.25rem/1 ui-sans-serif, system-ui, sans-serif; } .ds-tile-correct small { position: absolute; right: 4px; bottom: 3px; font-size: 0.58rem; }"
+    },
+    {
+      "name": "Keyboard Key",
+      "kind": "button",
+      "refersTo": "keyboard-key",
+      "description": "A compact Albanian key, including dedicated digraph keys.",
+      "html": "<button class=\"ds-key\">GJ</button>",
+      "css": ".ds-key { min-width: 36px; height: 48px; border: 0; border-radius: 7px; background: var(--surface-strong, oklch(0.93 0.004 75)); color: var(--ink, oklch(0.19 0.014 65)); font: 820 0.75rem/1 ui-sans-serif, system-ui, sans-serif; transition: background 150ms, transform 90ms; } .ds-key:hover { background: var(--surface-hover, oklch(0.9 0.008 75)); } .ds-key:active { transform: translateY(2px) scale(0.96); } .ds-key:focus-visible { outline: 3px solid var(--focus, oklch(0.55 0.18 252)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Collected Letter Stamp",
+      "kind": "chip",
+      "description": "An earned passport letter.",
+      "html": "<span class=\"ds-stamp\">RR<small>✓</small></span>",
+      "css": ".ds-stamp { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 7px; background: var(--honey, oklch(0.68 0.146 74.6)); color: oklch(1 0 0); font: 840 0.75rem/1 ui-sans-serif, system-ui, sans-serif; } .ds-stamp small { position: absolute; right: 3px; bottom: 2px; font-size: 0.52rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Bright Coffee Break",
+    "overview": "FJALË is a five-minute Albanian language ritual on a literal-white surface. One honey note gives the product a recognizable voice while the board, keyboard, and earned feedback remain the focus.",
+    "keyCharacteristics": [
+      "Pure high-contrast surfaces with one scarce honey accent.",
+      "Compact system typography that disappears into the task.",
+      "Correct Albanian digraphs treated as first-class controls.",
+      "Flat-by-default components with fast state-driven motion.",
+      "Progress and celebration that appear only after earned actions."
+    ],
+    "rules": [
+      { "name": "The One Honey Rule", "body": "Honey is limited to identity, selection, and earned progress; it never decorates inactive surfaces.", "section": "colors" },
+      { "name": "The Three-State Rule", "body": "Correct, present, and absent colors are paired with visible symbols.", "section": "colors" },
+      { "name": "The Utility Voice Rule", "body": "Buttons and labels use sentence case or the natural spelling of letters.", "section": "typography" },
+      { "name": "The Flat-Until-Lifted Rule", "body": "Resting page components have no ambient drop shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the board and keyboard visible before any explanatory feature.",
+      "Do pair every tile color with a symbol and a full Albanian screen-reader label.",
+      "Do reserve Coffee Honey for identity, selection, and earned progress."
+    ],
+    "donts": [
+      "Don't turn FJALË into a flag-and-folklore souvenir.",
+      "Don't add casino-style reward chrome, coins, gems, or artificial urgency.",
+      "Don't make an English Wordle reskin.",
+      "Don't use color-only feedback, inaccessible motion, obscure daily answers, or punitive dictionary rejection."
+    ]
+  }
+}

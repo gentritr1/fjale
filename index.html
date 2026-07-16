@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="sq">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="description"
+      content="FJALË — loja e përditshme e fjalëve shqip, me të 36 shkronjat e alfabetit."
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta property="og:title" content="FJALË — Loja e fjalëve shqip" />
+    <meta
+      property="og:description"
+      content="Gjeje fjalën shqip me pesë shkronja. Dyshkronjëshat numërohen si një."
+    />
+    <title>FJALË — Loja e fjalëve shqip</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#game-board">Kalo te loja</a>
+
+    <div class="app" id="app">
+      <header class="app-header">
+        <div class="header-inner">
+          <button class="icon-button" type="button" data-open-dialog="help-dialog" aria-label="Si luhet">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M9.7 9a2.4 2.4 0 1 1 3.8 1.95c-.92.67-1.5 1.12-1.5 2.05"></path>
+              <path d="M12 17h.01"></path>
+            </svg>
+          </button>
+
+          <a class="brand" href="/" aria-label="FJALË, faqja kryesore">
+            <span class="brand-mark" aria-hidden="true">Ë</span>
+            <span>FJALË</span>
+          </a>
+
+          <nav class="header-actions" aria-label="Veglat e lojës">
+            <button
+              class="icon-button passport-button"
+              type="button"
+              data-open-dialog="passport-dialog"
+              aria-label="Pasaporta e alfabetit"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M6 3.5h10.5A1.5 1.5 0 0 1 18 5v15.5H7.5A1.5 1.5 0 0 1 6 19z"></path>
+                <path d="M6 19a1.5 1.5 0 0 1 1.5-1.5H18"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+                <path d="M9.2 10h5.6M12 7v6"></path>
+              </svg>
+              <span class="header-progress" id="header-progress" aria-hidden="true">0</span>
+            </button>
+            <button class="icon-button" type="button" data-open-dialog="stats-dialog" aria-label="Statistikat">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M5 19V9M12 19V5M19 19v-7"></path>
+              </svg>
+            </button>
+            <button class="icon-button" type="button" data-open-dialog="settings-dialog" aria-label="Cilësimet">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19 13.5v-3l-2-.6a6 6 0 0 0-.7-1.7l1-1.8-2.1-2.1-1.8 1a6 6 0 0 0-1.7-.7L11 2.5H8l-.6 2.1a6 6 0 0 0-1.7.7l-1.8-1-2.1 2.1 1 1.8a6 6 0 0 0-.7 1.7l-2.1.6v3l2.1.6a6 6 0 0 0 .7 1.7l-1 1.8 2.1 2.1 1.8-1a6 6 0 0 0 1.7.7l.6 2.1h3l.6-2.1a6 6 0 0 0 1.7-.7l1.8 1 2.1-2.1-1-1.8a6 6 0 0 0 .7-1.7z" transform="translate(1.5 0)"></path>
+              </svg>
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main class="game-shell" id="main-content">
+        <section class="play-column" aria-labelledby="game-title">
+          <h1 class="sr-only" id="game-title">FJALË — Loja e fjalëve shqip</h1>
+
+          <div class="mode-tabs" role="group" aria-label="Mënyra e lojës">
+            <button class="mode-tab is-active" id="daily-mode" type="button" aria-pressed="true">
+              <span>Sot</span>
+              <span class="mode-detail" id="daily-date">—</span>
+            </button>
+            <button class="mode-tab" id="practice-mode" type="button" aria-pressed="false">
+              <span>Pa fund</span>
+              <span class="mode-detail">luaj sërish</span>
+            </button>
+          </div>
+
+          <div class="puzzle-heading">
+            <div>
+              <p class="puzzle-kicker" id="puzzle-kicker">Fjala e ditës</p>
+              <p class="puzzle-instruction" id="puzzle-instruction">Pesë shkronja. Gjashtë prova.</p>
+            </div>
+            <div class="puzzle-tools" aria-label="Ndihma e lojës">
+              <button
+                class="tool-button"
+                id="hint-button"
+                type="button"
+                aria-controls="hint-card"
+                aria-describedby="hint-description"
+                aria-expanded="false"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M9 18h6M10 21h4"></path>
+                  <path d="M8.7 14.8A6 6 0 1 1 15.3 14.8C14.5 15.4 14 16 14 17h-4c0-1-.5-1.6-1.3-2.2z"></path>
+                </svg>
+                <span>Gjurmë</span>
+                <span class="tool-badge" id="hint-badge">3</span>
+              </button>
+              <button
+                class="tool-button besa-button"
+                id="besa-button"
+                type="button"
+                aria-pressed="false"
+                aria-describedby="besa-description"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 3.5 19 6v5.2c0 4.3-2.7 7.6-7 9.3-4.3-1.7-7-5-7-9.3V6z"></path>
+                  <path d="m9 12 2 2 4-4"></path>
+                </svg>
+                <span>Besa</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="board-stage" id="game-board" tabindex="-1">
+            <div
+              class="board"
+              id="board"
+              role="grid"
+              aria-label="Tabela e lojës, gjashtë rreshta me nga pesë shkronja"
+              aria-rowcount="6"
+              aria-colcount="5"
+            ></div>
+            <div class="celebration" id="celebration" aria-hidden="true"></div>
+          </div>
+
+          <p class="board-message" id="board-message">
+            Dyshkronjëshat si SH dhe RR zënë vetëm një kuti.
+          </p>
+
+          <section class="keyboard-section" aria-label="Tastiera shqip">
+            <div class="keyboard" id="keyboard"></div>
+          </section>
+        </section>
+
+        <aside class="side-column" aria-label="Detajet e lojës">
+          <section class="side-section hint-section" id="hint-card">
+            <div class="side-heading">
+              <span class="side-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M9 18h6M10 21h4"></path>
+                  <path d="M8.7 14.8A6 6 0 1 1 15.3 14.8C14.5 15.4 14 16 14 17h-4c0-1-.5-1.6-1.3-2.2z"></path>
+                </svg>
+              </span>
+              <div>
+                <h2>Një gjurmë, jo përgjigjja</h2>
+                <p id="hint-description">Hapet pas provës së tretë.</p>
+              </div>
+            </div>
+            <p class="hint-copy" id="hint-copy">Do të tregojë kuptimin pa zbuluar asnjë shkronjë.</p>
+          </section>
+
+          <section class="side-section besa-section" id="besa-card">
+            <div class="side-heading">
+              <span class="side-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 3.5 19 6v5.2c0 4.3-2.7 7.6-7 9.3-4.3-1.7-7-5-7-9.3V6z"></path>
+                  <path d="m9 12 2 2 4-4"></path>
+                </svg>
+              </span>
+              <div>
+                <h2>Luaj me Besë</h2>
+                <p id="besa-description">Premto pa gjurmë para provës së parë.</p>
+              </div>
+            </div>
+            <p class="besa-copy">Nëse e gjen, rezultati yt merr vulën <strong>Besa</strong>.</p>
+          </section>
+
+          <section class="side-section passport-teaser" id="passport-teaser">
+            <div class="passport-summary">
+              <div class="passport-ring" id="passport-ring" aria-hidden="true">
+                <span id="passport-count">0</span>
+              </div>
+              <div>
+                <h2>Pasaporta e alfabetit</h2>
+                <p><span id="passport-copy">0 nga 36 shkronja</span> të mbledhura.</p>
+              </div>
+            </div>
+            <div class="rare-letter-row" id="rare-letter-row" aria-label="Dyshkronjëshat e mbledhur"></div>
+            <button class="text-button" type="button" data-open-dialog="passport-dialog">
+              Shiko pasaportën
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+          </section>
+
+          <section
+            class="result-panel"
+            id="result-panel"
+            tabindex="-1"
+            aria-labelledby="result-label result-word"
+            hidden
+          >
+            <div class="result-topline">
+              <span class="result-label" id="result-label">Pas fjalës</span>
+              <span class="result-time" id="result-time">00:00</span>
+            </div>
+            <div class="result-word" id="result-word" lang="sq"></div>
+            <p class="result-meta" id="result-meta"></p>
+            <p class="result-definition" id="result-definition"></p>
+            <blockquote class="result-example" id="result-example"></blockquote>
+            <p class="result-countdown" id="result-countdown" hidden></p>
+            <div class="result-actions">
+              <button class="primary-button" id="share-button" type="button">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 16V4M7 9l5-5 5 5"></path>
+                  <path d="M5 13v6h14v-6"></path>
+                </svg>
+                Ndaje rezultatin
+              </button>
+              <button class="secondary-button" id="challenge-button" type="button">Sfido një mik</button>
+              <button class="text-button result-replay" id="replay-button" type="button">
+                Luaj një tjetër
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </div>
+          </section>
+
+          <p class="side-footnote">5 shkronja · 36 mundësi · 1 fjalë</p>
+        </aside>
+      </main>
+    </div>
+
+    <dialog class="sheet-dialog" id="help-dialog" aria-labelledby="help-title">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <div>
+            <p class="dialog-overline">Mirë se erdhe</p>
+            <h2 id="help-title">Si luhet FJALË?</h2>
+          </div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Mbyll">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </header>
+        <div class="dialog-content">
+          <p>Gjeje fjalën me pesë shkronja në gjashtë prova. Çdo provë të afron te përgjigjja.</p>
+          <div class="example-row" aria-label="Shembull i shkronjave">
+            <span class="example-tile is-correct">D<small>✓</small></span>
+            <span class="example-tile is-present">I<small>•</small></span>
+            <span class="example-tile is-absent">M<small>×</small></span>
+          </div>
+          <ul class="legend-list">
+            <li><span class="legend-swatch is-correct">✓</span><span><strong>Në vend.</strong> Shkronja është e saktë.</span></li>
+            <li><span class="legend-swatch is-present">•</span><span><strong>Diku tjetër.</strong> Është në fjalë, por jo këtu.</span></li>
+            <li><span class="legend-swatch is-absent">×</span><span><strong>Nuk është.</strong> Nuk gjendet në fjalë.</span></li>
+          </ul>
+          <div class="alphabet-note">
+            <strong>Shqipja ka 36 shkronja.</strong>
+            <p><span>DH</span>, <span>GJ</span>, <span>LL</span>, <span>NJ</span>, <span>RR</span>, <span>SH</span>, <span>TH</span>, <span>XH</span> dhe <span>ZH</span> zënë nga një kuti.</p>
+          </div>
+          <button class="primary-button dialog-primary" type="button" data-close-dialog>Fillo lojën</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="sheet-dialog" id="passport-dialog" aria-labelledby="passport-title">
+      <div class="dialog-shell passport-dialog-shell">
+        <header class="dialog-header">
+          <div>
+            <p class="dialog-overline">Koleksioni yt</p>
+            <h2 id="passport-title">Pasaporta e alfabetit</h2>
+          </div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Mbyll">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </header>
+        <div class="dialog-content">
+          <div class="passport-dialog-summary">
+            <strong id="passport-dialog-count">0 / 36</strong>
+            <p>Çdo fjalë e zgjidhur vulos shkronjat që përmban. Mblidhi të gjitha — edhe të rrallat.</p>
+          </div>
+          <div class="alphabet-grid" id="alphabet-grid" aria-label="Alfabeti shqip"></div>
+          <p class="passport-tip" id="passport-tip">Fillo me fjalën e sotme për të marrë vulën e parë.</p>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="sheet-dialog" id="stats-dialog" aria-labelledby="stats-title">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <div>
+            <p class="dialog-overline">Ritmi yt</p>
+            <h2 id="stats-title">Statistikat</h2>
+          </div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Mbyll">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </header>
+        <div class="dialog-content">
+          <div class="stats-summary">
+            <div><strong id="stat-played">0</strong><span>Luajtur</span></div>
+            <div><strong id="stat-win-rate">0%</strong><span>Fitore</span></div>
+            <div><strong id="stat-streak">0</strong><span>Seria</span></div>
+            <div><strong id="stat-best">0</strong><span>Më e mira</span></div>
+          </div>
+          <h3>Shpërndarja e provave</h3>
+          <div class="distribution" id="distribution"></div>
+          <p class="stats-besa"><strong id="stat-besa">0</strong> fitore me vulën Besa.</p>
+
+          <section class="calendar" aria-labelledby="calendar-heading">
+            <div class="calendar-intro">
+              <h3 id="calendar-heading">Arkiva</h3>
+              <p>Luaj ditët që i ke humbur — pa prekur serinë.</p>
+            </div>
+            <div class="calendar-nav">
+              <button
+                class="icon-button calendar-arrow"
+                id="calendar-prev"
+                type="button"
+                aria-label="Muaji i mëparshëm"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg>
+              </button>
+              <h4 class="calendar-title" id="calendar-title" aria-live="polite">—</h4>
+              <button
+                class="icon-button calendar-arrow"
+                id="calendar-next"
+                type="button"
+                aria-label="Muaji i ardhshëm"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </div>
+            <table class="calendar-table" id="calendar-table" aria-label="Kalendari i arkivës">
+              <thead id="calendar-head"></thead>
+              <tbody id="calendar-body"></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="sheet-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <div>
+            <p class="dialog-overline">Sipas teje</p>
+            <h2 id="settings-title">Cilësimet</h2>
+          </div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Mbyll">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </header>
+        <div class="dialog-content settings-list">
+          <label class="setting-row" for="theme-select">
+            <span><strong>Pamja</strong><small>Dritë, errët ose sipas pajisjes</small></span>
+            <select id="theme-select">
+              <option value="system">Sistemi</option>
+              <option value="light">Dritë</option>
+              <option value="dark">Errët</option>
+            </select>
+          </label>
+          <label class="setting-row" for="contrast-toggle">
+            <span><strong>Kontrast i lartë</strong><small>Ngjyra më të forta dhe shenja më të qarta</small></span>
+            <input class="switch-input" id="contrast-toggle" type="checkbox" />
+          </label>
+          <label class="setting-row" for="sound-toggle">
+            <span><strong>Tingujt</strong><small>Sinjale të shkurtra gjatë lojës</small></span>
+            <input class="switch-input" id="sound-toggle" type="checkbox" />
+          </label>
+          <p class="settings-note">Lëvizjet reduktohen automatikisht kur pajisja jote e kërkon.</p>
+        </div>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" aria-hidden="true"></div>
+    <div class="sr-only" id="screen-reader-status" aria-live="assertive" aria-atomic="true"></div>
+
+    <noscript>FJALË ka nevojë për JavaScript që të funksionojë.</noscript>
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
