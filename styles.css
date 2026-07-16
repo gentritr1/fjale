@@ -544,7 +544,7 @@
      a moderately smaller font plus positive tracking gives the pair visible
      air ("D H" feel) while leaving generous padding on each side. The negative
      right margin cancels the trailing letter-spacing so the pair stays
-     optically centred. Weight and cap height match single letters. */
+     optically centred. Weight and vertical centring match single letters. */
   .tile.is-digraph .tile-letter {
     font-size: 0.8em;
     letter-spacing: 0.06em;
