@@ -9,6 +9,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* Prevent mid-game pull-to-refresh; dialogs use overscroll-behavior: contain. */
+    overscroll-behavior-y: none;
   }
 
   body,
@@ -32,6 +34,9 @@
   select,
   input {
     -webkit-tap-highlight-color: transparent;
+    /* Suppress iOS double-tap-zoom on rapid taps (keyboard + buttons).
+       Pinch-zoom must stay available, which is why the viewport meta is left alone. */
+    touch-action: manipulation;
   }
 
   button {
@@ -314,8 +319,10 @@
     height: 21px;
   }
 
-  .icon-button:hover {
-    background: var(--surface);
+  @media (hover: hover) {
+    .icon-button:hover {
+      background: var(--surface);
+    }
   }
 
   .icon-button:active {
@@ -387,8 +394,10 @@
     transition: opacity 160ms var(--ease-standard), transform 200ms var(--ease-out);
   }
 
-  .mode-tab:hover {
-    color: var(--ink);
+  @media (hover: hover) {
+    .mode-tab:hover {
+      color: var(--ink);
+    }
   }
 
   .mode-tab.is-active {
@@ -455,9 +464,11 @@
     height: 17px;
   }
 
-  .tool-button:hover:not(:disabled) {
-    border-color: var(--line-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .tool-button:hover:not(:disabled) {
+      border-color: var(--line-strong);
+      background: var(--surface);
+    }
   }
 
   .tool-button:active:not(:disabled) {
@@ -683,8 +694,10 @@
     transition: background-color 150ms var(--ease-standard), color 150ms var(--ease-standard), transform 90ms var(--ease-out);
   }
 
-  .key:hover:not(:disabled) {
-    background: var(--surface-hover);
+  @media (hover: hover) {
+    .key:hover:not(:disabled) {
+      background: var(--surface-hover);
+    }
   }
 
   .key:disabled {
@@ -900,8 +913,10 @@
     transition: transform 160ms var(--ease-out);
   }
 
-  .text-button:hover svg {
-    transform: translateX(2px);
+  @media (hover: hover) {
+    .text-button:hover svg {
+      transform: translateX(2px);
+    }
   }
 
   .result-panel {
@@ -999,8 +1014,10 @@
     color: var(--bg);
   }
 
-  .primary-button:hover {
-    background: var(--ink-soft);
+  @media (hover: hover) {
+    .primary-button:hover {
+      background: var(--ink-soft);
+    }
   }
 
   .secondary-button {
@@ -1009,8 +1026,10 @@
     color: var(--ink);
   }
 
-  .secondary-button:hover {
-    background: var(--surface);
+  @media (hover: hover) {
+    .secondary-button:hover {
+      background: var(--surface);
+    }
   }
 
   .primary-button:active,
@@ -1429,8 +1448,10 @@
     text-underline-offset: 2px;
   }
 
-  .report-link:hover {
-    color: var(--ink);
+  @media (hover: hover) {
+    .report-link:hover {
+      color: var(--ink);
+    }
   }
 
   .word-rating {
@@ -1470,9 +1491,11 @@
     transition: background-color 150ms var(--ease-standard), border-color 150ms var(--ease-standard), transform 120ms var(--ease-out);
   }
 
-  .word-rating-chip:hover {
-    background: var(--surface);
-    border-color: var(--primary-deep);
+  @media (hover: hover) {
+    .word-rating-chip:hover {
+      background: var(--surface);
+      border-color: var(--primary-deep);
+    }
   }
 
   .word-rating-chip:active {
@@ -1526,8 +1549,8 @@
   }
 
   .calendar-arrow {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--line);
   }
 
@@ -1536,8 +1559,10 @@
     height: 18px;
   }
 
-  .calendar-arrow:hover:not(:disabled) {
-    background: var(--surface);
+  @media (hover: hover) {
+    .calendar-arrow:hover:not(:disabled) {
+      background: var(--surface);
+    }
   }
 
   .calendar-title {
@@ -1604,8 +1629,10 @@
     transition: background-color 150ms var(--ease-standard), transform 100ms var(--ease-out);
   }
 
-  .calendar-cell.is-playable:hover {
-    background: var(--surface-hover);
+  @media (hover: hover) {
+    .calendar-cell.is-playable:hover {
+      background: var(--surface-hover);
+    }
   }
 
   .calendar-cell.is-playable::after {
