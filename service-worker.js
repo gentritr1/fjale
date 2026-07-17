@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v5";
+const CACHE_NAME = "fjale-shell-v6";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
@@ -28,6 +28,15 @@ const CACHE_FIRST_ASSETS = new Set([
 
 self.addEventListener("install", (event) => {
   event.waitUntil(precacheAppShell());
+});
+
+// An updated worker waits until every tab closes. The page offers a visible
+// "Rifresko" prompt instead; accepting it sends this message so the new
+// worker activates immediately and the page can reload onto it.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {

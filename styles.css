@@ -1744,6 +1744,67 @@
     font-size: 0.72rem;
   }
 
+  .update-banner {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    z-index: var(--z-toast);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: min(calc(100% - 32px), 480px);
+    padding: 10px 10px 10px 18px;
+    border-radius: var(--radius-sm);
+    background: var(--ink);
+    color: var(--bg);
+    transform: translateX(-50%);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+  }
+
+  .update-banner[hidden] {
+    display: none;
+  }
+
+  .update-banner-text {
+    font-size: 0.8rem;
+    font-weight: 720;
+    line-height: 1.4;
+  }
+
+  .update-banner-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .update-refresh,
+  .update-dismiss {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 780;
+    cursor: pointer;
+  }
+
+  .update-refresh {
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .update-refresh:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .update-dismiss {
+    background: transparent;
+    color: var(--bg);
+    border: 1px solid color-mix(in oklch, var(--bg) 40%, transparent);
+  }
+
   .toast {
     position: fixed;
     top: calc(76px + env(safe-area-inset-top, 0px));
