@@ -9,11 +9,19 @@ quality are separate concerns.
 - The answer catalog contains 138 metadata-bearing entries awaiting the stated
   native-review gate where applicable.
 - The published daily v1 pool is the first 62 entries, in its existing order.
-- The final accepted-guess set contains 14,257 entries: 14,255 five-token roots
-  generated from the vendored `sq_AL.dic`, unioned with every answer and
-  deduplicated.
-- Hunspell affix expansion is not implemented and `sq_AL.aff` is not yet
-  vendored. The current generated list must not be described as full paradigms.
+- The final accepted-guess set contains 21,481 entries (corpus version
+  `2-hunspell-declared-2026-07-18`): the 14,255 five-token roots from the
+  vendored `sq_AL.dic`, plus the Hunspell-declared affix forms from the paired
+  `sq_AL.aff` that tokenize to exactly five Albanian letters, unioned with every
+  answer and deduplicated. Every published answer is already a declared form, so
+  the union adds none.
+- Hunspell affix expansion is implemented. `sq_AL.aff` is vendored and
+  checksum-pinned beside `sq_AL.dic`, both taken from the same upstream commit.
+  The generator expands the SFX and PFX rules the affix file declares, including
+  declared prefix×suffix cross-products, honouring each rule's strip/add/
+  condition. This is **Hunspell-declared form expansion, not full paradigms**:
+  gaps in the upstream affix tables remain gaps here, and closing them requires
+  additional reviewed sources.
 
 ## Lexicon layers
 

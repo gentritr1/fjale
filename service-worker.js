@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v6";
+const CACHE_NAME = "fjale-shell-v7";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
