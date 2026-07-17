@@ -78,6 +78,7 @@ const DAILY_STEP_BASE = 37;
 const DAILY_OFFSET = 911;
 const CHALLENGE_PREFIX = "SQ";
 const CHALLENGE_MULTIPLIER = 37;
+export const COMPLETED_PUZZLES_CAP = 4_000;
 const CHALLENGE_OFFSET = 911;
 
 export function normalizeWord(word) {
@@ -440,6 +441,133 @@ export function sanitizeReportedWords(raw, cap = 200) {
   }
 
   return cleaned.slice(-Math.max(0, cap));
+}
+
+function cloneModeStats(modeStats) {
+  return Object.fromEntries(
+    MODE_STATS_KEYS.map((mode) => {
+      const bucket = modeStats[mode];
+      return [
+        mode,
+        {
+          played: bucket.played,
+          won: bucket.won,
+          distribution: [...bucket.distribution],
+        },
+      ];
+    }),
+  );
+}
+
+function completionDateKey(mode, puzzleId) {
+  const prefix = mode === "daily" ? "daily-" : mode === "archive" ? "archive-" : null;
+  if (!prefix || !puzzleId.startsWith(prefix)) {
+    return null;
+  }
+
+  const key = puzzleId.slice(prefix.length);
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : null;
+}
+
+function dateKeyOrdinal(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_IN_MILLISECONDS);
+}
+
+// Apply one finished puzzle to an already-sanitized profile without mutating
+// either input. Keeping this transition in the game layer makes mode isolation,
+// deduplication, streak behavior, and legacy Overall totals directly testable.
+export function applyCompletedGameToProfile(
+  profile,
+  completion,
+  completedPuzzlesCap = COMPLETED_PUZZLES_CAP,
+) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    throw new TypeError("profile must be an object");
+  }
+  if (!completion || typeof completion !== "object" || Array.isArray(completion)) {
+    throw new TypeError("completion must be an object");
+  }
+
+  const { puzzleId, mode, status, guessCount, answerTokens, besa, usedHint } = completion;
+  if (typeof puzzleId !== "string" || puzzleId.length === 0 || puzzleId.length > 100) {
+    throw new RangeError("completion puzzleId must be a non-empty string");
+  }
+  if (!MODE_STATS_KEYS.includes(mode)) {
+    throw new RangeError("completion mode is invalid");
+  }
+  if (!["won", "lost"].includes(status)) {
+    throw new RangeError("completion status is invalid");
+  }
+  if (!Number.isInteger(completedPuzzlesCap) || completedPuzzlesCap < 1) {
+    throw new RangeError("completedPuzzlesCap must be a positive integer");
+  }
+  if (!Array.isArray(profile.completedPuzzles)) {
+    throw new TypeError("profile.completedPuzzles must be an array");
+  }
+
+  if (profile.completedPuzzles.includes(puzzleId)) {
+    return { profile, recorded: false };
+  }
+
+  const next = {
+    ...profile,
+    distribution: [...profile.distribution],
+    collection: [...profile.collection],
+    completedPuzzles: [...profile.completedPuzzles, puzzleId].slice(-completedPuzzlesCap),
+    dailyResults: { ...profile.dailyResults },
+    modeStats: cloneModeStats(profile.modeStats),
+  };
+
+  next.played += 1;
+  const modeBucket = next.modeStats[mode];
+  modeBucket.played += 1;
+
+  if (status === "won") {
+    if (!Number.isInteger(guessCount) || guessCount < 1 || guessCount > next.distribution.length) {
+      throw new RangeError("won completion guessCount is outside the distribution");
+    }
+    if (!Array.isArray(answerTokens)) {
+      throw new TypeError("won completion answerTokens must be an array");
+    }
+
+    next.won += 1;
+    next.distribution[guessCount - 1] += 1;
+    next.lastWinGuesses = guessCount;
+    modeBucket.won += 1;
+    modeBucket.distribution[guessCount - 1] += 1;
+    next.collection = [
+      ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
+    ].filter((letter) => ALBANIAN_LETTERS.has(letter));
+
+    if (besa && !usedHint) {
+      next.besaWins += 1;
+    }
+  }
+
+  const trackedDate = completionDateKey(mode, puzzleId);
+  if (trackedDate) {
+    next.dailyResults[trackedDate] = status === "won" ? guessCount : "X";
+  }
+
+  if (mode === "daily") {
+    if (!trackedDate) {
+      throw new RangeError("daily completion requires a dated puzzleId");
+    }
+
+    if (status === "won") {
+      const dayDifference = next.lastDailyWin
+        ? dateKeyOrdinal(trackedDate) - dateKeyOrdinal(next.lastDailyWin)
+        : null;
+      next.currentStreak = dayDifference === 1 ? next.currentStreak + 1 : 1;
+      next.bestStreak = Math.max(next.bestStreak, next.currentStreak);
+      next.lastDailyWin = trackedDate;
+    } else {
+      next.currentStreak = 0;
+    }
+  }
+
+  return { profile: next, recorded: true };
 }
 
 export function formatDuration(seconds) {

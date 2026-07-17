@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ALBANIAN_ALPHABET,
   ALBANIAN_DIGRAPHS,
+  applyCompletedGameToProfile,
   appendPhysicalCharacter,
   createChallengeCode,
   createEmptyModeStats,
@@ -23,6 +24,26 @@ import {
   tokenizeAlbanian,
   WORD_RATING_VALUES,
 } from "../src/game.js";
+
+function createProfile(overrides = {}) {
+  return {
+    played: 10,
+    won: 7,
+    currentStreak: 3,
+    bestStreak: 5,
+    lastDailyWin: "2026-07-16",
+    lastWinGuesses: 4,
+    besaWins: 2,
+    distribution: [0, 1, 2, 2, 1, 1],
+    collection: ["a", "n"],
+    completedPuzzles: ["daily-2026-07-16"],
+    dailyResults: { "2026-07-16": 4 },
+    modeStats: createEmptyModeStats(),
+    wordRatings: {},
+    reportedWords: [],
+    ...overrides,
+  };
+}
 
 test("exports the 36-letter Albanian alphabet with all nine digraphs", () => {
   assert.equal(ALBANIAN_ALPHABET.length, 36);
@@ -296,6 +317,169 @@ test("sanitizeReportedWords caps to the most recently appended words", () => {
   assert.equal(capped.length, 200);
   assert.equal(capped[0], "fjala50");
   assert.equal(capped.at(-1), "fjala249");
+});
+
+test("applyCompletedGameToProfile records a daily win and advances a consecutive streak", () => {
+  const original = createProfile();
+  const result = applyCompletedGameToProfile(original, {
+    puzzleId: "daily-2026-07-17",
+    mode: "daily",
+    status: "won",
+    guessCount: 2,
+    answerTokens: ["gj", "y", "sh", "j", "a"],
+    besa: true,
+    usedHint: false,
+  });
+
+  assert.equal(result.recorded, true);
+  assert.equal(result.profile.played, 11);
+  assert.equal(result.profile.won, 8);
+  assert.equal(result.profile.currentStreak, 4);
+  assert.equal(result.profile.bestStreak, 5);
+  assert.equal(result.profile.lastDailyWin, "2026-07-17");
+  assert.equal(result.profile.dailyResults["2026-07-17"], 2);
+  assert.deepEqual(result.profile.modeStats.daily, {
+    played: 1,
+    won: 1,
+    distribution: [0, 1, 0, 0, 0, 0],
+  });
+  assert.equal(result.profile.besaWins, 3);
+  assert.deepEqual(result.profile.collection, ["a", "n", "gj", "y", "sh", "j"]);
+  assert.equal(original.played, 10);
+  assert.equal(original.currentStreak, 3);
+  assert.deepEqual(original.modeStats.daily.distribution, [0, 0, 0, 0, 0, 0]);
+});
+
+test("applyCompletedGameToProfile records a daily loss and resets only the daily streak", () => {
+  const result = applyCompletedGameToProfile(createProfile(), {
+    puzzleId: "daily-2026-07-17",
+    mode: "daily",
+    status: "lost",
+    guessCount: 6,
+    answerTokens: [],
+    besa: false,
+    usedHint: false,
+  });
+
+  assert.equal(result.profile.played, 11);
+  assert.equal(result.profile.won, 7);
+  assert.equal(result.profile.currentStreak, 0);
+  assert.equal(result.profile.bestStreak, 5);
+  assert.equal(result.profile.lastDailyWin, "2026-07-16");
+  assert.equal(result.profile.dailyResults["2026-07-17"], "X");
+  assert.deepEqual(result.profile.modeStats.daily, {
+    played: 1,
+    won: 0,
+    distribution: [0, 0, 0, 0, 0, 0],
+  });
+});
+
+test("applyCompletedGameToProfile keeps archive, practice, and challenge outside the streak", () => {
+  const cases = [
+    ["archive", "archive-2026-07-15"],
+    ["practice", "practice-SQ-ABC-1"],
+    ["challenge", "challenge-SQ-ABC"],
+  ];
+
+  for (const [mode, puzzleId] of cases) {
+    const result = applyCompletedGameToProfile(createProfile(), {
+      puzzleId,
+      mode,
+      status: "won",
+      guessCount: 3,
+      answerTokens: ["a", "n", "i", "j", "e"],
+      besa: false,
+      usedHint: false,
+    });
+
+    assert.equal(result.profile.currentStreak, 3, `${mode} must not alter the streak`);
+    assert.equal(result.profile.bestStreak, 5, `${mode} must not alter best streak`);
+    assert.equal(result.profile.lastDailyWin, "2026-07-16");
+    assert.equal(result.profile.modeStats[mode].played, 1);
+    assert.equal(result.profile.modeStats[mode].won, 1);
+    assert.equal(result.profile.modeStats[mode].distribution[2], 1);
+  }
+});
+
+test("applyCompletedGameToProfile records archive history without touching daily history semantics", () => {
+  const result = applyCompletedGameToProfile(createProfile(), {
+    puzzleId: "archive-2026-07-15",
+    mode: "archive",
+    status: "won",
+    guessCount: 5,
+    answerTokens: ["d", "r", "i", "t", "ë"],
+    besa: false,
+    usedHint: false,
+  });
+
+  assert.equal(result.profile.dailyResults["2026-07-15"], 5);
+  assert.equal(result.profile.dailyResults["2026-07-16"], 4);
+  assert.equal(result.profile.currentStreak, 3);
+});
+
+test("applyCompletedGameToProfile dedupes completed puzzles without mutating the profile", () => {
+  const original = createProfile();
+  const result = applyCompletedGameToProfile(original, {
+    puzzleId: "daily-2026-07-16",
+    mode: "daily",
+    status: "won",
+    guessCount: 1,
+    answerTokens: ["a", "n", "i", "j", "e"],
+    besa: true,
+    usedHint: false,
+  });
+
+  assert.equal(result.recorded, false);
+  assert.equal(result.profile, original);
+  assert.equal(original.played, 10);
+  assert.equal(original.besaWins, 2);
+});
+
+test("applyCompletedGameToProfile enforces the completion cap and rejects invalid wins", () => {
+  const capped = applyCompletedGameToProfile(
+    createProfile({ completedPuzzles: ["a", "b", "c"] }),
+    {
+      puzzleId: "challenge-SQ-NEW",
+      mode: "challenge",
+      status: "lost",
+      guessCount: 6,
+      answerTokens: [],
+      besa: false,
+      usedHint: false,
+    },
+    3,
+  );
+  assert.deepEqual(capped.profile.completedPuzzles, ["b", "c", "challenge-SQ-NEW"]);
+
+  const defaultCapped = applyCompletedGameToProfile(
+    createProfile({
+      completedPuzzles: Array.from({ length: 4_000 }, (_, index) => `practice-${index}`),
+    }),
+    {
+      puzzleId: "practice-NEW",
+      mode: "practice",
+      status: "lost",
+      guessCount: 6,
+      answerTokens: [],
+      besa: false,
+      usedHint: false,
+    },
+  );
+  assert.equal(defaultCapped.profile.completedPuzzles.length, 4_000);
+  assert.equal(defaultCapped.profile.completedPuzzles[0], "practice-1");
+  assert.equal(defaultCapped.profile.completedPuzzles.at(-1), "practice-NEW");
+
+  assert.throws(
+    () =>
+      applyCompletedGameToProfile(createProfile(), {
+        puzzleId: "daily-2026-07-17",
+        mode: "daily",
+        status: "won",
+        guessCount: 7,
+        answerTokens: ["a"],
+      }),
+    RangeError,
+  );
 });
 
 test("formatDuration clamps negatives, floors fractions, and adds hours when needed", () => {

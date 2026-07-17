@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v4";
+const CACHE_NAME = "fjale-shell-v5";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
@@ -100,7 +100,9 @@ async function networkFirst(request, url) {
   let networkResponse = null;
 
   try {
-    networkResponse = await fetch(request);
+    // Revalidate every network-first shell and corpus request instead of using
+    // a still-fresh HTTP cache entry. The Cache API remains the offline fallback.
+    networkResponse = await fetch(request, { cache: "no-cache" });
     if (networkResponse.status >= 500) {
       throw new Error(`Temporary server error: ${networkResponse.status}`);
     }
