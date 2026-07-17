@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">FJALË 36</title>
+  <desc id="description">Pesë shkronja. Të 36-at vlejnë. Loja shqipe e fjalës së ditës.</desc>
+
+  <rect width="1200" height="630" fill="#ffffff" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+    <rect x="72" y="64" width="72" height="72" rx="12" fill="#cc8800" />
+    <text x="108" y="117" fill="#ffffff" font-size="47" font-weight="850" text-anchor="middle">Ë</text>
+    <text x="166" y="116" fill="#302c28" font-size="51" font-weight="850" letter-spacing="-1">FJALË</text>
+    <text x="351" y="115" fill="#7a7168" font-size="22" font-weight="700">36</text>
+
+    <text x="72" y="258" fill="#302c28" font-size="64" font-weight="820" letter-spacing="-1.4">Pesë shkronja.</text>
+    <text x="72" y="335" fill="#302c28" font-size="64" font-weight="820" letter-spacing="-1.4">
+      Të <tspan fill="#b87500">36-at</tspan> vlejnë.
+    </text>
+    <text x="74" y="397" fill="#655e57" font-size="27" font-weight="500">Loja shqipe e fjalës së ditës.</text>
+    <text x="74" y="437" fill="#655e57" font-size="27" font-weight="500">Pa llogari. Pa zhurmë. Vetëm pesë minuta.</text>
+
+    <line x1="704" y1="64" x2="704" y2="566" stroke="#dedbd7" stroke-width="2" />
+
+    <g transform="translate(758 138)">
+      <g fill="#ffffff" stroke="#4c4742" stroke-width="3">
+        <rect x="0" y="0" width="68" height="68" rx="9" />
+        <rect x="80" y="0" width="68" height="68" rx="9" />
+        <rect x="160" y="0" width="68" height="68" rx="9" />
+        <rect x="240" y="0" width="68" height="68" rx="9" />
+      </g>
+      <rect x="320" y="0" width="68" height="68" rx="9" fill="#cc8800" />
+      <g fill="#302c28" font-size="34" font-weight="850" text-anchor="middle">
+        <text x="34" y="45">F</text>
+        <text x="114" y="45">J</text>
+        <text x="194" y="45">A</text>
+        <text x="274" y="45">L</text>
+      </g>
+      <text x="354" y="45" fill="#ffffff" font-size="34" font-weight="850" text-anchor="middle">Ë</text>
+
+      <text x="0" y="128" fill="#302c28" font-size="25" font-weight="760">Dyshkronjëshat</text>
+      <text x="0" y="162" fill="#302c28" font-size="25" font-weight="760">janë shkronja më vete.</text>
+
+      <g transform="translate(0 192)">
+        <g fill="#f1f0ee">
+          <rect x="0" y="0" width="82" height="64" rx="9" />
+          <rect x="94" y="0" width="82" height="64" rx="9" />
+          <rect x="188" y="0" width="82" height="64" rx="9" />
+          <rect x="282" y="0" width="82" height="64" rx="9" />
+        </g>
+        <g fill="#302c28" font-size="26" font-weight="820" text-anchor="middle">
+          <text x="41" y="41">SH</text>
+          <text x="135" y="41">RR</text>
+          <text x="229" y="41">GJ</text>
+          <text x="323" y="41">XH</text>
+        </g>
+      </g>
+
+      <rect x="0" y="295" width="186" height="46" rx="23" fill="#302c28" />
+      <text x="93" y="326" fill="#ffffff" font-size="20" font-weight="760" text-anchor="middle">SH = 1 shkronjë</text>
+    </g>
+
+    <line x1="72" y1="534" x2="1128" y2="534" stroke="#dedbd7" stroke-width="2" />
+    <text x="72" y="575" fill="#7a7168" font-size="21" font-weight="650">fjale-self.vercel.app</text>
+    <text x="1128" y="575" fill="#7a7168" font-size="21" font-weight="650" text-anchor="end">Luaj sot</text>
+  </g>
+</svg>

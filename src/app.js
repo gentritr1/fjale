@@ -1,6 +1,8 @@
 import {
   ALBANIAN_ALPHABET,
   ALBANIAN_DIGRAPHS,
+  COMPLETED_PUZZLES_CAP,
+  applyCompletedGameToProfile,
   appendPhysicalCharacter,
   createChallengeCode,
   decodeChallengeCode,
@@ -216,6 +218,28 @@ function initialize() {
 
   renderAll();
   registerServiceWorker();
+
+  // Browsers may restore the previous scroll position after a reload. For a
+  // completed puzzle, realign the primary result after that restoration
+  // so the sticky header cannot cover its first line.
+  if (state.status !== "playing") {
+    const alignRestoredResult = () => {
+      window.requestAnimationFrame(() => {
+        if (state.status !== "playing") {
+          elements.resultPanel.scrollIntoView({
+            block: "start",
+            behavior: "auto",
+          });
+        }
+      });
+    };
+
+    if (document.readyState === "complete") {
+      alignRestoredResult();
+    } else {
+      window.addEventListener("load", alignRestoredResult, { once: true });
+    }
+  }
 
   Object.defineProperty(window, "__FJALE__", {
     configurable: false,
@@ -750,20 +774,20 @@ function finishGame() {
   if (state.status === "won") {
     playSound("win");
     showCelebration();
-    announce(`E gjete fjalën ${getAnswer().word} në ${state.guesses.length} prova.`);
+    announce(
+      `E gjete fjalën ${getAnswer().word} në ${state.guesses.length} ${state.guesses.length === 1 ? "provë" : "prova"}.`,
+    );
   } else {
     playSound("error");
     announce(`Loja mbaroi. Fjala ishte ${getAnswer().word}.`);
   }
 
-  if (window.matchMedia("(max-width: 880px)").matches) {
-    window.setTimeout(() => {
-      elements.resultPanel.scrollIntoView({
-        block: "start",
-        behavior: REDUCED_MOTION.matches ? "auto" : "smooth",
-      });
-    }, REDUCED_MOTION.matches ? 0 : 420);
-  }
+  window.setTimeout(() => {
+    elements.resultPanel.scrollIntoView({
+      block: "start",
+      behavior: REDUCED_MOTION.matches ? "auto" : "smooth",
+    });
+  }, REDUCED_MOTION.matches ? 0 : 420);
 }
 
 function showInvalid(message) {
@@ -783,7 +807,10 @@ function showInvalid(message) {
 // supplied (the "Ka një gabim" path) it is named in the body so the note is
 // self-explanatory even without the surrounding UI.
 function buildReportMailto(word, rating = null) {
-  const subject = "FJALË — fjalë që mungon";
+  const reportsProblem = rating === "ka_gabim";
+  const subject = reportsProblem
+    ? "FJALË — problem me fjalën"
+    : "FJALË — fjalë që mungon";
   const body = [
     `Fjala: ${word.toLocaleUpperCase("sq-AL")}`,
     rating ? `Vlerësimi: ${WORD_RATING_LABELS[rating]}` : null,
@@ -800,7 +827,10 @@ function buildReportLink(word, rating = null) {
   const link = document.createElement("a");
   link.className = "report-link";
   link.href = buildReportMailto(word, rating);
-  link.textContent = "Mungon një fjalë? Na e trego.";
+  link.textContent =
+    rating === "ka_gabim"
+      ? "Na trego me email çfarë nuk shkon."
+      : "Mungon një fjalë? Na dërgo me email.";
   // Persist the report locally too, so it survives even if the mail is never
   // actually sent. The click still follows through to the mail client.
   link.addEventListener("click", () => recordReportedWord(word));
@@ -1078,6 +1108,11 @@ function renderKeyboard() {
         if (status) {
           key.classList.add(`is-${status}`);
           key.setAttribute("aria-label", `${key.getAttribute("aria-label")}, ${STATUS_LABEL[status]}`);
+          const mark = document.createElement("span");
+          mark.className = "key-status";
+          mark.setAttribute("aria-hidden", "true");
+          mark.textContent = STATUS_MARK[status];
+          key.append(mark);
         }
       }
 
@@ -1196,6 +1231,7 @@ function renderWordRating(isComplete) {
   if (existing) {
     const thanks = document.createElement("p");
     thanks.className = "word-rating-thanks";
+    thanks.tabIndex = -1;
     thanks.textContent = "Faleminderit!";
     container.append(thanks);
     if (existing.rating === "ka_gabim") {
@@ -1243,6 +1279,7 @@ function rateWord(rating) {
   saveProfile();
 
   renderWordRating(true);
+  elements.wordRating.querySelector(".word-rating-thanks")?.focus({ preventScroll: true });
   announce("Faleminderit për vlerësimin.");
 }
 
@@ -1413,7 +1450,7 @@ function buildCalendarCell(dateKey, day, todayKey) {
   const lost = result === "X";
   // Secondary dedupe: a day whose game id is already in completedPuzzles must
   // never be replayable, even if its dailyResults entry is ever missing.
-  // (completedPuzzles is capped at 500, so this guard is partial by design.)
+  // (completedPuzzles is capped, so this guard is a long-lived secondary check.)
   const alreadyCompleted =
     profile.completedPuzzles.includes(`daily-${dateKey}`) ||
     profile.completedPuzzles.includes(`archive-${dateKey}`);
@@ -1518,74 +1555,24 @@ function recordCompletedGame() {
 
   // Pull in progress written by another open tab before applying this result.
   profile = loadProfile();
-
-  if (profile.completedPuzzles.includes(state.puzzleId)) {
-    state.recorded = true;
-    return;
-  }
-
-  profile.played += 1;
-  profile.completedPuzzles.push(state.puzzleId);
-  profile.completedPuzzles = profile.completedPuzzles.slice(-500);
-
-  // Per-mode bucket, tracked alongside (never in place of) the legacy Overall
-  // fields. modeStats always contains every mode after sanitizeModeStats.
-  const modeBucket = profile.modeStats[state.mode];
-  if (modeBucket) {
-    modeBucket.played += 1;
-    if (state.status === "won") {
-      modeBucket.won += 1;
-      modeBucket.distribution[state.guesses.length - 1] += 1;
-    }
-  }
-
-  if (state.status === "won") {
-    profile.won += 1;
-    profile.distribution[state.guesses.length - 1] += 1;
-    profile.lastWinGuesses = state.guesses.length;
-    profile.collection = [
-      ...new Set([...profile.collection, ...getAnswerTokens()]),
-    ].filter((letter) => ALPHABET_SET.has(letter));
-
-    if (state.besa && !state.usedHint) {
-      profile.besaWins += 1;
-    }
-  }
-
-  if (state.mode === "daily") {
-    if (state.status === "won") {
-      const currentKey = state.puzzleId.replace("daily-", "");
-      const dayDifference = profile.lastDailyWin
-        ? dateKeyOrdinal(currentKey) - dateKeyOrdinal(profile.lastDailyWin)
-        : null;
-      profile.currentStreak = dayDifference === 1 ? profile.currentStreak + 1 : 1;
-      profile.bestStreak = Math.max(profile.bestStreak, profile.currentStreak);
-      profile.lastDailyWin = currentKey;
-    } else {
-      profile.currentStreak = 0;
-    }
-  }
-
-  // Archive games contribute to the calendar history but never to the streak,
-  // which the mode gate above already guarantees.
-  const trackedDate = trackedResultDate();
-  if (trackedDate) {
-    profile.dailyResults[trackedDate] = state.status === "won" ? state.guesses.length : "X";
-  }
-
+  const result = applyCompletedGameToProfile(
+    profile,
+    {
+      puzzleId: state.puzzleId,
+      mode: state.mode,
+      status: state.status,
+      guessCount: state.guesses.length,
+      answerTokens: getAnswerTokens(),
+      besa: state.besa,
+      usedHint: state.usedHint,
+    },
+    COMPLETED_PUZZLES_CAP,
+  );
   state.recorded = true;
-  saveProfile();
-}
-
-function trackedResultDate() {
-  const key =
-    state.mode === "daily"
-      ? state.puzzleId.replace("daily-", "")
-      : state.mode === "archive"
-        ? state.puzzleId.replace("archive-", "")
-        : null;
-
-  return key && /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : null;
+  if (result.recorded) {
+    profile = result.profile;
+    saveProfile();
+  }
 }
 
 function normalizeExpiredStreak() {
@@ -1860,7 +1847,9 @@ function loadProfile() {
     ? [...new Set(saved.collection.map(normalizeWord).filter((letter) => ALPHABET_SET.has(letter)))]
     : [];
   const completedPuzzles = Array.isArray(saved?.completedPuzzles)
-    ? saved.completedPuzzles.filter((id) => typeof id === "string").slice(-500)
+    ? saved.completedPuzzles
+        .filter((id) => typeof id === "string")
+        .slice(-COMPLETED_PUZZLES_CAP)
     : [];
 
   return {
