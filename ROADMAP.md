@@ -4,6 +4,20 @@ FJALË wins by being the most trustworthy and polished Albanian daily word
 ritual. The order is correctness, editorial trust, launch quality,
 discoverability, private sharing, then deeper learning.
 
+## Priority index
+
+Extend this list by appending; never renumber shipped tiers.
+
+- **P0 — Ship V1 to production.** Native-speaker skim, physical-device pass,
+  deploy, verify the live origin. See "Now".
+- **P1 — Launch surface.** Custom domain, privacy page, store packaging
+  decision. See "Launch surface — store, privacy, and monetization".
+- **P2 — Market wedge.** Hunspell-declared dictionary expansion, immutable
+  answer IDs, daily epochs, editorial runway. See "Next".
+- **P3 — Feedback loop.** Privacy-respecting report endpoint, branded address,
+  changelog, recovery code. See "Feedback and portability".
+- **P4 — Retention.** Only after P0–P3 evidence. See "Later".
+
 ## Completed — V1 polish round
 
 - The post-game result is now first at every breakpoint and realigns below the
@@ -78,6 +92,54 @@ or a backend to the V1 polish round.
 Not planned: coins, gems, ads, purchasable hints, streak freezes, public global
 leaderboards, forced accounts, unreviewed AI language content, or a collection
 of generic Wordle modes.
+
+## Launch surface — store, privacy, and monetization
+
+The only V1 launch surface is the web PWA on the canonical origin. Everything
+below extends that surface without reopening the V1 scope freeze.
+
+### Privacy (required before any store listing or marketing)
+
+- Today the app stores everything in browser localStorage, sets no cookies,
+  loads no third-party resources (CSP is `'self'` plus one JSON-LD hash), and
+  has no analytics. Reports leave the device only when the player sends the
+  pre-filled email.
+- Publish a short privacy page stating exactly that: what is stored locally,
+  that nothing is transmitted, that email reports are voluntary and include
+  only what the player sees, and how to erase data (clear site data). Link it
+  from the settings dialog and the page footer.
+- No consent banner is needed while there is no tracking. The moment any
+  analytics, ads, or collection endpoint is added, GDPR/ePrivacy consent and
+  the privacy page must ship in the same release — never after.
+
+### Monetization stance
+
+- V1 ships ad-free; "Not planned" below still bans coins, purchasable hints,
+  and ad-driven mechanics. Revisiting monetization is a product decision that
+  must be made explicitly, not slipped into a feature round.
+- If web ads are ever considered: every ad network breaks the current strict
+  CSP (`script-src 'self'` + one hash) and requires a consent management
+  platform. That is a real engineering and trust cost; price it before saying
+  yes.
+- Recorded constraint from sibling projects: AdMob is not available for
+  Kosovo-targeted apps. Since Kosovo is a core audience, any future Android
+  ad plan must verify network availability for the region first, at project
+  start, not mid-flight.
+- The trust-preserving alternatives, in order: nothing (grow first), a
+  donation/support link, then a cosmetic-only supporter tier. All three keep
+  the CSP and the privacy page unchanged.
+
+### App-store packaging (P1, after the live origin is verified)
+
+- Google Play: package the deployed PWA as a Trusted Web Activity
+  (Bubblewrap). Needs the privacy-page URL, the Play Data safety form (answers
+  follow from the privacy page: no data collected or shared), a content
+  rating questionnaire, Digital Asset Links on the origin, a 512px icon and
+  feature graphic, and a one-time developer account.
+- iOS: no TWA equivalent. A thin WebView wrapper risks App Store guideline
+  4.2 rejection; rely on Safari PWA install until native demand is proven
+  (matches "Later").
+- The store listing must never promise features the web app does not have.
 
 ## V1 streak decision
 
