@@ -5,7 +5,7 @@ FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është 
 ## Çfarë përfshin
 
 - 138 përgjigje të redaktuara me gjurmë, përkufizime, rrokje dhe shembuj; pool-i ditor v1 ruan 62 fjalët e para pa ndryshuar historinë.
-- 14,257 prova të pranuara nga fjalori shqip, me nëntë dyshkronjëshat si shkronja të vetme.
+- 21,481 prova të pranuara nga fjalori shqip, tani edhe me trajtat e lakuara e të zgjedhuara që deklaron Hunspell-i, me nëntë dyshkronjëshat si shkronja të vetme.
 - Fjalën e ditës, Arkivën për ditët e humbura, lojë pa fund dhe sfida me të njëjtën fjalë për miqtë.
 - Gjurmën pas provës së tretë, mënyrën **Besa** pa ndihmë dhe Pasaportën e alfabetit.
 - Statistika të ndara për Sot, Arkivë, Pa fund dhe Gjithsej; Arkiva nuk e prek serinë ditore.
@@ -88,8 +88,10 @@ Serveri i përfshirë është i përshtatshëm për zhvillim dhe preview lokal. 
 ## Fjalori dhe licenca
 
 Lista e provave të pranuara gjenerohet nga fjalori shqip MySpell/Hunspell i
-LibreOffice. Burimi i saktë, checksum-i dhe skripti i riprodhueshëm përfshihen
-në projekt; hollësitë janë te `THIRD_PARTY_NOTICES.md`.
+LibreOffice. Skripti zgjeron në mënyrë të riprodhueshme trajtat që deklarojnë
+rregullat e ndajshtesave (`sq_AL.aff`) — zgjerim i trajtave të deklaruara, jo
+paradigma të plota. Burimi i saktë, checksum-et (`.dic` dhe `.aff`) dhe skripti
+përfshihen në projekt; hollësitë janë te `THIRD_PARTY_NOTICES.md`.
 
 Copyright (C) 2026 FJALË contributors. Ky projekt shpërndahet nën
 `GPL-2.0-or-later`; teksti i plotë gjendet te `LICENSE`. Programi jepet pa
