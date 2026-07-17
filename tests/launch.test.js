@@ -55,6 +55,23 @@ test("requires production revalidation for the generated accepted-word corpus", 
   assert.equal(cacheControl, "public, max-age=0, must-revalidate");
 });
 
+test("keeps the service worker update prompt wired end to end", async () => {
+  const [serviceWorker, app, html] = await Promise.all([
+    readFile("service-worker.js", "utf8"),
+    readFile("src/app.js", "utf8"),
+    readFile("index.html", "utf8"),
+  ]);
+
+  assert.ok(serviceWorker.includes('event.data?.type === "SKIP_WAITING"'));
+  assert.ok(serviceWorker.includes("self.skipWaiting()"));
+  assert.ok(app.includes('postMessage({ type: "SKIP_WAITING" })'));
+  assert.ok(app.includes('addEventListener("controllerchange"'));
+  assert.ok(app.includes("updateReloadArmed"), "reloads must require an accepted prompt");
+  assert.ok(html.includes('id="update-banner"'));
+  assert.ok(html.includes('id="update-refresh"'));
+  assert.ok(html.includes('id="update-dismiss"'));
+});
+
 test("publishes crawl directives for the canonical origin", async () => {
   const [robots, sitemap, serverSource] = await Promise.all([
     readFile("robots.txt", "utf8"),

@@ -180,6 +180,9 @@ const elements = {
   statWinRate: document.querySelector("#stat-win-rate"),
   themeSelect: document.querySelector("#theme-select"),
   toast: document.querySelector("#toast"),
+  updateBanner: document.querySelector("#update-banner"),
+  updateDismiss: document.querySelector("#update-dismiss"),
+  updateRefresh: document.querySelector("#update-refresh"),
   wordRating: document.querySelector("#word-rating"),
 };
 
@@ -196,6 +199,11 @@ let revealTimer = null;
 let countdownTimer = null;
 let calendarView = null;
 let audioContext = null;
+// Service-worker update prompt state. The armed flag guarantees only an
+// accepted prompt can reload the page: clients.claim() fires controllerchange
+// on the very first install too, and that must never interrupt a game.
+let updateRegistration = null;
+let updateReloadArmed = false;
 // Set when a game concludes live in this session, so the post-game rating row
 // appears only for a genuine completion — never on reload of a game that
 // finished before ratings existed, or in a previous session without a rating.
@@ -413,6 +421,10 @@ function wireInteractions() {
   elements.shareButton.addEventListener("click", shareResult);
   elements.challengeButton.addEventListener("click", shareChallenge);
   elements.replayButton.addEventListener("click", startNewPractice);
+  elements.updateRefresh.addEventListener("click", acceptUpdate);
+  elements.updateDismiss.addEventListener("click", () => {
+    elements.updateBanner.hidden = true;
+  });
   elements.calendarPrev.addEventListener("click", () => shiftCalendar(-1));
   elements.calendarNext.addEventListener("click", () => shiftCalendar(1));
   elements.calendarBody.addEventListener("click", handleCalendarClick);
@@ -1987,9 +1999,78 @@ function playSound(kind) {
 function registerServiceWorker() {
   if ("serviceWorker" in navigator && window.isSecureContext) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/service-worker.js").catch(() => {
-        // Offline support is an enhancement; gameplay does not depend on it.
-      });
+      navigator.serviceWorker
+        .register("/service-worker.js")
+        .then((registration) => watchForWaitingUpdate(registration))
+        .catch(() => {
+          // Offline support is an enhancement; gameplay does not depend on it.
+        });
     });
+  }
+}
+
+// A new deploy installs an updated worker that then waits until every tab
+// closes — players on a long-lived tab or installed PWA would stay on the old
+// version indefinitely. Surface the waiting worker as a prompt instead:
+// accepting it activates the new worker, whose versioned cache replaces the
+// old one, so a single ordinary reload delivers the fresh app. Nobody has to
+// clear caches or hard-refresh.
+function watchForWaitingUpdate(registration) {
+  updateRegistration = registration;
+
+  const offerWhenInstalled = (worker) => {
+    if (!worker) {
+      return;
+    }
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) {
+        showUpdatePrompt();
+      }
+    });
+  };
+
+  // The controller check keeps the very first install silent: with no previous
+  // worker there is nothing stale to refresh away from.
+  if (registration.waiting && navigator.serviceWorker.controller) {
+    showUpdatePrompt();
+  }
+  offerWhenInstalled(registration.installing);
+  registration.addEventListener("updatefound", () => offerWhenInstalled(registration.installing));
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!updateReloadArmed) {
+      return;
+    }
+    updateReloadArmed = false;
+    window.location.reload();
+  });
+
+  // Long-lived tabs and installed PWAs rarely reload on their own; recheck for
+  // a new worker whenever the player returns to the app.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      registration.update().catch(() => {});
+    }
+  });
+}
+
+function showUpdatePrompt() {
+  if (!elements.updateBanner.hidden) {
+    return;
+  }
+  elements.updateBanner.hidden = false;
+  announce("Një version i ri i lojës është gati. Shtyp Rifresko për ta hapur.");
+}
+
+function acceptUpdate() {
+  elements.updateRefresh.disabled = true;
+  const waiting = updateRegistration?.waiting;
+  if (waiting) {
+    updateReloadArmed = true;
+    waiting.postMessage({ type: "SKIP_WAITING" });
+  } else {
+    // The waiting worker already activated (another tab accepted first);
+    // a plain reload is enough to pick it up.
+    window.location.reload();
   }
 }
