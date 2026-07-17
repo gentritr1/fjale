@@ -72,6 +72,81 @@ test("keeps the service worker update prompt wired end to end", async () => {
   assert.ok(html.includes('id="update-dismiss"'));
 });
 
+test("keeps touch interaction contracts for mobile", async () => {
+  const [styles, html] = await Promise.all([
+    readFile("styles.css", "utf8"),
+    readFile("index.html", "utf8"),
+  ]);
+
+  // (a) the button/a/select/input reset must opt into touch-action: manipulation
+  const resetMatch = styles.match(
+    /button,\s*a,\s*select,\s*input\s*\{([^}]*)\}/u,
+  );
+  assert.ok(resetMatch, "styles.css must keep the button/a/select/input reset rule");
+  assert.match(
+    resetMatch[1],
+    /touch-action:\s*manipulation/u,
+    "the interactive-element reset must set touch-action: manipulation",
+  );
+
+  // (b) the viewport meta must not disable user zoom
+  const viewportMatch = html.match(/<meta name="viewport" content="([^"]*)"/u);
+  assert.ok(viewportMatch, "index.html must declare a viewport meta");
+  assert.doesNotMatch(
+    viewportMatch[1],
+    /user-scalable/u,
+    "viewport meta must not disable user scaling",
+  );
+  assert.doesNotMatch(
+    viewportMatch[1],
+    /maximum-scale/u,
+    "viewport meta must not cap maximum-scale",
+  );
+
+  // (c) pull-to-refresh must be suppressed on the game surface
+  assert.match(
+    styles,
+    /overscroll-behavior-y:\s*none/u,
+    "styles.css must suppress vertical overscroll (pull-to-refresh)",
+  );
+
+  // (d) every :hover rule must sit inside an @media (hover: hover) guard.
+  // Strip balanced @media (hover: hover) { ... } blocks, then assert no :hover leaks.
+  const marker = "@media (hover: hover)";
+  let outsideGuards = "";
+  let cursor = 0;
+  while (cursor < styles.length) {
+    const start = styles.indexOf(marker, cursor);
+    if (start === -1) {
+      outsideGuards += styles.slice(cursor);
+      break;
+    }
+    outsideGuards += styles.slice(cursor, start);
+    let depth = 0;
+    let index = styles.indexOf("{", start);
+    for (; index < styles.length; index += 1) {
+      if (styles[index] === "{") depth += 1;
+      else if (styles[index] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          index += 1;
+          break;
+        }
+      }
+    }
+    cursor = index;
+  }
+
+  const totalHover = (styles.match(/:hover/gu) ?? []).length;
+  const unguardedHover = (outsideGuards.match(/:hover/gu) ?? []).length;
+  assert.ok(totalHover > 0, "expected at least one :hover rule to guard");
+  assert.equal(
+    unguardedHover,
+    0,
+    "every :hover rule must live inside an @media (hover: hover) block",
+  );
+});
+
 test("publishes crawl directives for the canonical origin", async () => {
   const [robots, sitemap, serverSource] = await Promise.all([
     readFile("robots.txt", "utf8"),
