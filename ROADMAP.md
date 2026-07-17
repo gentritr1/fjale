@@ -12,6 +12,11 @@ Extend this list by appending; never renumber shipped tiers.
   deploy, verify the live origin. See "Now".
 - **P1 — Launch surface.** Custom domain, privacy page, store packaging
   decision. See "Launch surface — store, privacy, and monetization".
+  Discoverability baseline (2026-07-18): not indexed, ranks for nothing.
+  First moves: Google Search Console submission + sitemap lastmod, custom
+  domain (fjale-self.vercel.app is a low-trust throwaway subdomain), listing
+  on the Wordles-of-the-World index, and backlinks from the Albanian
+  communities that already rank (forum-al.com, r/Albania, Facebook groups).
 - **P2 — Market wedge.** Hunspell-declared dictionary expansion, immutable
   answer IDs, daily epochs, editorial runway. See "Next".
 - **P3 — Feedback loop.** Privacy-respecting report endpoint, branded address,
@@ -92,6 +97,28 @@ or a backend to the V1 polish round.
 Not planned: coins, gems, ads, purchasable hints, streak freezes, public global
 leaderboards, forced accounts, unreviewed AI language content, or a collection
 of generic Wordle modes.
+
+## Competitive position (researched 2026-07-18)
+
+Field: fjalth.com (only rival with correct single-tile digraphs; dictionary
+definitions per guess; any-date archive; Google Analytics; cert-chain issue on
+strict clients), wordle.global/sq (huge multi-mode platform, careless Albanian —
+served English "TRIAL" as a daily answer; no digraph keys), Fjalëz/metinferati
+(1,659 numbered dailies since 2022, split digraphs, dated UI), fjalez.al
+(no daily observed, network-dependent validation), plus three near-zero-traction
+store apps (Fjalgjza, Fjalez iOS with leaderboard/coins, dormant com.fjala.app).
+The original luaj.live is dead.
+
+FJALË's defensible moats: human-reviewed answers with definitions/syllables/
+examples (nobody pairs review with metadata), digraph correctness (only fjalth
+matches), true no-analytics privacy plus offline play, mode breadth among
+Albanian-first games, and the strict-streak/Besa integrity story.
+
+Known weaknesses to close, in wedge order: shallowest daily history in the
+field (62 words — P2 epochs), stats die with localStorage (P3 recovery code;
+fjalth ships stats transfer), no store shelf presence (P1), asynchronous-only
+social (P4). Brand hazard: "FJALË" as a search term is owned by the fjale.al
+dictionary — the custom-domain decision must weigh a distinctive name.
 
 ## Launch surface — store, privacy, and monetization
 
