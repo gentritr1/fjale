@@ -33,6 +33,12 @@ Extend this list by appending; never renumber shipped tiers.
   security headers, and coherent lexicon revalidation are in place.
 - Completion bookkeeping is a pure tested transition, capped at 4,000 puzzle
   IDs, and the full 138-word legacy challenge order is hash-locked.
+- Immutable answer IDs and append-only daily epochs are implemented: every
+  answer carries an immutable `id`, challenge codes and the daily/archive
+  resolver work by ID (legacy `SQ-*` links and all historical daily words are
+  byte-stable), and `DAILY_POOL_SIZE` derives from the active epoch. Growing the
+  daily pool is now an append-only editorial act (add a later-dated epoch), never
+  a resize. This is architecture only — no observable behavior changed.
 - The lexicon, daily, challenge, streak, and release contracts live in this file
   and `LEXICON.md`.
 
@@ -67,10 +73,14 @@ or a backend to the V1 polish round.
 ### Editorial runway and stable identity
 
 - Keep the complete 138-word challenge hash green while legacy codes exist.
-- Assign immutable answer IDs and preserve legacy challenge links.
-- Implement append-only daily epochs before expanding the 62-word daily pool.
+- Immutable answer IDs and legacy challenge-link preservation: **implemented**
+  (see "Completed"). Reordering `ANSWERS` stays forbidden while legacy pre-ID
+  clients persist raw indices.
+- Append-only daily epochs: **implemented**. Expanding the 62-word daily pool is
+  now done only by appending a later-dated epoch with a larger pool, after
+  native review — never by resizing the launch epoch.
 - Grow to at least 365 two-reviewer daily answers with a maintained 90-day
-  unpublished buffer.
+  unpublished buffer, publishing pool growth through a new epoch.
 - Keep accepted guesses broad and daily answers common, fair, and
   human-reviewed.
 

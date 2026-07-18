@@ -17,8 +17,11 @@ FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është 
 
 Vlerësimet dhe klikimet e raportimit ruhen vetëm në shfletues. Një raport i
 mbërrin ekipit vetëm nëse lojtari dërgon email-in e paraplotësuar që hap lidhja.
-Pool-i ditor mbetet 62 fjalë derisa të zbatohet skema e pandryshueshme e epokave;
-rritja e numrit drejtpërdrejt do të ndryshonte fjalët historike.
+Pool-i ditor mbetet 62 fjalë (epoka e nisjes). Skema e pandryshueshme e epokave
+tashmë është zbatuar: çdo përgjigje ka një ID të pandryshueshme, kodet e sfidave
+dhe fjala e ditës zgjidhen sipas ID-së, dhe rritja e pool-it bëhet vetëm duke
+shtuar një epokë të re — jo duke ndryshuar numrin — pa prekur fjalët historike
+apo lidhjet e vjetra të sfidave.
 
 ## Nisja lokale
 

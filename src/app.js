@@ -8,7 +8,8 @@ import {
   decodeChallengeCode,
   evaluateGuess,
   formatDuration,
-  getDailyIndex,
+  getActiveDailyEpoch,
+  getDailyAnswerIndex,
   getTiranaDateKey,
   normalizeWord,
   removeLastToken,
@@ -20,14 +21,16 @@ import {
   tokenizeAlbanian,
   WORD_RATING_VALUES,
 } from "./game.js";
-import { ACCEPTED_GUESSES, ANSWERS } from "./words.js";
+import { ACCEPTED_GUESSES, ANSWERS, getAnswerById } from "./words.js";
 
 const ROW_COUNT = 6;
 const COLUMN_COUNT = 5;
 const HINT_UNLOCK_GUESS = 3;
-// Version 1 of the published daily pool is immutable. New words may be
-// appended for practice without changing earlier daily puzzles or challenges.
-const DAILY_POOL_SIZE = 62;
+// The published daily pool is immutable per epoch. Its size has a single source
+// of truth — the active entry in DAILY_EPOCHS — so it can never drift from the
+// rotation math. Growing the pool means appending a new epoch, never editing
+// this value. New words may still be appended for practice meanwhile.
+const DAILY_POOL_SIZE = getActiveDailyEpoch(new Date()).poolSize;
 // The archive opens on launch day; earlier dates never had a published daily
 // word, so they stay inert in the calendar.
 const ARCHIVE_EPOCH = "2026-07-16";
@@ -261,15 +264,18 @@ function initialize() {
 
 function createPrimaryDescriptor() {
   const challengeCode = new URLSearchParams(window.location.search).get("sfida");
-  const challengeIndex = challengeCode
+  // decodeChallengeCode resolves the code to an immutable answer id, which is
+  // carried through as answerIndex (today equal to the array position) and
+  // resolved via getAnswerById at play time.
+  const challengeId = challengeCode
     ? decodeChallengeCode(challengeCode, ANSWERS.length)
     : null;
 
-  if (challengeIndex !== null) {
-    const canonicalCode = createChallengeCode(challengeIndex);
+  if (challengeId !== null) {
+    const canonicalCode = createChallengeCode(challengeId);
     return {
       mode: "challenge",
-      answerIndex: challengeIndex,
+      answerIndex: challengeId,
       puzzleId: `challenge-${canonicalCode}`,
       challengeCode: canonicalCode,
     };
@@ -279,7 +285,7 @@ function createPrimaryDescriptor() {
   const dateKey = getTiranaDateKey(now);
   return {
     mode: "daily",
-    answerIndex: getDailyIndex(now, DAILY_POOL_SIZE),
+    answerIndex: getDailyAnswerIndex(now),
     puzzleId: `daily-${dateKey}`,
     dateKey,
   };
@@ -291,7 +297,7 @@ function createArchiveDescriptor(dateKey) {
   const date = new Date(`${dateKey}T12:00:00Z`);
   return {
     mode: "archive",
-    answerIndex: getDailyIndex(date, DAILY_POOL_SIZE),
+    answerIndex: getDailyAnswerIndex(date),
     puzzleId: `archive-${dateKey}`,
     dateKey,
   };
@@ -351,8 +357,7 @@ function hydrateGame(raw, expectedDescriptor = null) {
 
   if (
     !Number.isInteger(answerIndex) ||
-    answerIndex < 0 ||
-    answerIndex >= ANSWERS.length ||
+    getAnswerById(answerIndex) === undefined ||
     !["daily", "practice", "challenge", "archive"].includes(mode) ||
     typeof puzzleId !== "string" ||
     puzzleId.length > 100
@@ -373,7 +378,7 @@ function hydrateGame(raw, expectedDescriptor = null) {
     ? raw.guesses.slice(0, ROW_COUNT).map(validateTokenRow).filter(Boolean)
     : [];
   const current = validateCurrentRow(raw.current);
-  const answerTokens = tokenizeAlbanian(ANSWERS[answerIndex].word);
+  const answerTokens = tokenizeAlbanian(getAnswerById(answerIndex).word);
   const winningIndex = guesses.findIndex((guess) => tokensEqual(guess, answerTokens));
   const normalizedGuesses = winningIndex >= 0 ? guesses.slice(0, winningIndex + 1) : guesses;
   const status = winningIndex >= 0 ? "won" : normalizedGuesses.length >= ROW_COUNT ? "lost" : "playing";
@@ -1774,7 +1779,9 @@ function showCelebration() {
 }
 
 function getAnswer() {
-  return ANSWERS[state.answerIndex];
+  // state.answerIndex holds an immutable answer id; resolve by id so a future
+  // catalog reordering can never repoint a saved game at a different word.
+  return getAnswerById(state.answerIndex);
 }
 
 function getAnswerTokens() {
@@ -1788,22 +1795,26 @@ function elapsedSeconds() {
   return Math.max(0, Math.floor(((state.completedAt ?? Date.now()) - state.startedAt) / 1000));
 }
 
-function randomAnswerIndex(excludedIndex) {
+function randomAnswerIndex(excludedId) {
   if (ANSWERS.length <= 1) {
-    return 0;
+    return ANSWERS[0].id;
   }
 
-  let index = excludedIndex;
-  while (index === excludedIndex) {
+  let position = -1;
+  let id = excludedId;
+  while (id === excludedId) {
     if (window.crypto?.getRandomValues) {
       const value = new Uint32Array(1);
       window.crypto.getRandomValues(value);
-      index = value[0] % ANSWERS.length;
+      position = value[0] % ANSWERS.length;
     } else {
-      index = Math.floor(Math.random() * ANSWERS.length);
+      position = Math.floor(Math.random() * ANSWERS.length);
     }
+    // Return the immutable id, not the raw draw, so practice descriptors speak
+    // the same id language as daily and challenge (identical today, id == pos).
+    id = ANSWERS[position].id;
   }
-  return index;
+  return id;
 }
 
 function gameStorageKey(mode, puzzleId) {

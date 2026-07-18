@@ -3,8 +3,14 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { ALBANIAN_ALPHABET, ALBANIAN_DIGRAPHS, tokenizeAlbanian } from "../src/game.js";
-import { ACCEPTED_GUESSES, ANSWERS } from "../src/words.js";
+import {
+  ALBANIAN_ALPHABET,
+  ALBANIAN_DIGRAPHS,
+  createChallengeCode,
+  decodeChallengeCode,
+  tokenizeAlbanian,
+} from "../src/game.js";
+import { ACCEPTED_GUESSES, ANSWERS, getAnswerById } from "../src/words.js";
 import { ACCEPTED_WORD_SET, CORPUS_VERSION } from "../src/accepted-words.js";
 import {
   buildAcceptedWords,
@@ -19,6 +25,14 @@ const DICTIONARY_SHA256 =
   "8fba63fcf7320910803739cc2f0475224a7e8f38f696963d0968e6122a7c0343";
 const AFFIX_SHA256 =
   "d20b6a23431d28fe6d4e6327eedf846dbed1c3ffbb9574fdcfed4ec308422010";
+// SHA-256 over the id:word binding, one "id:word" per line. Unlike the two
+// catalog hashes above (which hash word order), this survives a future
+// reordering of ANSWERS because it pins each id to its word, not its position.
+// Reordering the array is still forbidden while legacy pre-id clients persist
+// raw array indices — this hash guards the id->word contract those clients rely
+// on. Changing it requires a deliberate, reviewed answer edit or append.
+const ANSWER_ID_BINDING_SHA256 =
+  "6ffe2b2b57c6a3bfb1b878fbdd24000daae9c56c6d3f521da4d5c426b84cd899";
 
 // The accepted-guess corpus size changes ONLY on a deliberate, reviewed corpus
 // release. corpus 2-hunspell-declared: 14,255 original five-token roots plus
@@ -144,4 +158,41 @@ test("regenerates the committed corpus byte-for-byte from vendored sources", asy
     committed,
     "src/accepted-words.js is stale; rerun scripts/build-accepted-words.mjs",
   );
+});
+
+test("assigns contiguous immutable ids that match array positions today", () => {
+  const ids = ANSWERS.map((answer) => answer.id);
+
+  // ids are exactly 0..137, unique, and equal to their current array position.
+  assert.deepEqual(ids, Array.from({ length: 138 }, (_, index) => index));
+  assert.equal(new Set(ids).size, ids.length);
+  for (const answer of ANSWERS) {
+    assert.ok(Number.isInteger(answer.id) && answer.id >= 0);
+    assert.equal(getAnswerById(answer.id), answer);
+  }
+
+  // The id->word binding is pinned independently of array order. Appending a new
+  // answer adds a line and changes this hash deliberately; reordering existing
+  // entries would NOT change it, but remains forbidden while legacy pre-id
+  // clients persist raw array indices as answerIndex.
+  const binding = ANSWERS.map((answer) => `${answer.id}:${answer.word}`).join("\n");
+  const digest = createHash("sha256").update(binding).digest("hex");
+  assert.equal(digest, ANSWER_ID_BINDING_SHA256);
+});
+
+test("keeps every challenge code byte-identical to the legacy index encoding", () => {
+  // Two anchors that must match codes shared in the wild before ids existed.
+  assert.equal(createChallengeCode(0), "SQ-PB");
+  assert.equal(getAnswerById(decodeChallengeCode("SQ-PB", ANSWERS.length)).word, "anije");
+  assert.equal(createChallengeCode(137), "SQ-4M4");
+  assert.equal(getAnswerById(decodeChallengeCode("SQ-4M4", ANSWERS.length)).word, "çorap");
+
+  // Every published answer round-trips through its id, and decode + lookup lands
+  // on the same word the raw array position holds today.
+  for (let id = 0; id < ANSWERS.length; id += 1) {
+    const code = createChallengeCode(id);
+    const decoded = decodeChallengeCode(code, ANSWERS.length);
+    assert.equal(decoded, id, `code ${code} must decode to id ${id}`);
+    assert.equal(getAnswerById(decoded).word, ANSWERS[id].word);
+  }
 });

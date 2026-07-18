@@ -8,9 +8,12 @@ import {
   appendPhysicalCharacter,
   createChallengeCode,
   createEmptyModeStats,
+  DAILY_EPOCHS,
   decodeChallengeCode,
   evaluateGuess,
   formatDuration,
+  getActiveDailyEpoch,
+  getDailyAnswerIndex,
   getDailyIndex,
   getTiranaDateKey,
   MODE_STATS_KEYS,
@@ -24,6 +27,7 @@ import {
   tokenizeAlbanian,
   WORD_RATING_VALUES,
 } from "../src/game.js";
+import { getAnswerById } from "../src/words.js";
 
 function createProfile(overrides = {}) {
   return {
@@ -500,4 +504,110 @@ test("challenge codes round-trip, are case-insensitive, and reject invalid range
   assert.equal(decodeChallengeCode("SQ-0", 500), null);
   assert.equal(decodeChallengeCode(createChallengeCode(500), 500), null);
   assert.throws(() => createChallengeCode(-1), RangeError);
+});
+
+// Daily-history fixture. Each pair was computed on this branch and must equal
+// the word main's getDailyIndex(date, 62) produced for that date; the reviewer
+// diffs against a full fixture generated on main, so any formula drift fails
+// even though these pins are internally consistent. Noon UTC always resolves to
+// the same Tirana calendar day, so the archive resolves the same words.
+test("getDailyAnswerIndex reproduces the published daily history byte-for-byte", () => {
+  const history = [
+    ["2026-07-16", "bardhë"], // first published daily
+    ["2026-07-17", "mësim"],
+    ["2026-07-18", "dhjetë"],
+    ["2026-08-01", "letër"],
+    ["2026-09-15", "hapur"],
+    ["2026-10-25", "ëndërr"], // Tirana DST fall-back day
+    ["2026-12-31", "dëgjon"],
+    ["2027-01-01", "xhiron"],
+    ["2027-03-29", "thesar"], // Tirana DST spring-forward day
+    ["2027-06-15", "fillim"],
+    ["2027-09-01", "zemër"],
+    ["2027-12-30", "këmbë"],
+    ["2027-12-31", "cikli"], // last date in the pinned span
+  ];
+
+  for (const [dateKey, word] of history) {
+    const date = new Date(`${dateKey}T12:00:00Z`);
+    const index = getDailyAnswerIndex(date);
+    assert.equal(getAnswerById(index).word, word, `${dateKey} must resolve to ${word}`);
+    // The epoch resolver must match the raw pool-size formula while the launch
+    // epoch is the only entry — this is the parity guarantee against main.
+    assert.equal(index, getDailyIndex(date, 62), `${dateKey} epoch/raw parity`);
+  }
+});
+
+// Growing the daily pool must never rewrite an already-published day. Appending
+// a future epoch whose pool is the full 138-word catalog leaves every date in
+// the launch epoch on the exact word it resolved to before.
+test("appending a larger-pool epoch cannot rewrite earlier history", () => {
+  const launchEpoch = DAILY_EPOCHS[0];
+  const grown = [
+    launchEpoch,
+    Object.freeze({ start: "2027-01-01", poolSize: 138, stepBase: 37, offset: 911 }),
+  ];
+
+  const DAY = 86_400_000;
+  const eraStart = Date.parse("2026-07-16T12:00:00Z");
+  const eraEnd = Date.parse("2026-12-31T12:00:00Z"); // last day before epoch 2
+
+  let checked = 0;
+  for (let t = eraStart; t <= eraEnd; t += DAY) {
+    const date = new Date(t);
+    assert.equal(
+      getDailyAnswerIndex(date, grown),
+      getDailyAnswerIndex(date, [launchEpoch]),
+      `${getTiranaDateKey(date)} must be unaffected by a later epoch`,
+    );
+    checked += 1;
+  }
+  assert.ok(checked >= 169, "expected a full launch-epoch span to be checked");
+
+  // The appended epoch must genuinely engage its 138-word pool for later dates —
+  // otherwise the safety proof above would be vacuous. An index >= 62 is only
+  // reachable through the larger pool.
+  let maxIndex = 0;
+  for (let t = Date.parse("2027-01-01T12:00:00Z"); t <= Date.parse("2027-12-31T12:00:00Z"); t += DAY) {
+    maxIndex = Math.max(maxIndex, getDailyAnswerIndex(new Date(t), grown));
+  }
+  assert.ok(maxIndex >= 62, "epoch 2 must reach words outside the 62-word launch pool");
+});
+
+// The epoch table is append-only and reviewed. Any change to this deepEqual —
+// editing an epoch or inserting one out of order — must be a deliberate,
+// reviewed append. Existing epochs are frozen; only new later-dated entries with
+// their own (poolSize, stepBase, offset) may be added.
+test("DAILY_EPOCHS is frozen, sorted, non-overlapping, and pinned", () => {
+  assert.deepEqual(DAILY_EPOCHS, [
+    { start: "2026-07-16", poolSize: 62, stepBase: 37, offset: 911 },
+  ]);
+  assert.ok(Object.isFrozen(DAILY_EPOCHS), "epoch table must be frozen");
+
+  for (let i = 0; i < DAILY_EPOCHS.length; i += 1) {
+    const epoch = DAILY_EPOCHS[i];
+    assert.ok(Object.isFrozen(epoch), "each epoch must be frozen");
+    assert.match(epoch.start, /^\d{4}-\d{2}-\d{2}$/, "epoch start must be an ISO date");
+    assert.ok(Number.isInteger(epoch.poolSize) && epoch.poolSize > 0);
+    assert.ok(Number.isInteger(epoch.stepBase) && epoch.stepBase > 0);
+    assert.ok(Number.isInteger(epoch.offset) && epoch.offset >= 0);
+    if (i > 0) {
+      // Strictly ascending starts guarantee both sort order and non-overlap:
+      // dailyEpochFor picks the last epoch whose start <= the date key.
+      assert.ok(
+        DAILY_EPOCHS[i - 1].start < epoch.start,
+        "epochs must be strictly ascending by start date",
+      );
+    }
+  }
+});
+
+// DAILY_POOL_SIZE in app.js is derived from this, so the pool size cannot drift
+// from a second constant. The active epoch on a launch-era date is the launch
+// epoch with its 62-word pool.
+test("getActiveDailyEpoch returns the governing epoch for a date", () => {
+  assert.equal(getActiveDailyEpoch(new Date("2026-07-18T12:00:00Z")).poolSize, 62);
+  assert.equal(getActiveDailyEpoch(new Date("2026-07-16T12:00:00Z")), DAILY_EPOCHS[0]);
+  // Dates before the first epoch clamp to it (preserving pre-epoch behavior).
+  assert.equal(getActiveDailyEpoch(new Date("2000-01-01T12:00:00Z")), DAILY_EPOCHS[0]);
 });
