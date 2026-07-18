@@ -64,7 +64,7 @@ const KEYBOARD_ROWS = Object.freeze([
   ["q", "e", "r", "rr", "t", "th", "y", "u", "i", "o"],
   ["p", "ç", "a", "s", "sh", "d", "dh", "f", "g", "gj"],
   ["h", "j", "k", "l", "ll", "ë", "z", "zh", "x", "xh"],
-  ["enter", "c", "v", "b", "n", "nj", "m", "backspace"],
+  ["c", "v", "b", "n", "nj", "m", "backspace", "enter"],
 ]);
 
 const ALBANIAN_MONTHS_SHORT = Object.freeze([
@@ -1080,6 +1080,20 @@ function renderBoard() {
 
     elements.board.append(row);
   }
+
+  syncEnterReady();
+}
+
+// Toggle the Enter key's ready accent from the existing per-input render path
+// (renderBoard runs on every letter add/remove) without re-rendering the whole
+// keyboard. renderKeyboard sets the same class when it rebuilds the key.
+function syncEnterReady() {
+  const enterKey = elements.keyboard.querySelector('button[data-key="enter"]');
+  if (!enterKey) {
+    return;
+  }
+  const ready = state.status === "playing" && state.current.length === COLUMN_COUNT;
+  enterKey.classList.toggle("is-ready", ready);
 }
 
 function renderKeyboard() {
@@ -1112,6 +1126,9 @@ function renderKeyboard() {
 
       if (value === "enter") {
         key.classList.add("is-wide");
+        if (state.status === "playing" && state.current.length === COLUMN_COUNT) {
+          key.classList.add("is-ready");
+        }
         key.setAttribute("aria-label", "Provo fjalën");
         key.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 5v7H6"></path><path d="m10 8-4 4 4 4"></path></svg>';
       } else if (value === "backspace") {

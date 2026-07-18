@@ -551,15 +551,18 @@
     display: block;
   }
 
-  /* Digraphs render as two clearly separate glyphs inside the single tile:
-     a moderately smaller font plus positive tracking gives the pair visible
-     air ("D H" feel) while leaving generous padding on each side. The negative
-     right margin cancels the trailing letter-spacing so the pair stays
-     optically centred. Weight and vertical centring match single letters. */
+  /* A digraph is one grapheme of the Albanian alphabet, so its tile must read as
+     the same optical size and weight as a single-letter tile. The font size sits
+     just under the single-letter size (0.95em) so the two-glyph pair matches the
+     cap height of one glyph, and a mild negative tracking condenses the pair into
+     one compact unit — this keeps the pair's footprint the same as the previous
+     (smaller) design while gaining ~19% cap height. The positive right margin
+     cancels the trailing letter-spacing so the pair stays optically centred.
+     To revert to the previous look, restore 0.8em / 0.06em / -0.06em. */
   .tile.is-digraph .tile-letter {
-    font-size: 0.8em;
-    letter-spacing: 0.06em;
-    margin-right: -0.06em;
+    font-size: 0.95em;
+    letter-spacing: -0.03em;
+    margin-right: 0.03em;
   }
 
   .tile.is-filled:not(.is-correct, .is-present, .is-absent) {
@@ -711,6 +714,23 @@
 
   .key.is-wide {
     flex-grow: 1.55;
+  }
+
+  /* The Enter key adopts the brand accent (same tokens as .brand-mark and the
+     primary buttons) once the current row holds five letters, signalling it is
+     ready to submit; it returns to neutral below five letters. */
+  .key.is-ready {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  /* Keep the ready accent on desktop hover instead of reverting to the neutral
+     hover surface (the pointer guard requires this to live in a hover block). */
+  @media (hover: hover) {
+    .key.is-ready:hover:not(:disabled) {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
   }
 
   .key svg {
@@ -1881,6 +1901,17 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
+}
+
+/* On the post-game screen the result panel becomes visible and reorders to the
+   top of the side column (order: -1), so the hint card is no longer the first
+   *visual* section even though it is still the DOM :first-child. Restore its full
+   top padding there so the hint and Besa cards keep identical vertical rhythm
+   sitting side by side. This rule is intentionally unlayered (and unscoped by
+   width) so it overrides both the layered desktop and the unlayered mobile
+   `.side-section:first-child` top-padding reductions in every state. */
+.side-column:has(.result-panel:not([hidden])) .side-section:first-child {
+  padding-top: 20px;
 }
 
 @keyframes tile-pop {
