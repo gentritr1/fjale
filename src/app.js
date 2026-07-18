@@ -64,7 +64,7 @@ const KEYBOARD_ROWS = Object.freeze([
   ["q", "e", "r", "rr", "t", "th", "y", "u", "i", "o"],
   ["p", "ç", "a", "s", "sh", "d", "dh", "f", "g", "gj"],
   ["h", "j", "k", "l", "ll", "ë", "z", "zh", "x", "xh"],
-  ["enter", "c", "v", "b", "n", "nj", "m", "backspace"],
+  ["c", "v", "b", "n", "nj", "m", "backspace", "enter"],
 ]);
 
 const ALBANIAN_MONTHS_SHORT = Object.freeze([
@@ -1080,6 +1080,20 @@ function renderBoard() {
 
     elements.board.append(row);
   }
+
+  syncEnterReady();
+}
+
+// Toggle the Enter key's ready accent from the existing per-input render path
+// (renderBoard runs on every letter add/remove) without re-rendering the whole
+// keyboard. renderKeyboard sets the same class when it rebuilds the key.
+function syncEnterReady() {
+  const enterKey = elements.keyboard.querySelector('button[data-key="enter"]');
+  if (!enterKey) {
+    return;
+  }
+  const ready = state.status === "playing" && state.current.length === COLUMN_COUNT;
+  enterKey.classList.toggle("is-ready", ready);
 }
 
 function renderKeyboard() {
@@ -1112,6 +1126,9 @@ function renderKeyboard() {
 
       if (value === "enter") {
         key.classList.add("is-wide");
+        if (state.status === "playing" && state.current.length === COLUMN_COUNT) {
+          key.classList.add("is-ready");
+        }
         key.setAttribute("aria-label", "Provo fjalën");
         key.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 5v7H6"></path><path d="m10 8-4 4 4 4"></path></svg>';
       } else if (value === "backspace") {
@@ -1339,6 +1356,20 @@ function formatWinRate(won, played) {
 
 function renderDistribution(container, distribution, highlightGuesses) {
   const maxValue = Math.max(1, ...distribution);
+
+  // Screen-reader summary: name the modal bucket so the chart's shape is
+  // available without stepping through every bar. role="group" keeps the
+  // per-row numbers reachable beneath the label.
+  const totalWins = distribution.reduce((sum, value) => sum + value, 0);
+  const modalGuesses = distribution.indexOf(Math.max(...distribution)) + 1;
+  container.setAttribute("role", "group");
+  container.setAttribute(
+    "aria-label",
+    totalWins === 0
+      ? "Shpërndarja e fitoreve: ende pa fitore."
+      : `Shpërndarja e fitoreve: shumica e fitoreve në ${modalGuesses} ${modalGuesses === 1 ? "provë" : "prova"}.`,
+  );
+
   container.replaceChildren();
   distribution.forEach((value, index) => {
     const row = document.createElement("div");
@@ -1740,7 +1771,7 @@ function showToast(message) {
   window.clearTimeout(toastTimer);
   elements.toast.textContent = message;
   elements.toast.classList.add("is-visible");
-  toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 2400);
+  toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 3200);
   announce(message);
 }
 

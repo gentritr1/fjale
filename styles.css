@@ -153,6 +153,11 @@
     --line-strong: oklch(0.3 0 0);
     --correct: oklch(0.39 0.16 145);
     --present: oklch(0.47 0.16 65);
+    /* The darkened high-contrast present tile needs white text: the default
+       near-black --on-present reaches only ~2.75:1 on this background. The
+       dark high-contrast blocks below re-declare the dark pairing because
+       this selector matches in dark mode too. */
+    --on-present: oklch(1 0 0);
     --absent: oklch(0.26 0 0);
   }
 
@@ -164,6 +169,7 @@
     --line-strong: oklch(0.82 0 0);
     --correct: oklch(0.62 0.17 145);
     --present: oklch(0.72 0.16 75);
+    --on-present: oklch(0.16 0.014 65);
     --absent: oklch(0.5 0 0);
   }
 
@@ -176,6 +182,7 @@
       --line-strong: oklch(0.82 0 0);
       --correct: oklch(0.62 0.17 145);
       --present: oklch(0.72 0.16 75);
+      --on-present: oklch(0.16 0.014 65);
       --absent: oklch(0.5 0 0);
     }
   }
@@ -317,6 +324,13 @@
   .icon-button svg {
     width: 21px;
     height: 21px;
+  }
+
+  .icon-button .icon-gear {
+    /* The gear glyph fills 19/24 of its canvas vs ~14/24 for its siblings;
+       render it smaller so all header icons read as the same optical size. */
+    width: 18px;
+    height: 18px;
   }
 
   @media (hover: hover) {
@@ -551,15 +565,18 @@
     display: block;
   }
 
-  /* Digraphs render as two clearly separate glyphs inside the single tile:
-     a moderately smaller font plus positive tracking gives the pair visible
-     air ("D H" feel) while leaving generous padding on each side. The negative
-     right margin cancels the trailing letter-spacing so the pair stays
-     optically centred. Weight and vertical centring match single letters. */
+  /* A digraph is one grapheme of the Albanian alphabet, so its tile must read as
+     the same optical size and weight as a single-letter tile. The font size sits
+     just under the single-letter size (0.95em) so the two-glyph pair matches the
+     cap height of one glyph, and a mild negative tracking condenses the pair into
+     one compact unit — this keeps the pair's footprint the same as the previous
+     (smaller) design while gaining ~19% cap height. The positive right margin
+     cancels the trailing letter-spacing so the pair stays optically centred.
+     To revert to the previous look, restore 0.8em / 0.06em / -0.06em. */
   .tile.is-digraph .tile-letter {
-    font-size: 0.8em;
-    letter-spacing: 0.06em;
-    margin-right: -0.06em;
+    font-size: 0.95em;
+    letter-spacing: -0.03em;
+    margin-right: 0.03em;
   }
 
   .tile.is-filled:not(.is-correct, .is-present, .is-absent) {
@@ -711,6 +728,23 @@
 
   .key.is-wide {
     flex-grow: 1.55;
+  }
+
+  /* The Enter key adopts the brand accent (same tokens as .brand-mark and the
+     primary buttons) once the current row holds five letters, signalling it is
+     ready to submit; it returns to neutral below five letters. */
+  .key.is-ready {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  /* Keep the ready accent on desktop hover instead of reverting to the neutral
+     hover surface (the pointer guard requires this to live in a hover block). */
+  @media (hover: hover) {
+    .key.is-ready:hover:not(:disabled) {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
   }
 
   .key svg {
@@ -1049,7 +1083,7 @@
   .side-footnote {
     padding-top: 17px;
     color: var(--faint);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 720;
     text-align: center;
   }
@@ -1371,7 +1405,7 @@
   .stats-summary span {
     margin-top: 3px;
     color: var(--muted);
-    font-size: 0.69rem;
+    font-size: 0.72rem;
     text-align: center;
   }
 
@@ -1429,12 +1463,29 @@
   }
 
   .board-report {
+    /* Reserve the report link's row permanently (32px link + 2px padding) so
+       the keyboard does not jump when a rejected word shows/hides the link. */
+    min-height: 34px;
     padding: 2px 8px 0;
     text-align: center;
   }
 
   .board-report[hidden] {
-    display: none;
+    /* Keep the reserved box in the layout; just make it invisible. */
+    display: block;
+    visibility: hidden;
+  }
+
+  @media (max-height: 700px) {
+    .board-report {
+      /* Short viewports: the keyboard already sits near the fold, so a
+         permanent 34px reservation costs more than the occasional jump. */
+      min-height: 0;
+    }
+
+    .board-report[hidden] {
+      display: none;
+    }
   }
 
   .report-link {
@@ -1585,7 +1636,7 @@
   .calendar-weekday {
     padding: 0 0 4px;
     color: var(--faint);
-    font-size: 0.64rem;
+    font-size: 0.72rem;
     font-weight: 780;
     text-align: center;
     text-transform: uppercase;
@@ -1722,7 +1773,7 @@
   }
 
   .setting-row select {
-    min-height: 38px;
+    min-height: 44px;
     padding: 0 28px 0 10px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
@@ -1771,20 +1822,30 @@
     font-size: 0.72rem;
   }
 
+  /* Centred with inset-inline: 0 + auto margins rather than left: 50% +
+     translateX(-50%): with a left offset, a fixed element's shrink-to-fit width
+     is computed against the space to the right of `left` — only half the
+     viewport — which squeezed the text to one word per line on phones and
+     pushed the buttons past the banner edge. width: fit-content restores
+     shrink-to-fit against the full viewport (desktop keeps its exact previous
+     width), and flex-wrap lets the action buttons drop to their own row,
+     right-aligned, once the single line no longer fits. */
   .update-banner {
     position: fixed;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
+    inset-inline: 0;
     z-index: var(--z-toast);
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 14px;
+    width: fit-content;
     max-width: min(calc(100% - 32px), 480px);
+    margin-inline: auto;
     padding: 10px 10px 10px 18px;
     border-radius: var(--radius-sm);
     background: var(--ink);
     color: var(--bg);
-    transform: translateX(-50%);
     box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
   }
 
@@ -1802,6 +1863,9 @@
     display: flex;
     flex-shrink: 0;
     gap: 8px;
+    /* No effect on the one-line layout (shrink-to-fit leaves no free space);
+       on the wrapped narrow layout it right-aligns the buttons' row. */
+    margin-left: auto;
   }
 
   .update-refresh,
@@ -1881,6 +1945,17 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
+}
+
+/* On the post-game screen the result panel becomes visible and reorders to the
+   top of the side column (order: -1), so the hint card is no longer the first
+   *visual* section even though it is still the DOM :first-child. Restore its full
+   top padding there so the hint and Besa cards keep identical vertical rhythm
+   sitting side by side. This rule is intentionally unlayered (and unscoped by
+   width) so it overrides both the layered desktop and the unlayered mobile
+   `.side-section:first-child` top-padding reductions in every state. */
+.side-column:has(.result-panel:not([hidden])) .side-section:first-child {
+  padding-top: 20px;
 }
 
 @keyframes tile-pop {
@@ -1974,7 +2049,15 @@
   }
 
   .header-actions {
-    gap: 0;
+    /* Breathing room between the three 44px tap targets; verified not to
+       overflow at 320px. */
+    gap: 4px;
+  }
+
+  .brand > span:last-child {
+    /* Below 600px the centered wordmark collides with the action cluster
+       (visible ~390-430px); the Ë chip alone carries the brand on mobile. */
+    display: none;
   }
 
   .icon-button {
@@ -1985,6 +2068,11 @@
   .header-actions .icon-button svg {
     width: 19px;
     height: 19px;
+  }
+
+  .header-actions .icon-button .icon-gear {
+    width: 16px;
+    height: 16px;
   }
 
   .game-shell {
@@ -2113,10 +2201,6 @@
 
   .stats-daily .stats-summary strong {
     font-size: 1.35rem;
-  }
-
-  .stats-summary span {
-    font-size: 0.62rem;
   }
 }
 
