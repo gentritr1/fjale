@@ -2054,6 +2054,12 @@
     gap: 4px;
   }
 
+  .brand > span:last-child {
+    /* Below 600px the centered wordmark collides with the action cluster
+       (visible ~390-430px); the Ë chip alone carries the brand on mobile. */
+    display: none;
+  }
+
   .icon-button {
     width: 44px;
     height: 44px;
