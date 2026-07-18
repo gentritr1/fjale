@@ -69,6 +69,7 @@ function tokenizeAlbanian(word) {
 
 const ANSWER_ENTRIES = [
   {
+    id: 0,
     word: "anije",
     partOfSpeech: "emër",
     syllables: "a-ni-je",
@@ -78,6 +79,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 1,
     word: "ardhje",
     partOfSpeech: "emër",
     syllables: "ardh-je",
@@ -87,6 +89,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 2,
     word: "arushë",
     partOfSpeech: "emër",
     syllables: "a-ru-shë",
@@ -96,6 +99,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 3,
     word: "babai",
     partOfSpeech: "emër",
     syllables: "ba-ba-i",
@@ -105,6 +109,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 4,
     word: "bagazh",
     partOfSpeech: "emër",
     syllables: "ba-gazh",
@@ -114,6 +119,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 5,
     word: "bardhë",
     partOfSpeech: "mbiemër",
     syllables: "bar-dhë",
@@ -123,6 +129,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 6,
     word: "besim",
     partOfSpeech: "emër",
     syllables: "be-sim",
@@ -132,6 +139,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 7,
     word: "bregu",
     partOfSpeech: "emër",
     syllables: "bre-gu",
@@ -141,6 +149,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 8,
     word: "bukur",
     partOfSpeech: "mbiemër",
     syllables: "bu-kur",
@@ -150,6 +159,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 9,
     word: "buxhet",
     partOfSpeech: "emër",
     syllables: "bu-xhet",
@@ -159,6 +169,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 10,
     word: "cikli",
     partOfSpeech: "emër",
     syllables: "ci-kli",
@@ -168,6 +179,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 11,
     word: "çekiç",
     partOfSpeech: "emër",
     syllables: "çe-kiç",
@@ -177,6 +189,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 12,
     word: "dallgë",
     partOfSpeech: "emër",
     syllables: "dall-gë",
@@ -186,6 +199,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 13,
     word: "dardhë",
     partOfSpeech: "emër",
     syllables: "dar-dhë",
@@ -195,6 +209,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 14,
     word: "darkë",
     partOfSpeech: "emër",
     syllables: "dar-kë",
@@ -204,6 +219,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 15,
     word: "dashur",
     partOfSpeech: "mbiemër / pjesore",
     syllables: "da-shur",
@@ -213,6 +229,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 16,
     word: "detar",
     partOfSpeech: "emër",
     syllables: "de-tar",
@@ -222,6 +239,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 17,
     word: "dhjetë",
     partOfSpeech: "numëror",
     syllables: "dhje-të",
@@ -231,6 +249,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 18,
     word: "dimër",
     partOfSpeech: "emër",
     syllables: "di-mër",
@@ -240,6 +259,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 19,
     word: "djalë",
     partOfSpeech: "emër",
     syllables: "dja-lë",
@@ -249,6 +269,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 20,
     word: "dritë",
     partOfSpeech: "emër",
     syllables: "dri-të",
@@ -258,6 +279,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 21,
     word: "dëgjon",
     partOfSpeech: "folje",
     syllables: "dë-gjon",
@@ -267,6 +289,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 22,
     word: "ëndërr",
     partOfSpeech: "emër",
     syllables: "ën-dërr",
@@ -276,6 +299,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 23,
     word: "falje",
     partOfSpeech: "emër",
     syllables: "fal-je",
@@ -285,6 +309,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 24,
     word: "festa",
     partOfSpeech: "emër",
     syllables: "fes-ta",
@@ -294,6 +319,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 25,
     word: "fillim",
     partOfSpeech: "emër",
     syllables: "fi-llim",
@@ -303,6 +329,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 26,
     word: "fjalë",
     partOfSpeech: "emër",
     syllables: "fja-lë",
@@ -312,6 +339,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 27,
     word: "fshati",
     partOfSpeech: "emër",
     syllables: "fsha-ti",
@@ -321,6 +349,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 28,
     word: "gabim",
     partOfSpeech: "emër",
     syllables: "ga-bim",
@@ -330,6 +359,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 29,
     word: "gjashtë",
     partOfSpeech: "numëror",
     syllables: "gjash-të",
@@ -339,6 +369,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 30,
     word: "hapur",
     partOfSpeech: "mbiemër / pjesore",
     syllables: "ha-pur",
@@ -348,6 +379,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 31,
     word: "harta",
     partOfSpeech: "emër",
     syllables: "har-ta",
@@ -357,6 +389,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 32,
     word: "hundë",
     partOfSpeech: "emër",
     syllables: "hun-dë",
@@ -366,6 +399,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 33,
     word: "kafshë",
     partOfSpeech: "emër",
     syllables: "kaf-shë",
@@ -375,6 +409,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 34,
     word: "katër",
     partOfSpeech: "numëror",
     syllables: "ka-tër",
@@ -384,6 +419,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 35,
     word: "këmbë",
     partOfSpeech: "emër",
     syllables: "këm-bë",
@@ -393,6 +429,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 36,
     word: "kopsht",
     partOfSpeech: "emër",
     syllables: "kopsht",
@@ -402,6 +439,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 37,
     word: "korrje",
     partOfSpeech: "emër",
     syllables: "korr-je",
@@ -411,6 +449,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 38,
     word: "lepur",
     partOfSpeech: "emër",
     syllables: "le-pur",
@@ -420,6 +459,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 39,
     word: "letër",
     partOfSpeech: "emër",
     syllables: "le-tër",
@@ -429,6 +469,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 40,
     word: "libër",
     partOfSpeech: "emër",
     syllables: "li-bër",
@@ -438,6 +479,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 41,
     word: "llambë",
     partOfSpeech: "emër",
     syllables: "llam-bë",
@@ -447,6 +489,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 42,
     word: "mësim",
     partOfSpeech: "emër",
     syllables: "më-sim",
@@ -456,6 +499,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 43,
     word: "ngjyrë",
     partOfSpeech: "emër",
     syllables: "ngjy-rë",
@@ -465,6 +509,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 44,
     word: "njohje",
     partOfSpeech: "emër",
     syllables: "njoh-je",
@@ -474,6 +519,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 45,
     word: "njëzet",
     partOfSpeech: "numëror",
     syllables: "një-zet",
@@ -483,6 +529,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 46,
     word: "qytet",
     partOfSpeech: "emër",
     syllables: "qy-tet",
@@ -492,6 +539,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 47,
     word: "rregull",
     partOfSpeech: "emër",
     syllables: "rre-gull",
@@ -501,6 +549,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 48,
     word: "sheqer",
     partOfSpeech: "emër",
     syllables: "she-qer",
@@ -510,6 +559,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 49,
     word: "shkollë",
     partOfSpeech: "emër",
     syllables: "shko-llë",
@@ -519,6 +569,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 50,
     word: "shtrat",
     partOfSpeech: "emër",
     syllables: "shtrat",
@@ -528,6 +579,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 51,
     word: "shtëpi",
     partOfSpeech: "emër",
     syllables: "shtë-pi",
@@ -537,6 +589,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 52,
     word: "themel",
     partOfSpeech: "emër",
     syllables: "the-mel",
@@ -546,6 +599,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 53,
     word: "thesar",
     partOfSpeech: "emër",
     syllables: "the-sar",
@@ -555,6 +609,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 54,
     word: "thënie",
     partOfSpeech: "emër",
     syllables: "thë-ni-e",
@@ -564,6 +619,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 55,
     word: "vajzë",
     partOfSpeech: "emër",
     syllables: "vaj-zë",
@@ -573,6 +629,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 56,
     word: "verdhë",
     partOfSpeech: "mbiemër",
     syllables: "ver-dhë",
@@ -582,6 +639,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 57,
     word: "xunkth",
     partOfSpeech: "emër",
     syllables: "xunkth",
@@ -591,6 +649,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 58,
     word: "xhiron",
     partOfSpeech: "folje",
     syllables: "xhi-ron",
@@ -600,6 +659,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 59,
     word: "zemër",
     partOfSpeech: "emër",
     syllables: "ze-mër",
@@ -609,6 +669,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 60,
     word: "zhurmë",
     partOfSpeech: "emër",
     syllables: "zhur-më",
@@ -618,6 +679,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 61,
     word: "zhytur",
     partOfSpeech: "mbiemër / pjesore",
     syllables: "zhy-tur",
@@ -627,6 +689,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 62,
     word: "balta",
     partOfSpeech: "emër",
     syllables: "bal-ta",
@@ -636,6 +699,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 63,
     word: "banka",
     partOfSpeech: "emër",
     syllables: "ban-ka",
@@ -645,6 +709,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 64,
     word: "bishti",
     partOfSpeech: "emër",
     syllables: "bish-ti",
@@ -654,6 +719,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 65,
     word: "brumë",
     partOfSpeech: "emër",
     syllables: "bru-më",
@@ -663,6 +729,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 66,
     word: "bujku",
     partOfSpeech: "emër",
     syllables: "buj-ku",
@@ -672,6 +739,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 67,
     word: "byrek",
     partOfSpeech: "emër",
     syllables: "by-rek",
@@ -681,6 +749,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 68,
     word: "delja",
     partOfSpeech: "emër",
     syllables: "de-lja",
@@ -690,6 +759,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 69,
     word: "dhëmbi",
     partOfSpeech: "emër",
     syllables: "dhëm-bi",
@@ -699,6 +769,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 70,
     word: "djathë",
     partOfSpeech: "emër",
     syllables: "dja-thë",
@@ -708,6 +779,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 71,
     word: "dollap",
     partOfSpeech: "emër",
     syllables: "do-llap",
@@ -717,6 +789,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 72,
     word: "druri",
     partOfSpeech: "emër",
     syllables: "dru-ri",
@@ -726,6 +799,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 73,
     word: "flaka",
     partOfSpeech: "emër",
     syllables: "fla-ka",
@@ -735,6 +809,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 74,
     word: "flladi",
     partOfSpeech: "emër",
     syllables: "flla-di",
@@ -744,6 +819,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 75,
     word: "flokë",
     partOfSpeech: "emër",
     syllables: "flo-kë",
@@ -753,6 +829,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 76,
     word: "frika",
     partOfSpeech: "emër",
     syllables: "fri-ka",
@@ -762,6 +839,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 77,
     word: "fruta",
     partOfSpeech: "emër",
     syllables: "fru-ta",
@@ -771,6 +849,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 78,
     word: "gishti",
     partOfSpeech: "emër",
     syllables: "gish-ti",
@@ -780,6 +859,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 79,
     word: "gjalpë",
     partOfSpeech: "emër",
     syllables: "gjal-pë",
@@ -789,6 +869,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 80,
     word: "gjoksi",
     partOfSpeech: "emër",
     syllables: "gjok-si",
@@ -798,6 +879,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 81,
     word: "gjueti",
     partOfSpeech: "emër",
     syllables: "gju-e-ti",
@@ -807,6 +889,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 82,
     word: "gryka",
     partOfSpeech: "emër",
     syllables: "gry-ka",
@@ -816,6 +899,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 83,
     word: "gëzim",
     partOfSpeech: "emër",
     syllables: "gë-zim",
@@ -825,6 +909,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 84,
     word: "gëzof",
     partOfSpeech: "emër",
     syllables: "gë-zof",
@@ -834,6 +919,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 85,
     word: "hudhra",
     partOfSpeech: "emër",
     syllables: "hudh-ra",
@@ -843,6 +929,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 86,
     word: "kajsi",
     partOfSpeech: "emër",
     syllables: "kaj-si",
@@ -852,6 +939,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 87,
     word: "kazan",
     partOfSpeech: "emër",
     syllables: "ka-zan",
@@ -861,6 +949,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 88,
     word: "klasa",
     partOfSpeech: "emër",
     syllables: "kla-sa",
@@ -870,6 +959,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 89,
     word: "kodra",
     partOfSpeech: "emër",
     syllables: "ko-dra",
@@ -879,6 +969,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 90,
     word: "krahu",
     partOfSpeech: "emër",
     syllables: "kra-hu",
@@ -888,6 +979,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 91,
     word: "kripë",
     partOfSpeech: "emër",
     syllables: "kri-pë",
@@ -897,6 +989,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 92,
     word: "lajthi",
     partOfSpeech: "emër",
     syllables: "laj-thi",
@@ -906,6 +999,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 93,
     word: "lakër",
     partOfSpeech: "emër",
     syllables: "la-kër",
@@ -915,6 +1009,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 94,
     word: "lapsi",
     partOfSpeech: "emër",
     syllables: "lap-si",
@@ -924,6 +1019,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 95,
     word: "limon",
     partOfSpeech: "emër",
     syllables: "li-mon",
@@ -933,6 +1029,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 96,
     word: "livadh",
     partOfSpeech: "emër",
     syllables: "li-vadh",
@@ -942,6 +1039,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 97,
     word: "llamba",
     partOfSpeech: "emër",
     syllables: "llam-ba",
@@ -951,6 +1049,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 98,
     word: "macja",
     partOfSpeech: "emër",
     syllables: "ma-cja",
@@ -960,6 +1059,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 99,
     word: "mbesa",
     partOfSpeech: "emër",
     syllables: "mbe-sa",
@@ -969,6 +1069,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 100,
     word: "mielli",
     partOfSpeech: "emër",
     syllables: "mi-e-lli",
@@ -978,6 +1079,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 101,
     word: "mjeku",
     partOfSpeech: "emër",
     syllables: "mje-ku",
@@ -987,6 +1089,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 102,
     word: "motra",
     partOfSpeech: "emër",
     syllables: "mo-tra",
@@ -996,6 +1099,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 103,
     word: "ngjala",
     partOfSpeech: "emër",
     syllables: "ngja-la",
@@ -1005,6 +1109,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 104,
     word: "pjata",
     partOfSpeech: "emër",
     syllables: "pja-ta",
@@ -1014,6 +1119,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 105,
     word: "polic",
     partOfSpeech: "emër",
     syllables: "po-lic",
@@ -1023,6 +1129,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 106,
     word: "pupla",
     partOfSpeech: "emër",
     syllables: "pu-pla",
@@ -1032,6 +1139,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 107,
     word: "putra",
     partOfSpeech: "emër",
     syllables: "pu-tra",
@@ -1041,6 +1149,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 108,
     word: "qershi",
     partOfSpeech: "emër",
     syllables: "qer-shi",
@@ -1050,6 +1159,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 109,
     word: "qeshje",
     partOfSpeech: "emër",
     syllables: "qesh-je",
@@ -1059,6 +1169,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 110,
     word: "qielli",
     partOfSpeech: "emër",
     syllables: "qi-e-lli",
@@ -1068,6 +1179,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 111,
     word: "qymyr",
     partOfSpeech: "emër",
     syllables: "qy-myr",
@@ -1077,6 +1189,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 112,
     word: "rosak",
     partOfSpeech: "emër",
     syllables: "ro-sak",
@@ -1086,6 +1199,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 113,
     word: "rrezik",
     partOfSpeech: "emër",
     syllables: "rre-zik",
@@ -1095,6 +1209,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 114,
     word: "rruaza",
     partOfSpeech: "emër",
     syllables: "rru-a-za",
@@ -1104,6 +1219,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 115,
     word: "rrëfim",
     partOfSpeech: "emër",
     syllables: "rrë-fim",
@@ -1113,6 +1229,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 116,
     word: "salcë",
     partOfSpeech: "emër",
     syllables: "sal-cë",
@@ -1122,6 +1239,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 117,
     word: "shalqi",
     partOfSpeech: "emër",
     syllables: "shal-qi",
@@ -1131,6 +1249,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 118,
     word: "shkëmb",
     partOfSpeech: "emër",
     syllables: "shkëmb",
@@ -1140,6 +1259,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 119,
     word: "shpejt",
     partOfSpeech: "ndajfolje",
     syllables: "shpejt",
@@ -1149,6 +1269,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 120,
     word: "shpellë",
     partOfSpeech: "emër",
     syllables: "shpe-llë",
@@ -1158,6 +1279,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 121,
     word: "shpina",
     partOfSpeech: "emër",
     syllables: "shpi-na",
@@ -1167,6 +1289,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 122,
     word: "shpirt",
     partOfSpeech: "emër",
     syllables: "shpirt",
@@ -1176,6 +1299,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 123,
     word: "shtati",
     partOfSpeech: "emër",
     syllables: "shta-ti",
@@ -1185,6 +1309,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 124,
     word: "shtyllë",
     partOfSpeech: "emër",
     syllables: "shty-llë",
@@ -1194,6 +1319,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 125,
     word: "speca",
     partOfSpeech: "emër",
     syllables: "spe-ca",
@@ -1203,6 +1329,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 126,
     word: "stinë",
     partOfSpeech: "emër",
     syllables: "sti-në",
@@ -1212,6 +1339,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 127,
     word: "stuhi",
     partOfSpeech: "emër",
     syllables: "stu-hi",
@@ -1221,6 +1349,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 128,
     word: "tigan",
     partOfSpeech: "emër",
     syllables: "ti-gan",
@@ -1230,6 +1359,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 129,
     word: "tigri",
     partOfSpeech: "emër",
     syllables: "ti-gri",
@@ -1239,6 +1369,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 130,
     word: "trung",
     partOfSpeech: "emër",
     syllables: "trung",
@@ -1248,6 +1379,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 131,
     word: "xhezve",
     partOfSpeech: "emër",
     syllables: "xhez-ve",
@@ -1257,6 +1389,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 132,
     word: "çekan",
     partOfSpeech: "emër",
     syllables: "çe-kan",
@@ -1266,6 +1399,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 133,
     word: "çelik",
     partOfSpeech: "emër",
     syllables: "çe-lik",
@@ -1275,6 +1409,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 134,
     word: "çelës",
     partOfSpeech: "emër",
     syllables: "çe-lës",
@@ -1284,6 +1419,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 135,
     word: "çezmë",
     partOfSpeech: "emër",
     syllables: "çez-më",
@@ -1293,6 +1429,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 136,
     word: "çizme",
     partOfSpeech: "emër",
     syllables: "çiz-me",
@@ -1302,6 +1439,7 @@ const ANSWER_ENTRIES = [
     region: "standard",
   },
   {
+    id: 137,
     word: "çorap",
     partOfSpeech: "emër",
     syllables: "ço-rap",
@@ -1323,13 +1461,29 @@ const REQUIRED_METADATA_FIELDS = [
 ];
 
 const seenAnswers = new Set();
+const seenIds = new Set();
 
-for (const answer of ANSWER_ENTRIES) {
+ANSWER_ENTRIES.forEach((answer, position) => {
   for (const field of REQUIRED_METADATA_FIELDS) {
     if (typeof answer[field] !== "string" || answer[field].trim() === "") {
       throw new Error(`Answer ${answer.word ?? "<unknown>"} is missing ${field}`);
     }
   }
+
+  // Immutable answer ids are append-only: each new entry takes the next integer
+  // and an id is never reused or reassigned, so a challenge link or saved game
+  // that stored an id always resolves to the same word. Today, before any
+  // reordering, an entry's id equals its array position; that invariant is the
+  // bridge for legacy pre-id clients that persisted the raw array index.
+  if (answer.id !== position) {
+    throw new Error(`Answer ${answer.word} must carry id ${position}`);
+  }
+
+  if (seenIds.has(answer.id)) {
+    throw new Error(`Duplicate answer id: ${answer.id}`);
+  }
+
+  seenIds.add(answer.id);
 
   const tokens = tokenizeAlbanian(answer.word);
   if (tokens === null || tokens.length !== 5) {
@@ -1349,9 +1503,19 @@ for (const answer of ANSWER_ENTRIES) {
   }
 
   seenAnswers.add(answer.word);
-}
+});
 
 export const ANSWERS = Object.freeze(ANSWER_ENTRIES.map((answer) => Object.freeze(answer)));
+
+// Resolve answers by their immutable id rather than array position. This is the
+// lookup callers use for daily words and shared challenge links, so a future
+// catalog reordering (still forbidden while legacy pre-id clients exist) could
+// never repoint an id at a different word.
+const ANSWERS_BY_ID = new Map(ANSWERS.map((answer) => [answer.id, answer]));
+
+export function getAnswerById(id) {
+  return ANSWERS_BY_ID.get(id);
+}
 
 export const ACCEPTED_GUESSES = new Set(ACCEPTED_WORD_SET);
 

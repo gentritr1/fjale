@@ -81,6 +81,17 @@ const CHALLENGE_MULTIPLIER = 37;
 export const COMPLETED_PUZZLES_CAP = 4_000;
 const CHALLENGE_OFFSET = 911;
 
+// Each epoch freezes the daily-rotation formula for the span that starts on its
+// Tirana date. The rotation index depends on poolSize, so once a pool ships its
+// parameters are immutable — the ONLY way to grow the daily pool is to append a
+// new epoch with the later start date and the larger poolSize. Appending never
+// touches the words any earlier date resolved to, so history and shared
+// challenge links stay byte-stable. Entries are ordered by ascending start,
+// never overlap, and this table is append-only and reviewed (see tests).
+export const DAILY_EPOCHS = Object.freeze([
+  Object.freeze({ start: "2026-07-16", poolSize: 62, stepBase: 37, offset: 911 }),
+]);
+
 export function normalizeWord(word) {
   return String(word ?? "")
     .trim()
@@ -263,24 +274,61 @@ export function secondsUntilNextTiranaDay(date = new Date()) {
   return Math.max(0, Math.ceil((midnightEpoch - parsedDate.getTime()) / 1000));
 }
 
-export function getDailyIndex(date, count) {
-  if (!Number.isSafeInteger(count) || count <= 0) {
+// Pure rotation math shared by getDailyIndex and the epoch-aware resolver. The
+// index is a function of the Tirana calendar day and the (poolSize, stepBase,
+// offset) triple only, so identical parameters always yield identical history.
+function rotationIndex(date, poolSize, stepBase, offset) {
+  if (!Number.isSafeInteger(poolSize) || poolSize <= 0) {
     throw new RangeError("count must be a positive integer");
   }
 
-  if (count === 1) {
+  if (poolSize === 1) {
     return 0;
   }
 
   const [year, month, day] = getTiranaDateKey(date).split("-").map(Number);
   const dayNumber = Math.floor(Date.UTC(year, month - 1, day) / DAY_IN_MILLISECONDS);
-  let step = DAILY_STEP_BASE % count || 1;
+  let step = stepBase % poolSize || 1;
 
-  while (greatestCommonDivisor(step, count) !== 1) {
-    step = (step + 1) % count || 1;
+  while (greatestCommonDivisor(step, poolSize) !== 1) {
+    step = (step + 1) % poolSize || 1;
   }
 
-  return ((dayNumber * step + DAILY_OFFSET) % count + count) % count;
+  return ((dayNumber * step + offset) % poolSize + poolSize) % poolSize;
+}
+
+export function getDailyIndex(date, count) {
+  return rotationIndex(date, count, DAILY_STEP_BASE, DAILY_OFFSET);
+}
+
+// Pick the last epoch whose start date is on or before the Tirana date key.
+// Dates before the first epoch clamp to it, preserving the pre-epoch behavior
+// where the rotation was computed for any date (the archive UI already gates
+// out dates earlier than the first published daily).
+function dailyEpochFor(dateKey, epochs) {
+  let selected = epochs[0];
+  for (const epoch of epochs) {
+    if (epoch.start <= dateKey) {
+      selected = epoch;
+    }
+  }
+  return selected;
+}
+
+// The epoch that governs today's daily word. app.js derives DAILY_POOL_SIZE
+// from this so the pool size has a single source of truth (the epoch table).
+export function getActiveDailyEpoch(date = new Date(), epochs = DAILY_EPOCHS) {
+  return dailyEpochFor(getTiranaDateKey(date), epochs);
+}
+
+// Resolve the daily answer id for a date through the epoch table. The returned
+// value indexes the epoch's pool, which is the leading prefix of ANSWERS; since
+// ids equal their array position, it doubles as the immutable answer id. With
+// only the launch epoch present this is identical to getDailyIndex(date, 62)
+// for every date, so no historical daily word or challenge link shifts.
+export function getDailyAnswerIndex(date, epochs = DAILY_EPOCHS) {
+  const epoch = dailyEpochFor(getTiranaDateKey(date), epochs);
+  return rotationIndex(date, epoch.poolSize, epoch.stepBase, epoch.offset);
 }
 
 function greatestCommonDivisor(left, right) {
@@ -589,19 +637,25 @@ export function formatDuration(seconds) {
   return `${paddedMinutes}:${paddedSeconds}`;
 }
 
-export function createChallengeCode(index) {
-  if (!Number.isSafeInteger(index) || index < 0) {
-    throw new RangeError("index must be a non-negative safe integer");
+// Challenge codes encode an immutable answer id (today equal to the answer's
+// array position, so every code shared in the wild still decodes to the same
+// word). The wire format — SQ- prefix, id * 37 + 911, base36 uppercase — is
+// frozen; callers resolve the decoded id through getAnswerById, not array index.
+export function createChallengeCode(id) {
+  if (!Number.isSafeInteger(id) || id < 0) {
+    throw new RangeError("id must be a non-negative safe integer");
   }
 
-  const encodedIndex = index * CHALLENGE_MULTIPLIER + CHALLENGE_OFFSET;
-  if (!Number.isSafeInteger(encodedIndex)) {
-    throw new RangeError("index is too large to encode safely");
+  const encoded = id * CHALLENGE_MULTIPLIER + CHALLENGE_OFFSET;
+  if (!Number.isSafeInteger(encoded)) {
+    throw new RangeError("id is too large to encode safely");
   }
 
-  return `${CHALLENGE_PREFIX}-${encodedIndex.toString(36).toUpperCase()}`;
+  return `${CHALLENGE_PREFIX}-${encoded.toString(36).toUpperCase()}`;
 }
 
+// Decode a challenge code back to an answer id. `count` is the number of valid
+// ids (the catalog size); an id outside [0, count) is rejected as unknown.
 export function decodeChallengeCode(code, count) {
   if (!Number.isInteger(count) || count <= 0 || typeof code !== "string") {
     return null;
@@ -612,15 +666,15 @@ export function decodeChallengeCode(code, count) {
     return null;
   }
 
-  const encodedIndex = Number.parseInt(match[1], 36);
-  if (!Number.isSafeInteger(encodedIndex)) {
+  const encoded = Number.parseInt(match[1], 36);
+  if (!Number.isSafeInteger(encoded)) {
     return null;
   }
 
-  const index = (encodedIndex - CHALLENGE_OFFSET) / CHALLENGE_MULTIPLIER;
-  if (!Number.isSafeInteger(index) || index < 0 || index >= count) {
+  const id = (encoded - CHALLENGE_OFFSET) / CHALLENGE_MULTIPLIER;
+  if (!Number.isSafeInteger(id) || id < 0 || id >= count) {
     return null;
   }
 
-  return index;
+  return id;
 }
