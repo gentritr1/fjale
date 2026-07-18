@@ -1469,6 +1469,18 @@
     visibility: hidden;
   }
 
+  @media (max-height: 700px) {
+    .board-report {
+      /* Short viewports: the keyboard already sits near the fold, so a
+         permanent 34px reservation costs more than the occasional jump. */
+      min-height: 0;
+    }
+
+    .board-report[hidden] {
+      display: none;
+    }
+  }
+
   .report-link {
     display: inline-block;
     min-height: 32px;
