@@ -326,6 +326,13 @@
     height: 21px;
   }
 
+  .icon-button .icon-gear {
+    /* The gear glyph fills 19/24 of its canvas vs ~14/24 for its siblings;
+       render it smaller so all header icons read as the same optical size. */
+    width: 18px;
+    height: 18px;
+  }
+
   @media (hover: hover) {
     .icon-button:hover {
       background: var(--surface);
@@ -2055,6 +2062,11 @@
   .header-actions .icon-button svg {
     width: 19px;
     height: 19px;
+  }
+
+  .header-actions .icon-button .icon-gear {
+    width: 16px;
+    height: 16px;
   }
 
   .game-shell {
