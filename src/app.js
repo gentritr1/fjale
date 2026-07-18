@@ -1356,6 +1356,20 @@ function formatWinRate(won, played) {
 
 function renderDistribution(container, distribution, highlightGuesses) {
   const maxValue = Math.max(1, ...distribution);
+
+  // Screen-reader summary: name the modal bucket so the chart's shape is
+  // available without stepping through every bar. role="group" keeps the
+  // per-row numbers reachable beneath the label.
+  const totalWins = distribution.reduce((sum, value) => sum + value, 0);
+  const modalGuesses = distribution.indexOf(Math.max(...distribution)) + 1;
+  container.setAttribute("role", "group");
+  container.setAttribute(
+    "aria-label",
+    totalWins === 0
+      ? "Shpërndarja e fitoreve: ende pa fitore."
+      : `Shpërndarja e fitoreve: shumica e fitoreve në ${modalGuesses} ${modalGuesses === 1 ? "provë" : "prova"}.`,
+  );
+
   container.replaceChildren();
   distribution.forEach((value, index) => {
     const row = document.createElement("div");
@@ -1757,7 +1771,7 @@ function showToast(message) {
   window.clearTimeout(toastTimer);
   elements.toast.textContent = message;
   elements.toast.classList.add("is-visible");
-  toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 2400);
+  toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 3200);
   announce(message);
 }
 

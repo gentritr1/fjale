@@ -153,6 +153,11 @@
     --line-strong: oklch(0.3 0 0);
     --correct: oklch(0.39 0.16 145);
     --present: oklch(0.47 0.16 65);
+    /* The darkened high-contrast present tile needs white text: the default
+       near-black --on-present reaches only ~2.75:1 on this background. The
+       dark high-contrast blocks below re-declare the dark pairing because
+       this selector matches in dark mode too. */
+    --on-present: oklch(1 0 0);
     --absent: oklch(0.26 0 0);
   }
 
@@ -164,6 +169,7 @@
     --line-strong: oklch(0.82 0 0);
     --correct: oklch(0.62 0.17 145);
     --present: oklch(0.72 0.16 75);
+    --on-present: oklch(0.16 0.014 65);
     --absent: oklch(0.5 0 0);
   }
 
@@ -176,6 +182,7 @@
       --line-strong: oklch(0.82 0 0);
       --correct: oklch(0.62 0.17 145);
       --present: oklch(0.72 0.16 75);
+      --on-present: oklch(0.16 0.014 65);
       --absent: oklch(0.5 0 0);
     }
   }
@@ -1069,7 +1076,7 @@
   .side-footnote {
     padding-top: 17px;
     color: var(--faint);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 720;
     text-align: center;
   }
@@ -1391,7 +1398,7 @@
   .stats-summary span {
     margin-top: 3px;
     color: var(--muted);
-    font-size: 0.69rem;
+    font-size: 0.72rem;
     text-align: center;
   }
 
@@ -1449,12 +1456,17 @@
   }
 
   .board-report {
+    /* Reserve the report link's row permanently (32px link + 2px padding) so
+       the keyboard does not jump when a rejected word shows/hides the link. */
+    min-height: 34px;
     padding: 2px 8px 0;
     text-align: center;
   }
 
   .board-report[hidden] {
-    display: none;
+    /* Keep the reserved box in the layout; just make it invisible. */
+    display: block;
+    visibility: hidden;
   }
 
   .report-link {
@@ -1605,7 +1617,7 @@
   .calendar-weekday {
     padding: 0 0 4px;
     color: var(--faint);
-    font-size: 0.64rem;
+    font-size: 0.72rem;
     font-weight: 780;
     text-align: center;
     text-transform: uppercase;
@@ -1742,7 +1754,7 @@
   }
 
   .setting-row select {
-    min-height: 38px;
+    min-height: 44px;
     padding: 0 28px 0 10px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
@@ -2018,7 +2030,9 @@
   }
 
   .header-actions {
-    gap: 0;
+    /* Breathing room between the three 44px tap targets; verified not to
+       overflow at 320px. */
+    gap: 4px;
   }
 
   .icon-button {
@@ -2157,10 +2171,6 @@
 
   .stats-daily .stats-summary strong {
     font-size: 1.35rem;
-  }
-
-  .stats-summary span {
-    font-size: 0.62rem;
   }
 }
 
