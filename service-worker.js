@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v11";
+const CACHE_NAME = "fjale-shell-v12";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
@@ -15,7 +15,8 @@ const APP_SHELL = [
   "/icon-512.png",
   "/icon-maskable-512.png",
   "/besa-seal-v1.svg",
-  "/stamp-digraph-v1.svg"
+  "/stamp-digraph-v1.svg",
+  "/help-hero-v1.svg"
 ];
 
 // Icons never change without a filename/URL change, so serve them straight
@@ -27,7 +28,8 @@ const CACHE_FIRST_ASSETS = new Set([
   "/icon-512.png",
   "/icon-maskable-512.png",
   "/besa-seal-v1.svg",
-  "/stamp-digraph-v1.svg"
+  "/stamp-digraph-v1.svg",
+  "/help-hero-v1.svg"
 ]);
 
 self.addEventListener("install", (event) => {

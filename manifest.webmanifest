@@ -36,5 +36,21 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-narrow-v1.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tabela e lojës me tastierën e plotë shqipe me 36 shkronja"
+    },
+    {
+      "src": "/screenshot-wide-v1.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Pamja e plotë me gjurmën, Besën dhe Pasaportën e alfabetit"
+    }
   ]
 }

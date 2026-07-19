@@ -73,6 +73,34 @@ test("keeps the signature art wired end to end", async () => {
   assert.ok(stamp.startsWith("<svg"));
   assert.doesNotMatch(seal, /rgb\(247,232,196\)" d="M 0 0/u, "seal ships without its generator background");
   assert.doesNotMatch(stamp, /<text|font-family/u, "stamp frame carries no baked-in letters");
+
+  assert.ok(html.includes('src="/help-hero-v1.svg"'));
+  assert.ok(styles.includes(".help-hero"));
+  assert.ok(serviceWorker.includes('"/help-hero-v1.svg"'));
+  const hero = await readFile("help-hero-v1.svg", "utf8");
+  assert.ok(hero.startsWith("<svg"));
+  assert.doesNotMatch(hero, /<text/u, "welcome banner stays text-free");
+});
+
+test("declares real install screenshots for both form factors", async () => {
+  const manifest = JSON.parse(await readFile("manifest.webmanifest", "utf8"));
+  const forms = new Map(manifest.screenshots?.map((shot) => [shot.form_factor, shot]) ?? []);
+
+  for (const [form, expectedSizes] of [
+    ["narrow", "780x1688"],
+    ["wide", "1280x800"],
+  ]) {
+    const shot = forms.get(form);
+    assert.ok(shot, `manifest must declare a ${form} screenshot`);
+    assert.equal(shot.sizes, expectedSizes);
+    assert.ok(shot.label.length > 0);
+
+    const png = await readFile(shot.src.replace(/^\//u, ""));
+    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    const [width, height] = expectedSizes.split("x").map(Number);
+    assert.equal(png.readUInt32BE(16), width);
+    assert.equal(png.readUInt32BE(20), height);
+  }
 });
 
 test("requires production revalidation for the generated accepted-word corpus", async () => {
