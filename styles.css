@@ -1026,9 +1026,25 @@
   }
 
   .result-panel {
+    position: relative;
     padding: 20px 0 22px;
     border-bottom: 1px solid var(--line);
     scroll-margin-top: calc(76px + env(safe-area-inset-top, 0px));
+  }
+
+  /* Engraved Besa seal, stamped beside the winning word. Decorative only:
+     the result label already carries "Besa" for assistive tech. */
+  .result-besa-seal {
+    position: absolute;
+    top: 40px;
+    right: 2px;
+    width: 72px;
+    height: 72px;
+    transform: rotate(-8deg);
+  }
+
+  .result-besa-seal[hidden] {
+    display: none;
   }
 
   .result-panel:focus {
@@ -1380,12 +1396,29 @@
     color: var(--on-primary);
   }
 
+  /* Collected digraphs earn the engraved postage-stamp frame; the letter stays
+     live text so typography matches the rest of the passport. */
+  .alphabet-stamp.is-digraph.is-collected {
+    background: transparent;
+    background-image: url("/stamp-digraph-v1.svg");
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* Fixed deep gold from the stamp artwork itself: the frame's cream centre
+       does not change with the theme, so neither may the letter colour. */
+    color: oklch(0.45 0.13 68);
+  }
+
   .alphabet-stamp.is-collected::after {
     content: "✓";
     position: absolute;
     right: 3px;
     bottom: 2px;
     font-size: 0.52rem;
+  }
+
+  .alphabet-stamp.is-digraph.is-collected::after {
+    content: none;
   }
 
   .passport-tip {
