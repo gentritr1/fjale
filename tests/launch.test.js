@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const CANONICAL_ORIGIN = "https://fjale-self.vercel.app/";
-const OG_IMAGE_URL = `${CANONICAL_ORIGIN}og-fjale-v1.png`;
+const OG_IMAGE_URL = `${CANONICAL_ORIGIN}og-fjale-v2.png`;
 
 test("keeps canonical, social, structured-data, and CSP metadata coherent", async () => {
   const [html, serverSource, vercelSource] = await Promise.all([
@@ -33,16 +33,46 @@ test("keeps canonical, social, structured-data, and CSP metadata coherent", asyn
   assert.equal(structuredData.image, OG_IMAGE_URL);
   assert.ok(productionCsp?.includes(`'${structuredDataHash}'`));
   assert.ok(serverSource.includes(`"script-src 'self' '${structuredDataHash}'"`));
-  assert.ok(serverSource.includes('"/og-fjale-v1.png"'));
+  assert.ok(serverSource.includes('"/og-fjale-v2.png"'));
 });
 
 test("keeps the versioned social card at the declared dimensions", async () => {
-  const png = await readFile("og-fjale-v1.png");
+  const png = await readFile("og-fjale-v2.png");
 
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal(png.toString("ascii", 12, 16), "IHDR");
   assert.equal(png.readUInt32BE(16), 1_200);
   assert.equal(png.readUInt32BE(20), 630);
+});
+
+test("keeps the signature art wired end to end", async () => {
+  const [html, app, styles, serviceWorker, vercelSource] = await Promise.all([
+    readFile("index.html", "utf8"),
+    readFile("src/app.js", "utf8"),
+    readFile("styles.css", "utf8"),
+    readFile("service-worker.js", "utf8"),
+    readFile("vercel.json", "utf8"),
+  ]);
+
+  assert.ok(html.includes('id="result-besa-seal"'));
+  assert.ok(html.includes('src="/besa-seal-v1.svg"'));
+  assert.ok(app.includes("resultBesaSeal.hidden"));
+  assert.ok(
+    app.includes('besaEarned && state.mode === "daily"'),
+    "the seal is reserved for the genuine no-hint daily Besa win",
+  );
+  assert.ok(styles.includes('url("/stamp-digraph-v1.svg")'));
+  assert.ok(styles.includes(".alphabet-stamp.is-digraph.is-collected"));
+  assert.ok(serviceWorker.includes('"/besa-seal-v1.svg"'));
+  assert.ok(serviceWorker.includes('"/stamp-digraph-v1.svg"'));
+  assert.ok(vercelSource.includes("besa-seal-v1.svg"));
+
+  const seal = await readFile("besa-seal-v1.svg", "utf8");
+  const stamp = await readFile("stamp-digraph-v1.svg", "utf8");
+  assert.ok(seal.startsWith("<svg"));
+  assert.ok(stamp.startsWith("<svg"));
+  assert.doesNotMatch(seal, /rgb\(247,232,196\)" d="M 0 0/u, "seal ships without its generator background");
+  assert.doesNotMatch(stamp, /<text|font-family/u, "stamp frame carries no baked-in letters");
 });
 
 test("requires production revalidation for the generated accepted-word corpus", async () => {

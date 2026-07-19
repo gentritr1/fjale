@@ -165,6 +165,7 @@ const elements = {
   resultDefinition: document.querySelector("#result-definition"),
   resultExample: document.querySelector("#result-example"),
   resultCountdown: document.querySelector("#result-countdown"),
+  resultBesaSeal: document.querySelector("#result-besa-seal"),
   resultLabel: document.querySelector("#result-label"),
   resultMeta: document.querySelector("#result-meta"),
   resultPanel: document.querySelector("#result-panel"),
@@ -1425,6 +1426,8 @@ function renderResult() {
   elements.resultLabel.textContent = won
     ? `E gjete në ${attemptCount} ${attemptCount === 1 ? "provë" : "prova"}${besaEarned ? " · Besa ✓" : hintLabel}`
     : `Fjala ishte${hintLabel}`;
+  // The engraved seal is reserved for the genuine no-hint daily Besa win.
+  elements.resultBesaSeal.hidden = !(besaEarned && state.mode === "daily");
   elements.resultTime.textContent = formatDuration(elapsedSeconds());
   elements.resultWord.textContent = answer.word.toLocaleUpperCase("sq-AL");
   elements.resultMeta.textContent = [
