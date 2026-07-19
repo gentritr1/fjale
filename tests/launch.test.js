@@ -72,6 +72,30 @@ test("keeps the service worker update prompt wired end to end", async () => {
   assert.ok(html.includes('id="update-dismiss"'));
 });
 
+test("keeps the paid, non-spoiling hint flow explicit", async () => {
+  const [app, game, html, styles] = await Promise.all([
+    readFile("src/app.js", "utf8"),
+    readFile("src/game.js", "utf8"),
+    readFile("index.html", "utf8"),
+    readFile("styles.css", "utf8"),
+  ]);
+
+  assert.ok(html.includes('id="hint-confirmation"'));
+  assert.ok(html.includes('id="hint-cancel"'));
+  assert.ok(html.includes('id="hint-confirm"'));
+  assert.ok(html.includes("Përdor 1 provë"));
+  assert.ok(app.includes("state.hintRow = state.guesses.length"));
+  assert.ok(app.includes('label.textContent = "Gjurmë · 1 provë e përdorur"'));
+  assert.ok(app.includes("formatHintMetadata("));
+  assert.ok(game.includes("syllableCount"));
+  assert.ok(styles.includes(".hint-attempt-cell"));
+  assert.doesNotMatch(
+    app,
+    /hintDescription\.textContent\s*=\s*`\$\{answer\.partOfSpeech\}\s*·\s*\$\{answer\.syllables\}`/u,
+    "the active hint must not reveal the word's syllable spelling",
+  );
+});
+
 test("keeps touch interaction contracts for mobile", async () => {
   const [styles, html] = await Promise.all([
     readFile("styles.css", "utf8"),

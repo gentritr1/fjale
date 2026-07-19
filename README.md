@@ -7,7 +7,7 @@ FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është 
 - 138 përgjigje të redaktuara me gjurmë, përkufizime, rrokje dhe shembuj; pool-i ditor v1 ruan 62 fjalët e para pa ndryshuar historinë.
 - 21,481 prova të pranuara nga fjalori shqip, tani edhe me trajtat e lakuara e të zgjedhuara që deklaron Hunspell-i, me nëntë dyshkronjëshat si shkronja të vetme.
 - Fjalën e ditës, Arkivën për ditët e humbura, lojë pa fund dhe sfida me të njëjtën fjalë për miqtë.
-- Gjurmën pas provës së tretë, mënyrën **Besa** pa ndihmë dhe Pasaportën e alfabetit.
+- Gjurmën pas provës së tretë, e cila zbulon kuptimin pa shkronja dhe përdor një provë; mënyrën **Besa** pa ndihmë; dhe Pasaportën e alfabetit.
 - Statistika të ndara për Sot, Arkivë, Pa fund dhe Gjithsej; Arkiva nuk e prek serinë ditore.
 - Vlerësim pas lojës dhe një rrugë të sjellshme për të raportuar një fjalë që mungon.
 - Ndarje rezultati, pamje të errët, kontrast të lartë, tinguj opsionalë dhe lëvizje të reduktuara.

@@ -522,6 +522,30 @@ function dateKeyOrdinal(key) {
   return Math.floor(Date.UTC(year, month - 1, day) / DAY_IN_MILLISECONDS);
 }
 
+export function getAttemptCount(guessCount, usedAttemptForHint = false) {
+  if (!Number.isInteger(guessCount) || guessCount < 0) {
+    throw new RangeError("guessCount must be a non-negative integer");
+  }
+
+  return guessCount + Number(Boolean(usedAttemptForHint));
+}
+
+export function formatHintMetadata(partOfSpeech, syllables) {
+  if (typeof partOfSpeech !== "string" || partOfSpeech.trim() === "") {
+    throw new TypeError("partOfSpeech must be a non-empty string");
+  }
+  if (typeof syllables !== "string" || syllables.trim() === "") {
+    throw new TypeError("syllables must be a non-empty string");
+  }
+
+  const syllableCount = syllables.split("-").filter(Boolean).length;
+  if (syllableCount < 1) {
+    throw new RangeError("syllables must contain at least one syllable");
+  }
+
+  return `${partOfSpeech.trim()} · ${syllableCount} rrokje`;
+}
+
 // Apply one finished puzzle to an already-sanitized profile without mutating
 // either input. Keeping this transition in the game layer makes mode isolation,
 // deduplication, streak behavior, and legacy Overall totals directly testable.
@@ -537,7 +561,7 @@ export function applyCompletedGameToProfile(
     throw new TypeError("completion must be an object");
   }
 
-  const { puzzleId, mode, status, guessCount, answerTokens, besa, usedHint } = completion;
+  const { puzzleId, mode, status, attemptCount, answerTokens, besa, usedHint } = completion;
   if (typeof puzzleId !== "string" || puzzleId.length === 0 || puzzleId.length > 100) {
     throw new RangeError("completion puzzleId must be a non-empty string");
   }
@@ -572,18 +596,18 @@ export function applyCompletedGameToProfile(
   modeBucket.played += 1;
 
   if (status === "won") {
-    if (!Number.isInteger(guessCount) || guessCount < 1 || guessCount > next.distribution.length) {
-      throw new RangeError("won completion guessCount is outside the distribution");
+    if (!Number.isInteger(attemptCount) || attemptCount < 1 || attemptCount > next.distribution.length) {
+      throw new RangeError("won completion attemptCount is outside the distribution");
     }
     if (!Array.isArray(answerTokens)) {
       throw new TypeError("won completion answerTokens must be an array");
     }
 
     next.won += 1;
-    next.distribution[guessCount - 1] += 1;
-    next.lastWinGuesses = guessCount;
+    next.distribution[attemptCount - 1] += 1;
+    next.lastWinGuesses = attemptCount;
     modeBucket.won += 1;
-    modeBucket.distribution[guessCount - 1] += 1;
+    modeBucket.distribution[attemptCount - 1] += 1;
     next.collection = [
       ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
     ].filter((letter) => ALBANIAN_LETTERS.has(letter));
@@ -595,7 +619,7 @@ export function applyCompletedGameToProfile(
 
   const trackedDate = completionDateKey(mode, puzzleId);
   if (trackedDate) {
-    next.dailyResults[trackedDate] = status === "won" ? guessCount : "X";
+    next.dailyResults[trackedDate] = status === "won" ? attemptCount : "X";
   }
 
   if (mode === "daily") {

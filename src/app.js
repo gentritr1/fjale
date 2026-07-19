@@ -8,7 +8,9 @@ import {
   decodeChallengeCode,
   evaluateGuess,
   formatDuration,
+  formatHintMetadata,
   getActiveDailyEpoch,
+  getAttemptCount,
   getDailyAnswerIndex,
   getTiranaDateKey,
   normalizeWord,
@@ -126,6 +128,7 @@ const elements = {
   board: document.querySelector("#board"),
   boardMessage: document.querySelector("#board-message"),
   boardReport: document.querySelector("#board-report"),
+  boardStage: document.querySelector("#game-board"),
   calendarBody: document.querySelector("#calendar-body"),
   calendarHead: document.querySelector("#calendar-head"),
   calendarNext: document.querySelector("#calendar-next"),
@@ -140,7 +143,11 @@ const elements = {
   headerProgress: document.querySelector("#header-progress"),
   hintBadge: document.querySelector("#hint-badge"),
   hintButton: document.querySelector("#hint-button"),
+  hintCancel: document.querySelector("#hint-cancel"),
   hintCard: document.querySelector("#hint-card"),
+  hintConfirm: document.querySelector("#hint-confirm"),
+  hintConfirmation: document.querySelector("#hint-confirmation"),
+  hintConfirmationCopy: document.querySelector("#hint-confirmation-copy"),
   hintCopy: document.querySelector("#hint-copy"),
   hintDescription: document.querySelector("#hint-description"),
   keyboard: document.querySelector("#keyboard"),
@@ -196,6 +203,7 @@ let state = loadGame(primaryDescriptor);
 let animatingRow = null;
 let isAnimating = false;
 let invalidPulse = false;
+let hintConfirmationOpen = false;
 let toastTimer = null;
 let invalidTimer = null;
 let revealTimer = null;
@@ -315,6 +323,7 @@ function createGame(descriptor) {
     startedAt: null,
     completedAt: null,
     usedHint: false,
+    hintRow: null,
     besa: false,
     recorded: false,
   };
@@ -374,14 +383,36 @@ function hydrateGame(raw, expectedDescriptor = null) {
     return null;
   }
 
-  const guesses = Array.isArray(raw.guesses)
+  const candidateGuesses = Array.isArray(raw.guesses)
     ? raw.guesses.slice(0, ROW_COUNT).map(validateTokenRow).filter(Boolean)
     : [];
   const current = validateCurrentRow(raw.current);
   const answerTokens = tokenizeAlbanian(getAnswerById(answerIndex).word);
-  const winningIndex = guesses.findIndex((guess) => tokensEqual(guess, answerTokens));
-  const normalizedGuesses = winningIndex >= 0 ? guesses.slice(0, winningIndex + 1) : guesses;
-  const status = winningIndex >= 0 ? "won" : normalizedGuesses.length >= ROW_COUNT ? "lost" : "playing";
+  const candidateWinningIndex = candidateGuesses.findIndex((guess) =>
+    tokensEqual(guess, answerTokens),
+  );
+  let normalizedGuesses =
+    candidateWinningIndex >= 0
+      ? candidateGuesses.slice(0, candidateWinningIndex + 1)
+      : candidateGuesses;
+  const usedHint = Boolean(raw.usedHint);
+  const candidateHintRow =
+    usedHint &&
+    Number.isInteger(raw.hintRow) &&
+    raw.hintRow >= HINT_UNLOCK_GUESS &&
+    raw.hintRow < ROW_COUNT - 1 &&
+    raw.hintRow <= normalizedGuesses.length
+      ? raw.hintRow
+      : null;
+
+  if (candidateHintRow !== null) {
+    normalizedGuesses = normalizedGuesses.slice(0, ROW_COUNT - 1);
+  }
+
+  const winningIndex = normalizedGuesses.findIndex((guess) => tokensEqual(guess, answerTokens));
+  const hintRow = winningIndex >= 0 && candidateHintRow > winningIndex ? null : candidateHintRow;
+  const attemptCount = getAttemptCount(normalizedGuesses.length, hintRow !== null);
+  const status = winningIndex >= 0 ? "won" : attemptCount >= ROW_COUNT ? "lost" : "playing";
 
   return {
     version: STORAGE_VERSION,
@@ -393,8 +424,9 @@ function hydrateGame(raw, expectedDescriptor = null) {
     status,
     startedAt: isSafeTimestamp(raw.startedAt) ? raw.startedAt : null,
     completedAt: status !== "playing" && isSafeTimestamp(raw.completedAt) ? raw.completedAt : null,
-    usedHint: Boolean(raw.usedHint),
-    besa: Boolean(raw.besa),
+    usedHint,
+    hintRow,
+    besa: Boolean(raw.besa) && !usedHint,
     recorded: Boolean(raw.recorded),
   };
 }
@@ -420,7 +452,9 @@ function validateCurrentRow(row) {
 function wireInteractions() {
   elements.dailyMode.addEventListener("click", switchToPrimaryGame);
   elements.practiceMode.addEventListener("click", () => switchToPracticeGame());
-  elements.hintButton.addEventListener("click", revealHint);
+  elements.hintButton.addEventListener("click", requestHint);
+  elements.hintConfirm.addEventListener("click", revealHint);
+  elements.hintCancel.addEventListener("click", () => closeHintConfirmation(true));
   elements.besaButton.addEventListener("click", toggleBesa);
   elements.keyboard.addEventListener("click", handleKeyboardClick);
   elements.shareButton.addEventListener("click", shareResult);
@@ -537,6 +571,7 @@ function handleStorageChange(event) {
 
   const submittedElsewhere = remoteState.guesses.length > state.guesses.length;
   const completedElsewhere = remoteState.status !== "playing" && state.status === "playing";
+  const hintOpenedElsewhere = remoteState.usedHint && !state.usedHint;
   clearTransientState();
   state = remoteState;
   if (state.status !== "playing") {
@@ -549,13 +584,17 @@ function handleStorageChange(event) {
     announce("Loja u përfundua në një skedë tjetër.");
   } else if (submittedElsewhere) {
     announce("Loja u përditësua nga një skedë tjetër.");
+  } else if (hintOpenedElsewhere) {
+    announce("Gjurmë u hap në një skedë tjetër.");
   }
 }
 
 function gameProgress(game) {
   const completion = game.status === "playing" ? 0 : 1_000;
-  const flags = Number(game.besa) + Number(game.usedHint);
-  return completion + game.guesses.length * 10 + game.current.length * 2 + flags;
+  const usedAttemptForHint = Number.isInteger(game.hintRow);
+  const attempts = getAttemptCount(game.guesses.length, usedAttemptForHint);
+  const flags = Number(game.besa) + Number(game.usedHint) + Number(usedAttemptForHint);
+  return completion + attempts * 100 + game.current.length * 2 + flags;
 }
 
 function switchToPrimaryGame() {
@@ -626,6 +665,7 @@ function startNewPractice() {
 function clearTransientState() {
   window.clearTimeout(revealTimer);
   window.clearTimeout(invalidTimer);
+  closeHintConfirmation(false);
   animatingRow = null;
   isAnimating = false;
   invalidPulse = false;
@@ -662,6 +702,23 @@ function handlePhysicalKeyboard(event) {
     return;
   }
 
+  if (hintConfirmationOpen && event.key === "Escape") {
+    event.preventDefault();
+    closeHintConfirmation(true);
+    return;
+  }
+
+  if (event.target.closest?.("#hint-confirmation")) {
+    return;
+  }
+
+  if (hintConfirmationOpen) {
+    if (event.key === "Tab") {
+      return;
+    }
+    closeHintConfirmation(false);
+  }
+
   if (event.key === "Enter") {
     event.preventDefault();
     submitGuess();
@@ -684,6 +741,8 @@ function inputLetter(letter) {
   if (!ensureCurrentDailyPuzzle() || state.status !== "playing" || isAnimating) {
     return;
   }
+
+  closeHintConfirmation(false);
 
   // Any input attempt after a rejection dismisses the report link for that word,
   // even a no-op keypress on an already-full row.
@@ -715,6 +774,8 @@ function removeLetter() {
     return;
   }
 
+  closeHintConfirmation(false);
+
   state.current = removeLastToken(state.current);
   persistGame();
   resetBoardMessage();
@@ -726,6 +787,8 @@ function submitGuess() {
   if (!ensureCurrentDailyPuzzle() || state.status !== "playing" || isAnimating) {
     return;
   }
+
+  closeHintConfirmation(false);
 
   if (state.current.length !== COLUMN_COUNT) {
     showInvalid(`Duhet një fjalë me ${COLUMN_COUNT} shkronja shqip.`);
@@ -749,14 +812,14 @@ function submitGuess() {
   if (statuses.every((status) => status === "correct")) {
     state.status = "won";
     state.completedAt = Date.now();
-  } else if (state.guesses.length >= ROW_COUNT) {
+  } else if (getStateAttemptCount() >= ROW_COUNT) {
     state.status = "lost";
     state.completedAt = Date.now();
   }
 
   persistGame();
   isAnimating = true;
-  animatingRow = state.guesses.length - 1;
+  animatingRow = getStateAttemptCount() - 1;
   resetBoardMessage();
   renderBoard();
   renderMeta();
@@ -770,7 +833,7 @@ function submitGuess() {
   revealTimer = window.setTimeout(() => {
     isAnimating = false;
     animatingRow = null;
-    announce(`Prova ${state.guesses.length}. ${announcement}`);
+    announce(`Prova ${getStateAttemptCount()}. ${announcement}`);
 
     if (state.status === "playing") {
       renderAll();
@@ -789,10 +852,11 @@ function finishGame() {
   elements.resultPanel.focus({ preventScroll: true });
 
   if (state.status === "won") {
+    const attemptCount = getStateAttemptCount();
     playSound("win");
     showCelebration();
     announce(
-      `E gjete fjalën ${getAnswer().word} në ${state.guesses.length} ${state.guesses.length === 1 ? "provë" : "prova"}.`,
+      `E gjete fjalën ${getAnswer().word} në ${attemptCount} ${attemptCount === 1 ? "provë" : "prova"}.`,
     );
   } else {
     playSound("error");
@@ -880,34 +944,99 @@ function recordReportedWord(word) {
   saveProfile();
 }
 
-function revealHint() {
+function getHintRequestError() {
   if (state.status !== "playing") {
-    showToast("Kjo lojë ka përfunduar.");
-    return;
+    return "Kjo lojë ka përfunduar.";
   }
 
   if (state.besa) {
-    showToast("Ke dhënë Besën: kjo lojë luhet pa gjurmë.");
-    return;
+    return "Ke dhënë Besën: kjo lojë luhet pa gjurmë.";
   }
 
   if (state.usedHint) {
-    showToast("Gjurmën e ke tashmë të hapur.");
-    return;
+    return "Gjurmën e ke tashmë të hapur.";
+  }
+
+  if (isAnimating) {
+    return "Prit sa të hapet prova.";
   }
 
   if (state.guesses.length < HINT_UNLOCK_GUESS) {
     const remaining = HINT_UNLOCK_GUESS - state.guesses.length;
-    showToast(`Gjurmë pas ${remaining} ${remaining === 1 ? "prove" : "provash"} të tjera.`);
+    return `Gjurmë pas ${remaining} ${remaining === 1 ? "prove" : "provash"} të tjera.`;
+  }
+
+  if (state.current.length > 0) {
+    return "Fshi shkronjat e provës së nisur para se të hapësh gjurmën.";
+  }
+
+  if (state.guesses.length >= ROW_COUNT - 1) {
+    return "Gjurmën nuk mund ta hapësh në provën e fundit.";
+  }
+
+  return null;
+}
+
+function requestHint() {
+  if (hintConfirmationOpen) {
+    closeHintConfirmation(true);
     return;
   }
 
+  const error = getHintRequestError();
+  if (error) {
+    showToast(error);
+    return;
+  }
+
+  const remainingAfterHint = ROW_COUNT - getAttemptCount(state.guesses.length, true);
+  elements.hintConfirmationCopy.textContent =
+    remainingAfterHint === 1
+      ? "Hapja përdor një provë dhe nuk zhbëhet. Do të të mbetet edhe 1 provë."
+      : `Hapja përdor një provë dhe nuk zhbëhet. Do të të mbeten edhe ${remainingAfterHint} prova.`;
+  hintConfirmationOpen = true;
+  elements.hintConfirmation.hidden = false;
+  elements.hintButton.setAttribute("aria-expanded", "true");
+  window.requestAnimationFrame(() => elements.hintCancel.focus({ preventScroll: true }));
+}
+
+function closeHintConfirmation(restoreFocus) {
+  if (!hintConfirmationOpen && elements.hintConfirmation.hidden) {
+    return;
+  }
+
+  hintConfirmationOpen = false;
+  elements.hintConfirmation.hidden = true;
+  elements.hintConfirm.disabled = false;
+  elements.hintCancel.disabled = false;
+  elements.hintButton.setAttribute("aria-expanded", "false");
+
+  if (restoreFocus && !elements.hintButton.disabled) {
+    elements.hintButton.focus({ preventScroll: true });
+  }
+}
+
+function revealHint() {
+  const error = getHintRequestError();
+  if (error) {
+    closeHintConfirmation(false);
+    showToast(error);
+    return;
+  }
+
+  elements.hintConfirm.disabled = true;
+  elements.hintCancel.disabled = true;
   state.usedHint = true;
+  state.hintRow = state.guesses.length;
+  closeHintConfirmation(false);
   persistGame();
-  renderMeta();
-  setBoardMessage("Gjurmë e hapur — rezultati do ta tregojë përdorimin e saj.");
-  showToast("Gjurmë e hapur.");
+  renderAll();
+
+  const remaining = ROW_COUNT - getStateAttemptCount();
+  const visibleMessage = `Gjurmë e hapur. U përdor 1 provë; ${remaining === 1 ? "të mbetet 1 provë" : `të mbeten ${remaining} prova`}.`;
+  showToast(visibleMessage, `${visibleMessage} Gjurmë: ${getAnswer().clue}`);
   playSound("hint");
+  elements.boardStage.focus({ preventScroll: true });
 }
 
 function toggleBesa() {
@@ -958,9 +1087,22 @@ function renderMode() {
   elements.practiceMode.setAttribute("aria-pressed", String(practiceIsActive));
 }
 
+function hasCostlyHint(game = state) {
+  return Number.isInteger(game.hintRow);
+}
+
+function getStateAttemptCount() {
+  return getAttemptCount(state.guesses.length, hasCostlyHint());
+}
+
 function renderMeta() {
   const answer = getAnswer();
   const attemptsUntilHint = Math.max(0, HINT_UNLOCK_GUESS - state.guesses.length);
+  const noAttemptForHint = !state.usedHint && state.guesses.length >= ROW_COUNT - 1;
+
+  if (hintConfirmationOpen && getHintRequestError()) {
+    closeHintConfirmation(false);
+  }
 
   if (state.mode === "daily") {
     elements.puzzleKicker.textContent = "Fjala e ditës";
@@ -980,28 +1122,56 @@ function renderMeta() {
     ? "✓"
     : state.besa
       ? "—"
-      : attemptsUntilHint > 0
-        ? String(attemptsUntilHint)
-        : "!";
-  elements.hintButton.disabled = state.status !== "playing";
-  elements.hintButton.setAttribute("aria-expanded", String(state.usedHint));
+      : noAttemptForHint
+        ? "×"
+        : attemptsUntilHint > 0
+          ? String(attemptsUntilHint)
+          : "−1";
+  elements.hintButton.disabled =
+    state.status !== "playing" || state.usedHint || state.besa || isAnimating || noAttemptForHint;
+  elements.hintButton.setAttribute("aria-expanded", String(hintConfirmationOpen));
+  elements.hintButton.setAttribute(
+    "aria-label",
+    state.usedHint
+      ? "Gjurmë e hapur"
+      : state.besa
+        ? "Gjurmë e mbyllur nga Besa"
+        : noAttemptForHint
+          ? "Gjurmë e mbyllur në provën e fundit"
+          : attemptsUntilHint > 0
+            ? `Gjurmë, hapet pas ${attemptsUntilHint} ${attemptsUntilHint === 1 ? "prove" : "provash"}`
+            : hintConfirmationOpen
+              ? "Mbyll konfirmimin e gjurmës"
+              : "Hap gjurmën, përdor 1 provë",
+  );
   elements.besaButton.disabled = state.status !== "playing";
   elements.besaButton.setAttribute("aria-pressed", String(state.besa));
+  elements.hintConfirmation.hidden = !hintConfirmationOpen;
   elements.hintCard.classList.toggle("is-revealed", state.usedHint);
   elements.besaCard.classList.toggle("is-active", state.besa);
 
   if (state.usedHint) {
-    elements.hintDescription.textContent = `${answer.partOfSpeech} · ${answer.syllables}`;
+    elements.hintDescription.textContent = formatHintMetadata(
+      answer.partOfSpeech,
+      answer.syllables,
+    );
     elements.hintCopy.textContent = answer.clue;
   } else if (state.besa) {
     elements.hintDescription.textContent = "E mbyllur nga Besa.";
     elements.hintCopy.textContent = "Këtë raund do ta zgjidhësh vetëm me provat e tua.";
+  } else if (state.status !== "playing") {
+    elements.hintDescription.textContent = "Pa gjurmë këtë herë.";
+    elements.hintCopy.textContent = "Fjala dhe shpjegimi i saj janë më sipër.";
+  } else if (noAttemptForHint) {
+    elements.hintDescription.textContent = "E mbyllur në provën e fundit.";
+    elements.hintCopy.textContent = "Duhet të mbetet një provë për përgjigjen.";
   } else if (attemptsUntilHint > 0) {
     elements.hintDescription.textContent = `Hapet pas ${attemptsUntilHint} ${attemptsUntilHint === 1 ? "prove" : "provash"}.`;
-    elements.hintCopy.textContent = "Do të tregojë kuptimin pa zbuluar asnjë shkronjë.";
+    elements.hintCopy.textContent =
+      "Tregon llojin dhe kuptimin pa zbuluar shkronja. Përdor një provë.";
   } else {
-    elements.hintDescription.textContent = "Gati kur të duash.";
-    elements.hintCopy.textContent = "Një shtysë e vogël, pa zbuluar shkronjat.";
+    elements.hintDescription.textContent = "Gati. Hapja përdor 1 provë.";
+    elements.hintCopy.textContent = "Tregon llojin dhe kuptimin pa zbuluar shkronja.";
   }
 
   elements.besaDescription.textContent = state.besa
@@ -1016,6 +1186,7 @@ function renderBoard() {
   elements.board.classList.toggle("is-invalid", invalidPulse);
   elements.board.classList.toggle("is-won", state.status === "won" && !isAnimating);
   const answerTokens = getAnswerTokens();
+  const currentAttemptIndex = getStateAttemptCount();
 
   for (let rowIndex = 0; rowIndex < ROW_COUNT; rowIndex += 1) {
     const row = document.createElement("div");
@@ -1023,8 +1194,29 @@ function renderBoard() {
     row.setAttribute("role", "row");
     row.setAttribute("aria-rowindex", String(rowIndex + 1));
 
-    const submittedGuess = state.guesses[rowIndex] ?? null;
-    const isCurrentRow = rowIndex === state.guesses.length && state.status === "playing";
+    if (hasCostlyHint() && rowIndex === state.hintRow) {
+      row.classList.add("board-hint-row");
+      const cell = document.createElement("div");
+      cell.className = "hint-attempt-cell";
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-colindex", "1");
+      cell.setAttribute("aria-colspan", String(COLUMN_COUNT));
+      cell.setAttribute("aria-label", `Prova ${rowIndex + 1} u përdor për gjurmën.`);
+      const icon = elements.hintButton.querySelector("svg")?.cloneNode(true);
+      if (icon) {
+        cell.append(icon);
+      }
+      const label = document.createElement("span");
+      label.textContent = "Gjurmë · 1 provë e përdorur";
+      cell.append(label);
+      row.append(cell);
+      elements.board.append(row);
+      continue;
+    }
+
+    const guessIndex = hasCostlyHint() && rowIndex > state.hintRow ? rowIndex - 1 : rowIndex;
+    const submittedGuess = state.guesses[guessIndex] ?? null;
+    const isCurrentRow = rowIndex === currentAttemptIndex && state.status === "playing";
     const tokens = submittedGuess ?? (isCurrentRow ? state.current : []);
     const statuses = submittedGuess ? evaluateGuess(answerTokens, submittedGuess) : null;
 
@@ -1227,10 +1419,12 @@ function renderResult() {
   const digraphs = [...new Set(answerTokens.filter((token) => DIGRAPH_SET.has(token)))];
   const won = state.status === "won";
   const besaEarned = won && state.besa && !state.usedHint;
+  const attemptCount = getStateAttemptCount();
+  const hintLabel = state.usedHint ? " · me gjurmë" : "";
 
   elements.resultLabel.textContent = won
-    ? `E gjete në ${state.guesses.length} ${state.guesses.length === 1 ? "provë" : "prova"}${besaEarned ? " · Besa ✓" : ""}`
-    : "Fjala ishte";
+    ? `E gjete në ${attemptCount} ${attemptCount === 1 ? "provë" : "prova"}${besaEarned ? " · Besa ✓" : hintLabel}`
+    : `Fjala ishte${hintLabel}`;
   elements.resultTime.textContent = formatDuration(elapsedSeconds());
   elements.resultWord.textContent = answer.word.toLocaleUpperCase("sq-AL");
   elements.resultMeta.textContent = [
@@ -1609,7 +1803,7 @@ function recordCompletedGame() {
       puzzleId: state.puzzleId,
       mode: state.mode,
       status: state.status,
-      guessCount: state.guesses.length,
+      attemptCount: getStateAttemptCount(),
       answerTokens: getAnswerTokens(),
       besa: state.besa,
       usedHint: state.usedHint,
@@ -1640,7 +1834,7 @@ async function shareResult() {
     return;
   }
 
-  const score = state.status === "won" ? state.guesses.length : "X";
+  const score = state.status === "won" ? getStateAttemptCount() : "X";
   const puzzleLabel =
     state.mode === "daily"
       ? `#${state.puzzleId.replace("daily-", "")}`
@@ -1653,13 +1847,15 @@ async function shareResult() {
     state.besa && !state.usedHint && state.status === "won" ? "🛡 Besa" : null,
     state.usedHint ? "💡 me gjurmë" : null,
   ].filter(Boolean);
-  const grid = state.guesses
-    .map((guess) =>
-      evaluateGuess(getAnswerTokens(), guess)
-        .map((status) => SHARE_MARK[status])
-        .join(""),
-    )
-    .join("\n");
+  const gridRows = state.guesses.map((guess) =>
+    evaluateGuess(getAnswerTokens(), guess)
+      .map((status) => SHARE_MARK[status])
+      .join(""),
+  );
+  if (hasCostlyHint()) {
+    gridRows.splice(state.hintRow, 0, "💡💡💡💡💡");
+  }
+  const grid = gridRows.join("\n");
   const text = [
     `FJALË ${puzzleLabel} ${score}/${ROW_COUNT} · ${formatDuration(elapsedSeconds())}`,
     badges.join(" · "),
@@ -1750,7 +1946,7 @@ function renderDefaultBoardMessage() {
     return { text: "Besa u dha — ky raund luhet pa gjurmë.", tone: "success" };
   }
   if (state.usedHint) {
-    return { text: "Gjurmë e hapur — vazhdo me provën tjetër.", tone: "" };
+    return { text: `Gjurmë: ${getAnswer().clue}`, tone: "" };
   }
   return { text: "Dyshkronjëshat si SH dhe RR zënë vetëm një kuti.", tone: "" };
 }
@@ -1767,12 +1963,12 @@ function setBoardMessage(text, tone = "") {
   elements.boardMessage.classList.toggle("is-success", tone === "success");
 }
 
-function showToast(message) {
+function showToast(message, announcement = message) {
   window.clearTimeout(toastTimer);
   elements.toast.textContent = message;
   elements.toast.classList.add("is-visible");
   toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 3200);
-  announce(message);
+  announce(announcement);
 }
 
 function announce(message) {

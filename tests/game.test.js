@@ -12,7 +12,9 @@ import {
   decodeChallengeCode,
   evaluateGuess,
   formatDuration,
+  formatHintMetadata,
   getActiveDailyEpoch,
+  getAttemptCount,
   getDailyAnswerIndex,
   getDailyIndex,
   getTiranaDateKey,
@@ -76,6 +78,21 @@ test("tokenizeAlbanian uses Albanian digraphs as single, longest-first tokens", 
   assert.deepEqual(tokenizeAlbanian("GJYSHJA"), ["gj", "y", "sh", "j", "a"]);
   assert.deepEqual(tokenizeAlbanian("XHAXHA"), ["xh", "a", "xh", "a"]);
   assert.deepEqual(tokenizeAlbanian("DHELPËR"), ["dh", "e", "l", "p", "ë", "r"]);
+});
+
+test("getAttemptCount charges exactly one attempt for a revealed hint", () => {
+  assert.equal(getAttemptCount(3), 3);
+  assert.equal(getAttemptCount(3, true), 4);
+  assert.equal(getAttemptCount(5, false), 5);
+  assert.throws(() => getAttemptCount(-1), RangeError);
+  assert.throws(() => getAttemptCount(1.5), RangeError);
+});
+
+test("formatHintMetadata reports only the syllable count during play", () => {
+  assert.equal(formatHintMetadata("emër", "bu-xhet"), "emër · 2 rrokje");
+  assert.equal(formatHintMetadata("folje", "ha"), "folje · 1 rrokje");
+  assert.doesNotMatch(formatHintMetadata("emër", "a-ni-je"), /a-ni-je/u);
+  assert.throws(() => formatHintMetadata("", "bu-xhet"), TypeError);
 });
 
 test("appendPhysicalCharacter merges separately typed digraphs without mutation", () => {
@@ -329,7 +346,7 @@ test("applyCompletedGameToProfile records a daily win and advances a consecutive
     puzzleId: "daily-2026-07-17",
     mode: "daily",
     status: "won",
-    guessCount: 2,
+    attemptCount: 2,
     answerTokens: ["gj", "y", "sh", "j", "a"],
     besa: true,
     usedHint: false,
@@ -359,7 +376,7 @@ test("applyCompletedGameToProfile records a daily loss and resets only the daily
     puzzleId: "daily-2026-07-17",
     mode: "daily",
     status: "lost",
-    guessCount: 6,
+    attemptCount: 6,
     answerTokens: [],
     besa: false,
     usedHint: false,
@@ -390,7 +407,7 @@ test("applyCompletedGameToProfile keeps archive, practice, and challenge outside
       puzzleId,
       mode,
       status: "won",
-      guessCount: 3,
+      attemptCount: 3,
       answerTokens: ["a", "n", "i", "j", "e"],
       besa: false,
       usedHint: false,
@@ -410,7 +427,7 @@ test("applyCompletedGameToProfile records archive history without touching daily
     puzzleId: "archive-2026-07-15",
     mode: "archive",
     status: "won",
-    guessCount: 5,
+    attemptCount: 5,
     answerTokens: ["d", "r", "i", "t", "ë"],
     besa: false,
     usedHint: false,
@@ -421,13 +438,30 @@ test("applyCompletedGameToProfile records archive history without touching daily
   assert.equal(result.profile.currentStreak, 3);
 });
 
+test("applyCompletedGameToProfile records an assisted win in its paid-attempt bucket", () => {
+  const result = applyCompletedGameToProfile(createProfile(), {
+    puzzleId: "practice-SQ-HINT",
+    mode: "practice",
+    status: "won",
+    attemptCount: 5,
+    answerTokens: ["b", "u", "xh", "e", "t"],
+    besa: true,
+    usedHint: true,
+  });
+
+  assert.equal(result.profile.lastWinGuesses, 5);
+  assert.equal(result.profile.distribution[4], 2);
+  assert.equal(result.profile.modeStats.practice.distribution[4], 1);
+  assert.equal(result.profile.besaWins, 2);
+});
+
 test("applyCompletedGameToProfile dedupes completed puzzles without mutating the profile", () => {
   const original = createProfile();
   const result = applyCompletedGameToProfile(original, {
     puzzleId: "daily-2026-07-16",
     mode: "daily",
     status: "won",
-    guessCount: 1,
+    attemptCount: 1,
     answerTokens: ["a", "n", "i", "j", "e"],
     besa: true,
     usedHint: false,
@@ -446,7 +480,7 @@ test("applyCompletedGameToProfile enforces the completion cap and rejects invali
       puzzleId: "challenge-SQ-NEW",
       mode: "challenge",
       status: "lost",
-      guessCount: 6,
+      attemptCount: 6,
       answerTokens: [],
       besa: false,
       usedHint: false,
@@ -463,7 +497,7 @@ test("applyCompletedGameToProfile enforces the completion cap and rejects invali
       puzzleId: "practice-NEW",
       mode: "practice",
       status: "lost",
-      guessCount: 6,
+      attemptCount: 6,
       answerTokens: [],
       besa: false,
       usedHint: false,
@@ -479,7 +513,7 @@ test("applyCompletedGameToProfile enforces the completion cap and rejects invali
         puzzleId: "daily-2026-07-17",
         mode: "daily",
         status: "won",
-        guessCount: 7,
+        attemptCount: 7,
         answerTokens: ["a"],
       }),
     RangeError,

@@ -512,6 +512,53 @@
     color: var(--bg);
   }
 
+  .hint-confirmation {
+    margin: 0 0 14px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    animation: hint-confirmation-in 180ms var(--ease-out);
+  }
+
+  .hint-confirmation[hidden] {
+    display: none;
+  }
+
+  .hint-confirmation-text {
+    min-width: 0;
+  }
+
+  .hint-confirmation-text strong {
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 820;
+  }
+
+  .hint-confirmation-text p {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+  }
+
+  .hint-confirmation-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hint-confirmation-actions :is(.primary-button, .secondary-button) {
+    min-height: 44px;
+    padding-inline: 13px;
+    white-space: nowrap;
+  }
+
   .board-stage {
     position: relative;
     display: grid;
@@ -543,6 +590,31 @@
 
   .board-row {
     display: contents;
+  }
+
+  .hint-attempt-cell {
+    min-width: 0;
+    height: 100%;
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding-inline: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--primary-pale);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--primary-deep) 34%, transparent);
+    color: var(--primary-deep);
+    font-size: clamp(0.68rem, 2.6vw, 0.78rem);
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .hint-attempt-cell svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
   }
 
   .tile {
@@ -2019,6 +2091,11 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes hint-confirmation-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 880px) {
   .game-shell {
     width: min(calc(100% - 24px), 620px);
@@ -2090,6 +2167,23 @@
     min-height: 62px;
     padding-top: 10px;
     gap: 8px;
+  }
+
+  .hint-confirmation {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .hint-confirmation-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+
+  .hint-confirmation-actions :is(.primary-button, .secondary-button) {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 9px;
   }
 
   .puzzle-instruction {
