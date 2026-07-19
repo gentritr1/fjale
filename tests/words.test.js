@@ -71,6 +71,13 @@ test("validates every answer with the production Albanian tokenizer", () => {
       assert.ok(answer[field]?.trim(), `${answer.word} is missing ${field}`);
     }
 
+    const answerPrefix = tokens.slice(0, 4).join("");
+    const normalizedClue = answer.clue.normalize("NFC").toLocaleLowerCase("sq-AL");
+    assert.ok(
+      !normalizedClue.includes(answerPrefix),
+      `${answer.word} clue must not expose its first four Albanian letters`,
+    );
+
     for (const token of tokens) {
       coveredLetters.add(token);
       if (ALBANIAN_DIGRAPHS.includes(token)) {

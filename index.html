@@ -154,8 +154,8 @@
                 class="tool-button"
                 id="hint-button"
                 type="button"
-                aria-controls="hint-card"
-                aria-describedby="hint-description"
+                aria-controls="hint-confirmation"
+                aria-describedby="hint-description hint-copy"
                 aria-expanded="false"
               >
                 <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -180,6 +180,33 @@
               </button>
             </div>
           </div>
+
+          <section
+            class="hint-confirmation"
+            id="hint-confirmation"
+            role="group"
+            aria-labelledby="hint-confirmation-title"
+            aria-describedby="hint-confirmation-copy"
+            hidden
+          >
+            <div class="hint-confirmation-text">
+              <strong id="hint-confirmation-title">Ta hapësh gjurmën?</strong>
+              <p id="hint-confirmation-copy">
+                Hapja përdor një provë dhe nuk zhbëhet.
+              </p>
+            </div>
+            <div class="hint-confirmation-actions">
+              <button class="secondary-button" id="hint-cancel" type="button">Jo tani</button>
+              <button
+                class="primary-button"
+                id="hint-confirm"
+                type="button"
+                aria-describedby="hint-confirmation-copy"
+              >
+                Përdor 1 provë
+              </button>
+            </div>
+          </section>
 
           <div class="board-stage" id="game-board" tabindex="-1">
             <div
@@ -217,7 +244,9 @@
                 <p id="hint-description">Hapet pas provës së tretë.</p>
               </div>
             </div>
-            <p class="hint-copy" id="hint-copy">Do të tregojë kuptimin pa zbuluar asnjë shkronjë.</p>
+            <p class="hint-copy" id="hint-copy">
+              Tregon llojin dhe kuptimin pa zbuluar shkronja. Përdor një provë.
+            </p>
           </section>
 
           <section class="side-section besa-section" id="besa-card">
