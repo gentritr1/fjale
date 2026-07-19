@@ -490,9 +490,18 @@
   }
 
   .tool-button[aria-pressed="true"] {
-    border-color: var(--ink);
-    background: var(--ink);
-    color: var(--bg);
+    border-color: var(--primary-deep);
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  /* A finished round keeps the pressed identity visible instead of inheriting
+     the washed-out global disabled opacity (unreadable over the amber fill). */
+  .tool-button[aria-pressed="true"]:disabled {
+    opacity: 1;
+    border-color: color-mix(in oklch, var(--primary-deep) 40%, transparent);
+    background: var(--primary-pale);
+    color: var(--primary-deep);
   }
 
   .tool-badge {
@@ -508,8 +517,13 @@
   }
 
   .tool-button[aria-pressed="true"] .tool-badge {
-    background: color-mix(in oklch, var(--bg) 16%, transparent);
-    color: var(--bg);
+    background: color-mix(in oklch, var(--on-primary) 14%, transparent);
+    color: var(--on-primary);
+  }
+
+  .tool-button[aria-pressed="true"]:disabled .tool-badge {
+    background: color-mix(in oklch, var(--primary-deep) 14%, transparent);
+    color: var(--primary-deep);
   }
 
   .hint-confirmation {
@@ -1891,13 +1905,35 @@
 
   .setting-row select {
     min-height: 44px;
-    padding: 0 28px 0 10px;
+    padding: 0 30px 0 12px;
+    flex: 0 0 auto;
+    appearance: none;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
-    background: var(--bg);
+    /* Neutral warm-gray chevron reads on both themes; native arrows and rings
+       clashed with the palette (why: appearance:none drops them entirely). */
+    background:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8"><path d="M1.4 1.6 6 6.2l4.6-4.6" fill="none" stroke="%238a8378" stroke-width="1.8" stroke-linecap="round"/></svg>')
+      right 11px center / 12px 8px no-repeat,
+      var(--surface);
     color: var(--ink);
     font-size: 0.78rem;
     font-weight: 700;
+    transition: border-color 160ms var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .setting-row select:hover {
+      border-color: var(--primary-deep);
+    }
+  }
+
+  /* Chromium marks a mouse-opened select as :focus-visible, so the shared fat
+     double ring flashed on every click. A slim ring keeps keyboard visibility
+     without the clash. */
+  .setting-row select:focus-visible {
+    border-color: var(--focus);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--focus) 55%, transparent);
   }
 
   .switch-input {
