@@ -1246,6 +1246,18 @@
     text-wrap: pretty;
   }
 
+  /* Welcome banner in "Si luhet". The artwork carries its own cream ground,
+     fixed across themes exactly like the passport stamps. */
+  .help-hero {
+    width: 100%;
+    height: auto;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    display: block;
+    border-radius: var(--radius-md);
+    background: #f7e8c4;
+  }
+
   .example-row {
     margin: 22px 0 18px;
     display: flex;

@@ -40,7 +40,7 @@
       ]
     },
     {
-      "source": "/(og-fjale-v1.png|og-fjale-v1.svg|og-fjale-v2.png|og-fjale-v2.svg|besa-seal-v1.svg|stamp-digraph-v1.svg)",
+      "source": "/(og-fjale-v1.png|og-fjale-v1.svg|og-fjale-v2.png|og-fjale-v2.svg|besa-seal-v1.svg|stamp-digraph-v1.svg|help-hero-v1.svg|screenshot-narrow-v1.png|screenshot-wide-v1.png)",
       "headers": [
         {
           "key": "Cache-Control",
