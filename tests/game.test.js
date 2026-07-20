@@ -645,3 +645,30 @@ test("getActiveDailyEpoch returns the governing epoch for a date", () => {
   // Dates before the first epoch clamp to it (preserving pre-epoch behavior).
   assert.equal(getActiveDailyEpoch(new Date("2000-01-01T12:00:00Z")), DAILY_EPOCHS[0]);
 });
+
+// The complete published daily mapping is locked by a golden fixture: every
+// Tirana date from launch through 2030-12-31 must resolve to exactly the word
+// recorded in tests/fixtures/daily-schedule.json. The 13-date pin above catches
+// formula drift quickly; this catches ANY drift, including a fixture edit —
+// regenerating via scripts/build-daily-fixture.mjs is only legitimate when a
+// new epoch is appended, and the diff must touch no date before that epoch.
+test("the full published daily schedule matches the golden fixture", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const fixture = JSON.parse(
+    await readFile(new URL("./fixtures/daily-schedule.json", import.meta.url), "utf8"),
+  );
+  const dates = Object.keys(fixture);
+
+  assert.equal(dates[0], "2026-07-16", "fixture must start on launch day");
+  assert.equal(dates.at(-1), "2030-12-31", "fixture must cover through 2030");
+  assert.equal(dates.length, 1_630, "fixture must be gapless across the span");
+
+  const drifted = [];
+  for (const [dateKey, word] of Object.entries(fixture)) {
+    const resolved = getAnswerById(getDailyAnswerIndex(new Date(`${dateKey}T12:00:00Z`))).word;
+    if (resolved !== word) {
+      drifted.push(`${dateKey}: fixture=${word} code=${resolved}`);
+    }
+  }
+  assert.deepEqual(drifted, [], "published daily history must never move");
+});

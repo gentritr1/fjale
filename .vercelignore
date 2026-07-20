@@ -1,8 +1,14 @@
 third_party/
 tests/
 scripts/
+editorial/
 .impeccable/
 .claude/
+.github/
 server.mjs
 DESIGN.md
 PRODUCT.md
+ROADMAP.md
+LEXICON.md
+LESSONS.md
+README.md

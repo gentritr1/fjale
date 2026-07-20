@@ -238,6 +238,122 @@ test("publishes crawl directives for the canonical origin", async () => {
 
   assert.ok(robots.includes(`Sitemap: ${CANONICAL_ORIGIN}sitemap.xml`));
   assert.ok(sitemap.includes(`<loc>${CANONICAL_ORIGIN}</loc>`));
+  assert.ok(sitemap.includes("<lastmod>"), "sitemap entries must carry lastmod");
   assert.ok(serverSource.includes('"/robots.txt"'));
   assert.ok(serverSource.includes('"/sitemap.xml"'));
+});
+
+test("wires the privacy page through every serving layer", async () => {
+  const [privacy, html, serverSource, vercelSource, serviceWorker, sitemap] = await Promise.all([
+    readFile("privatesia.html", "utf8"),
+    readFile("index.html", "utf8"),
+    readFile("server.mjs", "utf8"),
+    readFile("vercel.json", "utf8"),
+    readFile("service-worker.js", "utf8"),
+    readFile("sitemap.xml", "utf8"),
+  ]);
+
+  // The page itself: Albanian, canonical, self-contained (CSP allows no inline
+  // style/script, and the privacy promise forbids third-party resources).
+  assert.ok(privacy.includes('<html lang="sq">'));
+  assert.ok(privacy.includes(`href="${CANONICAL_ORIGIN}privatesia.html"`));
+  assert.ok(privacy.includes('href="/styles.css"'));
+  assert.ok(privacy.includes('src="/src/page-theme.js"'));
+  assert.doesNotMatch(privacy, /<style|onclick|javascript:/u);
+  assert.doesNotMatch(
+    privacy.replaceAll(`${CANONICAL_ORIGIN}privatesia.html`, ""),
+    /https?:\/\//u,
+    "the privacy page must reference no external origin",
+  );
+
+  // Reachable from the game: footer and settings dialog both link it.
+  const linkCount = (html.match(/href="\/privatesia\.html"/gu) ?? []).length;
+  assert.ok(linkCount >= 2, "index.html must link the privacy page from footer and settings");
+  assert.ok(html.includes('class="app-footer"'));
+
+  // Served locally, cached correctly in production, available offline, crawlable.
+  assert.ok(serverSource.includes('"/privatesia.html"'));
+  assert.ok(serverSource.includes('"/src/page-theme.js"'));
+  assert.ok(vercelSource.includes("privatesia.html"));
+  assert.ok(serviceWorker.includes('"/privatesia.html"'));
+  assert.ok(serviceWorker.includes('"/src/page-theme.js"'));
+  assert.ok(sitemap.includes(`<loc>${CANONICAL_ORIGIN}privatesia.html</loc>`));
+});
+
+test("keeps internal documents out of the deployment", async () => {
+  const vercelIgnore = await readFile(".vercelignore", "utf8");
+  const ignored = new Set(vercelIgnore.split("\n").map((line) => line.trim()).filter(Boolean));
+
+  for (const entry of [
+    "ROADMAP.md",
+    "LEXICON.md",
+    "LESSONS.md",
+    "DESIGN.md",
+    "PRODUCT.md",
+    "README.md",
+    "tests/",
+    "scripts/",
+    "editorial/",
+    "server.mjs",
+  ]) {
+    assert.ok(ignored.has(entry), `.vercelignore must exclude ${entry}`);
+  }
+});
+
+test("keeps the report address in exactly one configurable place", async () => {
+  const [app, config] = await Promise.all([
+    readFile("src/app.js", "utf8"),
+    readFile("src/config.js", "utf8"),
+  ]);
+
+  assert.match(config, /export const REPORT_EMAIL = "[^"@]+@[^"@]+"/u);
+  assert.ok(app.includes('import { REPORT_EMAIL } from "./config.js"'));
+  assert.doesNotMatch(
+    app,
+    /[\w.+-]+@[\w-]+\.[\w.]+/u,
+    "app.js must not hardcode an email address",
+  );
+});
+
+test("surfaces invalid challenge links instead of silently opening the daily", async () => {
+  const app = await readFile("src/app.js", "utf8");
+
+  assert.ok(app.includes("invalidChallengeCode: Boolean(challengeCode)"));
+  assert.ok(app.includes("primaryDescriptor.invalidChallengeCode"));
+  assert.ok(app.includes("Lidhja e sfidës nuk është e vlefshme"));
+});
+
+test("keeps the service-worker shell, server allowlist, and corpus policy synchronized", async () => {
+  const [serviceWorker, serverSource] = await Promise.all([
+    readFile("service-worker.js", "utf8"),
+    readFile("server.mjs", "utf8"),
+  ]);
+
+  const extractPaths = (source, marker) => {
+    const match = source.match(new RegExp(`${marker}[^\\[]*\\[([^\\]]+)\\]`, "u"));
+    assert.ok(match, `${marker} list must exist`);
+    return [...match[1].matchAll(/"([^"]+)"/gu)].map(([, path]) => path);
+  };
+
+  const appShell = extractPaths(serviceWorker, "const APP_SHELL = ");
+  const publicPaths = new Set(extractPaths(serverSource, "const publicPaths = new Set\\("));
+
+  // Every precached shell path must actually be served by the dev server, so a
+  // rename or new file cannot ship half-wired ("/" maps to index.html).
+  for (const path of appShell) {
+    if (path === "/") {
+      continue;
+    }
+    assert.ok(publicPaths.has(path), `APP_SHELL entry ${path} must be in server publicPaths`);
+  }
+
+  // The generated corpus must stay network-first with a versioned header, so a
+  // corpus release reaches clients without a CACHE_NAME bump: precached for
+  // offline, never cache-first.
+  assert.ok(appShell.includes("/src/accepted-words.js"));
+  const cacheFirstBlock = serviceWorker.match(/CACHE_FIRST_ASSETS = new Set\(\[([^\]]+)\]/u);
+  assert.ok(cacheFirstBlock && !cacheFirstBlock[1].includes("accepted-words"));
+  const corpus = await readFile("src/accepted-words.js", "utf8");
+  assert.match(corpus, /Corpus version: \S+/u, "corpus must declare its version");
+  assert.match(serviceWorker, /const CACHE_NAME = "fjale-shell-v\d+"/u);
 });
