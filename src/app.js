@@ -24,6 +24,7 @@ import {
   WORD_RATING_VALUES,
 } from "./game.js";
 import { ACCEPTED_GUESSES, ANSWERS, getAnswerById } from "./words.js";
+import { REPORT_EMAIL } from "./config.js";
 
 const ROW_COUNT = 6;
 const COLUMN_COUNT = 5;
@@ -48,7 +49,6 @@ const STATUS_LABEL = Object.freeze({
   correct: "është në vendin e saktë",
 });
 const SHARE_MARK = Object.freeze({ absent: "⬛×", present: "🟨•", correct: "🟩✓" });
-const REPORT_EMAIL = "gentrit.rashiti2@gmail.com";
 // Human-facing Albanian labels for the persisted rating keys, in display order.
 const WORD_RATING_LABELS = Object.freeze({
   e_drejte: "E drejtë",
@@ -239,6 +239,13 @@ function initialize() {
   renderAll();
   registerServiceWorker();
 
+  if (primaryDescriptor.invalidChallengeCode) {
+    showToast(
+      "Lidhja e sfidës nuk është e vlefshme. U hap fjala e ditës.",
+      "Lidhja e sfidës nuk është e vlefshme, prandaj u hap fjala e ditës.",
+    );
+  }
+
   // Browsers may restore the previous scroll position after a reload. For a
   // completed puzzle, realign the primary result after that restoration
   // so the sticky header cannot cover its first line.
@@ -297,6 +304,10 @@ function createPrimaryDescriptor() {
     answerIndex: getDailyAnswerIndex(now),
     puzzleId: `daily-${dateKey}`,
     dateKey,
+    // A ?sfida= code that fails to decode falls back to the daily word, but
+    // silently swallowing the broken link would leave the recipient thinking
+    // they are playing their friend's challenge. initialize() surfaces this.
+    invalidChallengeCode: Boolean(challengeCode),
   };
 }
 
