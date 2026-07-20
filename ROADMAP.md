@@ -42,15 +42,51 @@ Extend this list by appending; never renumber shipped tiers.
 - The lexicon, daily, challenge, streak, and release contracts live in this file
   and `LEXICON.md`.
 
-## Now — release the polished V1 beta
+## Completed — launch-hygiene round (2026-07-20)
 
-- Complete the native-speaker skim of the 76 appended answers and metadata.
-  Corrections may edit metadata, but answer removal or reordering waits for
-  immutable IDs.
+- The privacy page (`/privatesia.html`) is live: localStorage-only storage, no
+  cookies/analytics/third-party resources, voluntary email reports, erase via
+  clear-site-data. Linked from the page footer and the settings dialog, served
+  through every layer (dev server, Vercel, service worker, sitemap).
+- Internal planning documents (ROADMAP, LEXICON, LESSONS, DESIGN, PRODUCT,
+  README, editorial worksheets) are excluded from deployment via `.vercelignore`
+  and guarded by a test.
+- GitHub Actions CI runs `npm run check` on Node 20 and 24 for every push/PR.
+- The complete published daily schedule 2026-07-16..2030-12-31 is locked by a
+  golden fixture (`tests/fixtures/daily-schedule.json`); regeneration is only
+  legitimate when appending an epoch, and any drift in an already-published
+  date fails the suite.
+- `scripts/validate-lexicon.mjs` gates `npm run check`: id/metadata/syllable
+  integrity are hard errors; part-of-speech imbalance and clue stem leaks are
+  standing warnings for the editorial pass.
+- Invalid `?sfida=` challenge links now show a visible warning while falling
+  back to the daily word, instead of failing silently.
+- The report address lives in one place (`src/config.js`); switching to a
+  branded address is a one-line change pending the custom-domain decision.
+- The Hunspell-declared dictionary expansion from "Next" shipped earlier as
+  corpus version `2-hunspell-declared-2026-07-18` (21,481 accepted guesses);
+  the deterministic build lives in `scripts/build-accepted-words.mjs`. Manual
+  standard overrides and regional guess-only layers remain open.
+- The post-game learning row from "Later" largely shipped: the solved row shows
+  the reviewed definition, example, part-of-speech/syllable metadata, and the
+  digraph-aware result card. Pronunciation and translations remain open.
+
+## Now — editorial runway before 2026-09-16
+
+The live V1 beta is deployed and matches the repository. The daily pool has 62
+words; `bardhë` (2026-07-16) repeats on 2026-09-16, so a reviewed second epoch
+must be published before that date.
+
+- Two Albanian reviewers approve/reject the 76 appended answers using
+  `editorial/review-2026-07.md` / `.csv` (regenerate with
+  `scripts/build-review-worksheet.mjs`). Corrections may edit metadata; answer
+  removal or reordering stays forbidden (immutable IDs, legacy clients).
+- Publish the approved pool growth as a new append-only epoch, then regenerate
+  the daily-schedule fixture and verify the diff touches no pre-epoch date.
+- Improve verb/adjective/adverb representation: 125 of 138 answers are nouns
+  (75 of the 76 pending are nouns — see validator warnings).
 - Run the remaining physical-device gate: iPhone Safari, Android Chrome/Firefox,
   and one WhatsApp share paste.
-- Commit and deploy the verified round, then check the canonical origin, social
-  card, cache behavior, and security headers on the live URL.
 - Begin collecting missing-word emails manually; do not infer aggregate demand
   from device-local ratings.
 
@@ -61,14 +97,16 @@ or a backend to the V1 polish round.
 
 ### Dictionary breadth
 
-- Vendor and checksum the matching `sq_AL.aff`.
-- Deterministically expand Hunspell-declared forms and add a reviewed probe set,
-  including `shokun` and `gjyshja`.
+- **Done:** `sq_AL.dic` + `sq_AL.aff` are vendored and checksum-pinned;
+  Hunspell-declared forms expand deterministically (corpus version
+  `2-hunspell-declared-2026-07-18`) with a reviewed probe set including
+  `shokun` and `gjyshja`.
 - Keep manual standard overrides and reviewed regional guess-only forms in
   separate layers.
-- Add corpus versioning and a reviewed maximum-diff guard.
+- Add a reviewed maximum-diff guard for future corpus regenerations.
 - Do not call this work “full paradigms”; gaps require additional reviewed
-  sources.
+  sources. The underlying dictionary (v1.6.4) is old — a reviewed manual
+  override and regional-word workflow will eventually be needed.
 
 ### Editorial runway and stable identity
 
@@ -141,10 +179,10 @@ below extends that surface without reopening the V1 scope freeze.
   loads no third-party resources (CSP is `'self'` plus one JSON-LD hash), and
   has no analytics. Reports leave the device only when the player sends the
   pre-filled email.
-- Publish a short privacy page stating exactly that: what is stored locally,
-  that nothing is transmitted, that email reports are voluntary and include
-  only what the player sees, and how to erase data (clear site data). Link it
-  from the settings dialog and the page footer.
+- **Done (2026-07-20):** `/privatesia.html` states exactly that: what is stored
+  locally, that nothing is transmitted, that email reports are voluntary and
+  include only what the player sees, and how to erase data (clear site data).
+  Linked from the settings dialog and the page footer.
 - No consent banner is needed while there is no tracking. The moment any
   analytics, ads, or collection endpoint is added, GDPR/ePrivacy consent and
   the privacy page must ship in the same release — never after.
