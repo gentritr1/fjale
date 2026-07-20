@@ -2435,3 +2435,83 @@
     display: none;
   }
 }
+
+/* Static pages (privatesia.html): same tokens as the app, document layout. */
+.static-page-body {
+  display: block;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.static-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+  color: var(--ink);
+}
+
+.static-page h1 {
+  font-size: 2rem;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.35rem;
+}
+
+.static-page h2 {
+  font-size: 1.2rem;
+  margin: 2rem 0 0.6rem;
+}
+
+.static-page p,
+.static-page li {
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.static-page ul {
+  padding-inline-start: 1.4rem;
+}
+
+.static-page code,
+.static-page em {
+  color: var(--ink);
+}
+
+.static-page-nav {
+  margin: 0 0 2rem;
+}
+
+.static-page-nav a,
+.static-page a {
+  color: var(--primary-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.static-page-updated {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+}
+
+.static-page-footnote {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* Footer under the game shell: quiet, single privacy link. */
+.app-footer {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.app-footer a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}

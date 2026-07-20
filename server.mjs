@@ -10,6 +10,7 @@ const host = process.env.HOST || "127.0.0.1";
 const port = parsePort(process.env.PORT || "3000");
 const publicPaths = new Set([
   "/index.html",
+  "/privatesia.html",
   "/styles.css",
   "/manifest.webmanifest",
   "/robots.txt",
@@ -29,7 +30,9 @@ const publicPaths = new Set([
   "/screenshot-narrow-v1.png",
   "/screenshot-wide-v1.png",
   "/src/app.js",
+  "/src/config.js",
   "/src/game.js",
+  "/src/page-theme.js",
   "/src/words.js",
   "/src/accepted-words.js",
 ]);

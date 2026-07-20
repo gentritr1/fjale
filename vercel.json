@@ -89,7 +89,7 @@
       ]
     },
     {
-      "source": "/(index.html|styles.css)",
+      "source": "/(index.html|privatesia.html|styles.css)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -98,7 +98,7 @@
       ]
     },
     {
-      "source": "/src/(app.js|game.js|words.js)",
+      "source": "/src/(app.js|config.js|game.js|page-theme.js|words.js)",
       "headers": [
         {
           "key": "Cache-Control",

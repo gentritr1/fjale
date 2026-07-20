@@ -1,12 +1,15 @@
-const CACHE_NAME = "fjale-shell-v12";
+const CACHE_NAME = "fjale-shell-v13";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/privatesia.html",
   "/styles.css",
   "/src/app.js",
+  "/src/config.js",
   "/src/game.js",
+  "/src/page-theme.js",
   "/src/words.js",
   "/src/accepted-words.js",
   "/manifest.webmanifest",
