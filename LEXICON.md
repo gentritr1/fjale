@@ -123,13 +123,14 @@ Resizing a live daily pool changes historical answers, so it is prohibited.
 derived from the active entry in `DAILY_EPOCHS`, giving the pool size a single
 source of truth that cannot drift from the rotation math.
 
-`DAILY_EPOCHS` in `src/game.js` is a frozen, append-only table. Each epoch is
-`{ start, poolSize, stepBase, offset }`, where `start` is a `Europe/Tirane`
-date. `getDailyAnswerIndex(date)` selects the last epoch whose `start` is on or
-before the Tirana date key and applies that epoch's rotation over the leading
-`poolSize`-word prefix of `ANSWERS` (the same coprime-step selector the game has
-always used, parameterised per epoch). The returned pool index doubles as an
-immutable answer ID because IDs equal their prefix position.
+`DAILY_EPOCHS` in `src/game.js` is a frozen, append-only table. The launch epoch
+keeps its historical `{ start, poolSize, stepBase, offset }` shape and rotates
+over the leading `poolSize` answers. Future epochs may instead freeze an
+explicit `answerIds` list. `getDailyAnswerIndex(date)` selects the last epoch
+whose `start` is on or before the Tirana date key, rotates over that epoch's
+pool, and returns the selected immutable answer ID. An explicit list allows a
+reviewed daily pool to skip `practice_only` or rejected entries without deleting
+or renumbering their IDs.
 
 The launch epoch `{ "2026-07-16", 62, 37, 911 }` reproduces the previous
 selector for every date, so no historical daily word or challenge link shifts.
@@ -137,12 +138,11 @@ Dates before the first epoch clamp to it; the archive UI already gates out dates
 earlier than the first published daily.
 
 Growing the daily pool happens **only** by appending a later-dated epoch with a
-larger `poolSize` — an editorial act taken after native review, never by editing
-an existing epoch or resizing an old pool. Existing epochs are frozen: once any
-date in an epoch has been served, its parameters and every date-to-answer
-mapping it produces never change. Appending a future epoch cannot rewrite an
-earlier epoch's history (`tests/game.test.js` proves this against a synthetic
-138-word epoch).
+frozen explicit list of approved IDs — an editorial act taken after native
+review, never by editing an existing epoch or resizing an old pool. Existing
+epochs are frozen: once any date in an epoch has been served, its parameters and
+every date-to-answer mapping it produces never change. Tests prove both
+historical stability and rejection-safe pools with gaps.
 
 Daily play and Archive use the same resolver. Tests freeze published mappings
 across the pinned date span, the epoch table's contents, and epoch-append

@@ -7,8 +7,12 @@
   "description": "FJALË — loja shqipe e fjalës së ditës.",
   "scripts": {
     "dev": "node server.mjs",
+    "editorial": "node scripts/editorial-server.mjs",
+    "editorial:batch": "node scripts/build-editorial-batch.mjs",
+    "editorial:reconcile": "node scripts/reconcile-editorial-reviews.mjs",
+    "editorial:epoch": "node scripts/build-epoch-proposal.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check service-worker.js && node --check src/app.js && node --check src/config.js && node --check src/game.js && node --check src/words.js && node --check src/accepted-words.js && node scripts/validate-lexicon.mjs && node --test"
+    "check": "node --check server.mjs && node --check service-worker.js && node --check src/app.js && node --check src/config.js && node --check src/game.js && node --check src/words.js && node --check src/accepted-words.js && node --check editor/editor.js && node --check editor/review-merge.js && node --check scripts/build-editorial-batch.mjs && node --check scripts/editorial-server.mjs && node --check scripts/reconcile-editorial-reviews.mjs && node --check scripts/build-epoch-proposal.mjs && node scripts/validate-lexicon.mjs && node --test"
   },
   "engines": {
     "node": ">=20"

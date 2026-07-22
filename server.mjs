@@ -24,6 +24,8 @@ const publicPaths = new Set([
   "/og-fjale-v1.svg",
   "/og-fjale-v2.png",
   "/og-fjale-v2.svg",
+  "/og-fjale-v3.png",
+  "/og-fjale-v3.svg",
   "/besa-seal-v1.svg",
   "/stamp-digraph-v1.svg",
   "/help-hero-v1.svg",
@@ -70,7 +72,7 @@ const securityHeaders = {
     "img-src 'self' data:",
     "manifest-src 'self'",
     "object-src 'none'",
-    "script-src 'self' 'sha256-2N7wrc0qjrtbR9dL65oq0vbaRcXhhF2ZF+5w8oOrtJc='",
+    "script-src 'self' 'sha256-id/WJmRbPQBpIl/j2v3SxwVMU7lWDMVx/aalpC3yPxM='",
     "style-src 'self'",
     "worker-src 'self'"
   ].join("; "),

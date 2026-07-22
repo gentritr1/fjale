@@ -2,3 +2,9 @@
 node_modules/
 .claude/
 *.log
+
+# Local/private editorial output. Frozen inputs in editorial/batches stay versioned.
+editorial/reviews/
+editorial/decisions/
+editorial/epoch-proposals/
+editorial/backups/

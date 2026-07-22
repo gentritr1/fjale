@@ -608,6 +608,88 @@ test("appending a larger-pool epoch cannot rewrite earlier history", () => {
   assert.ok(maxIndex >= 62, "epoch 2 must reach words outside the 62-word launch pool");
 });
 
+test("explicit answer-id epochs skip rejected catalog gaps without rewriting history", () => {
+  const launchEpoch = DAILY_EPOCHS[0];
+  const answerIds = Object.freeze([62, 64, 65, 70]);
+  const reviewed = Object.freeze({
+    start: "2027-01-01",
+    answerIds,
+    stepBase: 37,
+    offset: 911,
+  });
+  const epochs = Object.freeze([launchEpoch, reviewed]);
+
+  assert.equal(
+    getDailyAnswerIndex(new Date("2026-12-31T12:00:00Z"), epochs),
+    getDailyAnswerIndex(new Date("2026-12-31T12:00:00Z"), [launchEpoch]),
+    "the future explicit pool must not affect the launch epoch",
+  );
+
+  const resolved = Array.from({ length: answerIds.length }, (_, offset) =>
+    getDailyAnswerIndex(
+      new Date(Date.parse("2027-01-01T12:00:00Z") + offset * 86_400_000),
+      epochs,
+    ),
+  );
+
+  assert.deepEqual(new Set(resolved), new Set(answerIds));
+  assert.ok(resolved.every((answerId) => answerIds.includes(answerId)));
+  assert.ok(!resolved.includes(63), "a rejected id must never enter the daily rotation");
+});
+
+test("explicit answer-id epochs derive a frozen active pool view", () => {
+  const answerIds = Object.freeze([62, 64, 70]);
+  const epoch = Object.freeze({
+    start: "2027-01-01",
+    answerIds,
+    stepBase: 37,
+    offset: 911,
+  });
+  const active = getActiveDailyEpoch(new Date("2027-01-01T12:00:00Z"), [
+    DAILY_EPOCHS[0],
+    epoch,
+  ]);
+
+  assert.equal(active.poolSize, answerIds.length);
+  assert.equal(active.answerIds, answerIds);
+  assert.ok(Object.isFrozen(active), "the derived active epoch view must be frozen");
+  assert.ok(Object.isFrozen(answerIds), "the published answer-id pool must be frozen");
+  assert.throws(() => answerIds.push(71), TypeError);
+});
+
+test("explicit answer-id epochs reject mutable, empty, duplicate, and invalid ids", () => {
+  const epochFor = (answerIds, overrides = {}) => [
+    DAILY_EPOCHS[0],
+    {
+      start: "2027-01-01",
+      answerIds,
+      stepBase: 37,
+      offset: 911,
+      ...overrides,
+    },
+  ];
+  const resolve = (epochs) =>
+    getDailyAnswerIndex(new Date("2027-01-01T12:00:00Z"), epochs);
+
+  assert.throws(() => resolve(epochFor([62, 64])), /answerIds must be frozen/u);
+  assert.throws(() => resolve(epochFor(Object.freeze([]))), /nonempty/u);
+  assert.throws(() => resolve(epochFor(Object.freeze([62, 62]))), /unique/u);
+  assert.throws(() => resolve(epochFor(Object.freeze([-1, 62]))), /safe integers/u);
+  assert.throws(() => resolve(epochFor(Object.freeze([1.5, 62]))), /safe integers/u);
+  assert.throws(
+    () => resolve(epochFor(Object.freeze([Number.MAX_SAFE_INTEGER + 1]))),
+    /safe integers/u,
+  );
+  assert.throws(
+    () => resolve(epochFor(Object.freeze([62, 64]), { poolSize: 3 })),
+    /poolSize must match/u,
+  );
+
+  assert.doesNotThrow(() =>
+    resolve(epochFor(Object.freeze([62, 64]), { poolSize: 2 })),
+  );
+});
+
 // The epoch table is append-only and reviewed. Any change to this deepEqual —
 // editing an epoch or inserting one out of order — must be a deliberate,
 // reviewed append. Existing epochs are frozen; only new later-dated entries with
@@ -625,6 +707,13 @@ test("DAILY_EPOCHS is frozen, sorted, non-overlapping, and pinned", () => {
     assert.ok(Number.isInteger(epoch.poolSize) && epoch.poolSize > 0);
     assert.ok(Number.isInteger(epoch.stepBase) && epoch.stepBase > 0);
     assert.ok(Number.isInteger(epoch.offset) && epoch.offset >= 0);
+    const answerIds = epoch.answerIds ?? Array.from(
+      { length: epoch.poolSize },
+      (_, answerId) => answerId,
+    );
+    for (const answerId of answerIds) {
+      assert.ok(getAnswerById(answerId), `daily epoch ${epoch.start} references missing answer id ${answerId}`);
+    }
     if (i > 0) {
       // Strictly ascending starts guarantee both sort order and non-overlap:
       // dailyEpochFor picks the last epoch whose start <= the date key.

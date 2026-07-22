@@ -48,7 +48,7 @@ const STATUS_LABEL = Object.freeze({
   present: "është në fjalë, por diku tjetër",
   correct: "është në vendin e saktë",
 });
-const SHARE_MARK = Object.freeze({ absent: "⬛×", present: "🟨•", correct: "🟩✓" });
+const SHARE_MARK = Object.freeze({ absent: "×", present: "•", correct: "✓" });
 // Human-facing Albanian labels for the persisted rating keys, in display order.
 const WORD_RATING_LABELS = Object.freeze({
   e_drejte: "E drejtë",
@@ -975,7 +975,9 @@ function getHintRequestError() {
 
   if (state.guesses.length < HINT_UNLOCK_GUESS) {
     const remaining = HINT_UNLOCK_GUESS - state.guesses.length;
-    return `Gjurmë pas ${remaining} ${remaining === 1 ? "prove" : "provash"} të tjera.`;
+    return remaining === 1
+      ? "Gjurmë pas një prove tjetër."
+      : `Gjurmë pas ${remaining} provash të tjera.`;
   }
 
   if (state.current.length > 0) {
@@ -1151,7 +1153,9 @@ function renderMeta() {
         : noAttemptForHint
           ? "Gjurmë e mbyllur në provën e fundit"
           : attemptsUntilHint > 0
-            ? `Gjurmë, hapet pas ${attemptsUntilHint} ${attemptsUntilHint === 1 ? "prove" : "provash"}`
+            ? attemptsUntilHint === 1
+              ? "Gjurmë, hapet pas një prove"
+              : `Gjurmë, hapet pas ${attemptsUntilHint} provash`
             : hintConfirmationOpen
               ? "Mbyll konfirmimin e gjurmës"
               : "Hap gjurmën, përdor 1 provë",
@@ -1178,7 +1182,10 @@ function renderMeta() {
     elements.hintDescription.textContent = "E mbyllur në provën e fundit.";
     elements.hintCopy.textContent = "Duhet të mbetet një provë për përgjigjen.";
   } else if (attemptsUntilHint > 0) {
-    elements.hintDescription.textContent = `Hapet pas ${attemptsUntilHint} ${attemptsUntilHint === 1 ? "prove" : "provash"}.`;
+    elements.hintDescription.textContent =
+      attemptsUntilHint === 1
+        ? "Hapet pas një prove."
+        : `Hapet pas ${attemptsUntilHint} provash.`;
     elements.hintCopy.textContent =
       "Tregon llojin dhe kuptimin pa zbuluar shkronja. Përdor një provë.";
   } else {
@@ -1851,38 +1858,38 @@ async function shareResult() {
   const score = state.status === "won" ? getStateAttemptCount() : "X";
   const puzzleLabel =
     state.mode === "daily"
-      ? `#${state.puzzleId.replace("daily-", "")}`
+      ? formatShareDate(state.puzzleId.replace("daily-", ""))
       : state.mode === "archive"
-        ? `#${state.puzzleId.replace("archive-", "")} (arkiv)`
+        ? `Arkivë · ${formatShareDate(state.puzzleId.replace("archive-", ""))}`
         : state.mode === "challenge"
           ? "Sfidë"
           : "Pa fund";
   const badges = [
-    state.besa && !state.usedHint && state.status === "won" ? "🛡 Besa" : null,
-    state.usedHint ? "💡 me gjurmë" : null,
+    state.besa && !state.usedHint && state.status === "won" ? "🛡️ Besa" : null,
+    state.usedHint ? "💡 Me gjurmë" : null,
   ].filter(Boolean);
   const gridRows = state.guesses.map((guess) =>
     evaluateGuess(getAnswerTokens(), guess)
       .map((status) => SHARE_MARK[status])
-      .join(""),
+      .join(" "),
   );
   if (hasCostlyHint()) {
-    gridRows.splice(state.hintRow, 0, "💡💡💡💡💡");
+    gridRows.splice(state.hintRow, 0, "💡 Gjurmë");
   }
   const grid = gridRows.join("\n");
   const text = [
-    `FJALË ${puzzleLabel} ${score}/${ROW_COUNT} · ${formatDuration(elapsedSeconds())}`,
-    badges.join(" · "),
+    `FJALË · ${puzzleLabel}`,
+    [`${score}/${ROW_COUNT}`, formatDuration(elapsedSeconds()), ...badges].join(" · "),
     "",
     grid,
     "",
-    "✓ në vend · • diku tjetër · × jo",
+    "✓ në vend · • diku tjetër · × jo në fjalë",
   ]
     .filter((line, index, lines) => line !== "" || lines[index - 1] !== "")
     .join("\n");
 
   await shareOrCopy({
-    title: "Rezultati im në FJALË",
+    title: "FJALË · Rezultati im",
     text,
     url: rootUrl(),
     copiedMessage: "Rezultati u kopjua — gati për ta ndarë.",
@@ -2186,6 +2193,11 @@ function formatFullDate(key) {
   return `${day} ${ALBANIAN_MONTHS_LONG[month - 1]}`;
 }
 
+function formatShareDate(key) {
+  const [year] = key.split("-").map(Number);
+  return `${formatDailyDate(key)} ${year}`;
+}
+
 function archiveDateKey() {
   return state.puzzleId.replace("archive-", "");
 }
@@ -2207,7 +2219,17 @@ function pad2(value) {
 }
 
 function rootUrl() {
-  return new URL("/", window.location.origin).toString();
+  const currentRoot = new URL("/", window.location.origin);
+  const canonicalHref = document.querySelector('link[rel="canonical"]')?.href;
+
+  // The legacy Vercel origin is still reachable, including from older PWAs.
+  // Keep local and preview builds self-contained, but never let that retired
+  // production host leak back into newly shared results or challenges.
+  if (currentRoot.hostname === "fjale-self.vercel.app" && canonicalHref) {
+    return new URL("/", canonicalHref).toString();
+  }
+
+  return currentRoot.toString();
 }
 
 function playSound(kind) {

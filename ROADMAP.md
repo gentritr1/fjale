@@ -10,13 +10,15 @@ Extend this list by appending; never renumber shipped tiers.
 
 - **P0 — Ship V1 to production.** Native-speaker skim, physical-device pass,
   deploy, verify the live origin. See "Now".
-- **P1 — Launch surface.** Custom domain, privacy page, store packaging
-  decision. See "Launch surface — store, privacy, and monetization".
+- **P1 — Launch surface.** Live privacy-page verification,
+  store packaging decision. See "Launch surface — store, privacy, and
+  monetization".
   Discoverability baseline (2026-07-18): not indexed, ranks for nothing.
-  First moves: Google Search Console submission + sitemap lastmod, custom
-  domain (fjale-self.vercel.app is a low-trust throwaway subdomain), listing
-  on the Wordles-of-the-World index, and backlinks from the Albanian
-  communities that already rank (forum-al.com, r/Albania, Facebook groups).
+  The custom domain is live at `fjalë.com`; the repository now uses its `www`
+  IDNA host as the canonical origin. Next moves: Google Search Console
+  submission + sitemap, listing on the Wordles-of-the-World index, and
+  backlinks from the Albanian communities that already rank (forum-al.com,
+  r/Albania, Facebook groups).
 - **P2 — Market wedge.** Hunspell-declared dictionary expansion, immutable
   answer IDs, daily epochs, editorial runway. See "Next".
 - **P3 — Feedback loop.** Privacy-respecting report endpoint, branded address,
@@ -42,15 +44,19 @@ Extend this list by appending; never renumber shipped tiers.
 - The lexicon, daily, challenge, streak, and release contracts live in this file
   and `LEXICON.md`.
 
-## Completed — launch-hygiene round (2026-07-20)
+## Completed in repository — launch-hygiene round (2026-07-20)
 
-- The privacy page (`/privatesia.html`) is live: localStorage-only storage, no
-  cookies/analytics/third-party resources, voluntary email reports, erase via
-  clear-site-data. Linked from the page footer and the settings dialog, served
-  through every layer (dev server, Vercel, service worker, sitemap).
+- The privacy page (`/privatesia.html`) is implemented: localStorage-only
+  storage, no cookies/analytics/third-party resources, voluntary email reports,
+  erase via clear-site-data. It is linked from the page footer and settings,
+  and wired through every repository serving layer (dev server, Vercel,
+  service worker, sitemap). It is not considered live until the next deployment
+  is verified.
 - Internal planning documents (ROADMAP, LEXICON, LESSONS, DESIGN, PRODUCT,
   README, editorial worksheets) are excluded from deployment via `.vercelignore`
   and guarded by a test.
+- The production metadata now names `www.fjalë.com` (machine-readable IDNA
+  form), and the versioned social card shows the human-readable `fjalë.com`.
 - GitHub Actions CI runs `npm run check` on Node 20 and 24 for every push/PR.
 - The complete published daily schedule 2026-07-16..2030-12-31 is locked by a
   golden fixture (`tests/fixtures/daily-schedule.json`); regeneration is only
@@ -71,18 +77,41 @@ Extend this list by appending; never renumber shipped tiers.
   the reviewed definition, example, part-of-speech/syllable metadata, and the
   digraph-aware result card. Pronunciation and translations remain open.
 
+## Completed in repository — local editorial runway (2026-07-20)
+
+- A production-excluded local studio now runs at `/admin`: reviewer identity,
+  76-word queue, progress/attention filters, keyboard and touch shortcuts,
+  metadata correction, four explicit outcomes, reasons, notes, undo, and JSON
+  export. Word and answer ID remain immutable.
+- Valid drafts and decisions autosave atomically to separate reviewer files;
+  browser backups survive a missing disk file, and an invalid local draft does
+  not block later valid saves. Revision tokens prevent stale tabs from erasing
+  newer work, and reviewer-session guards keep in-flight saves isolated. The
+  server is loopback-only with a fixed file allowlist, strict schema/hash
+  checks, and no production route.
+- Two complete independent reviews reconcile into a hash-pinned decisions file.
+  Agreements can promote an answer; metadata disagreements, revision requests,
+  and conflicting outcomes stop automatic promotion. The browser sees only
+  aggregate coverage; per-word verdicts remain private until the CLI step.
+- Future daily epochs use explicit frozen `answerIds`. The proposal command
+  emits the approved/excluded IDs, a 90-day preview, and a fixture-backed proof;
+  it refuses starts on or before the already-published Tirana date. It never
+  edits `src/words.js`, `DAILY_EPOCHS`, or the fixture automatically.
+
 ## Now — editorial runway before 2026-09-16
 
-The live V1 beta is deployed and matches the repository. The daily pool has 62
-words; `bardhë` (2026-07-16) repeats on 2026-09-16, so a reviewed second epoch
-must be published before that date.
+The repository now contains release-ready work that is not considered live
+until it is committed, deployed, and checked at the public origin. The daily
+pool has 62 words; `bardhë` (2026-07-16) repeats on 2026-09-16, so a reviewed
+second epoch must be published before that date.
 
-- Two Albanian reviewers approve/reject the 76 appended answers using
-  `editorial/review-2026-07.md` / `.csv` (regenerate with
-  `scripts/build-review-worksheet.mjs`). Corrections may edit metadata; answer
-  removal or reordering stays forbidden (immutable IDs, legacy clients).
-- Publish the approved pool growth as a new append-only epoch, then regenerate
-  the daily-schedule fixture and verify the diff touches no pre-epoch date.
+- Two Albanian reviewers independently process the 76 appended answers in the
+  local studio (`npm run editorial`; see `EDITORIAL.md`). The Markdown/CSV
+  worksheet remains a printable fallback. Corrections may edit metadata, but
+  word/ID changes, removal, and reordering stay forbidden.
+- Reconcile the two files, resolve any conflict or revision request, generate a
+  versioned epoch proposal, review its 90-day preview, then deliberately append
+  the approved epoch and regenerate the fixture. No promotion step is automatic.
 - Improve verb/adjective/adverb representation: 125 of 138 answers are nouns
   (75 of the 76 pending are nouns — see validator warnings).
 - Run the remaining physical-device gate: iPhone Safari, Android Chrome/Firefox,
@@ -115,8 +144,8 @@ or a backend to the V1 polish round.
   (see "Completed"). Reordering `ANSWERS` stays forbidden while legacy pre-ID
   clients persist raw indices.
 - Append-only daily epochs: **implemented**. Expanding the 62-word daily pool is
-  now done only by appending a later-dated epoch with a larger pool, after
-  native review — never by resizing the launch epoch.
+  now done only by appending a later-dated epoch with a frozen list of approved
+  answer IDs, after native review — never by resizing the launch epoch.
 - Grow to at least 365 two-reviewer daily answers with a maintained 90-day
   unpublished buffer, publishing pool growth through a new epoch.
 - Keep accepted guesses broad and daily answers common, fair, and
@@ -146,21 +175,23 @@ Not planned: coins, gems, ads, purchasable hints, streak freezes, public global
 leaderboards, forced accounts, unreviewed AI language content, or a collection
 of generic Wordle modes.
 
-## Competitive position (researched 2026-07-18)
+## Competitive position (researched 2026-07-20)
 
-Field: fjalth.com (only rival with correct single-tile digraphs; dictionary
-definitions per guess; any-date archive; Google Analytics; cert-chain issue on
-strict clients), wordle.global/sq (huge multi-mode platform, careless Albanian —
-served English "TRIAL" as a daily answer; no digraph keys), Fjalëz/metinferati
-(1,659 numbered dailies since 2022, split digraphs, dated UI), fjalez.al
-(no daily observed, network-dependent validation), plus three near-zero-traction
-store apps (Fjalgjza, Fjalez iOS with leaderboard/coins, dormant com.fjala.app).
-The original luaj.live is dead.
+Field: fjalth.com (single-tile digraphs, dictionary definitions, any-date
+archive, hard mode, statistics transfer, Google Analytics); Fjalëz Rreshti at
+fjalez.com (all 36 Albanian keys, five- and six-letter rounds, accounts and
+server-backed history); wordle.global/sq (large multilingual, multi-mode
+platform whose Albanian page still uses generic English examples and has no
+dedicated digraph keys); Fjalëza at fjaleza.com (custom domain, indexed daily
+archive, sequential digraph parsing but no dedicated digraph keyboard); and the
+legacy Fjalëz/metinferati game (long history, split digraphs, dated UI). Mobile
+competitors add store distribution, accounts, coins or leaderboards. The
+original luaj.live is dead.
 
-FJALË's defensible moats: human-reviewed answers with definitions/syllables/
-examples (nobody pairs review with metadata), digraph correctness (only fjalth
-matches), true no-analytics privacy plus offline play, mode breadth among
-Albanian-first games, and the strict-streak/Besa integrity story.
+FJALË's defensible moat is no longer digraph handling by itself. It is the
+combination of first-class Albanian tokenization, two-reviewer answers with
+definitions/syllables/examples, symbol-backed accessibility, true no-analytics
+privacy, reliable offline play, and the daily/archive/practice/Besa ritual.
 
 Known weaknesses to close, in wedge order: shallowest daily history in the
 field (62 words — P2 epochs), stats die with localStorage (P3 recovery code;

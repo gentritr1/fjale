@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://fjale-self.vercel.app/sitemap.xml
+Sitemap: https://www.xn--fjal-opa.com/sitemap.xml

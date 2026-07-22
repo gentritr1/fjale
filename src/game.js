@@ -81,13 +81,13 @@ const CHALLENGE_MULTIPLIER = 37;
 export const COMPLETED_PUZZLES_CAP = 4_000;
 const CHALLENGE_OFFSET = 911;
 
-// Each epoch freezes the daily-rotation formula for the span that starts on its
-// Tirana date. The rotation index depends on poolSize, so once a pool ships its
-// parameters are immutable — the ONLY way to grow the daily pool is to append a
-// new epoch with the later start date and the larger poolSize. Appending never
-// touches the words any earlier date resolved to, so history and shared
-// challenge links stay byte-stable. Entries are ordered by ascending start,
-// never overlap, and this table is append-only and reviewed (see tests).
+// Each epoch freezes the daily rotation for the span that starts on its Tirana
+// date. The launch epoch uses the legacy leading-prefix poolSize. Future epochs
+// may instead declare a frozen answerIds array so rejected catalog entries can
+// be skipped without renumbering accepted answers. Appending never touches the
+// words any earlier date resolved to, so history and shared challenge links stay
+// byte-stable. Entries are ordered by ascending start, never overlap, and this
+// table is append-only and reviewed (see tests).
 export const DAILY_EPOCHS = Object.freeze([
   Object.freeze({ start: "2026-07-16", poolSize: 62, stepBase: 37, offset: 911 }),
 ]);
@@ -315,20 +315,70 @@ function dailyEpochFor(dateKey, epochs) {
   return selected;
 }
 
+// Explicit answer ids are authoritative when present. Keeping the list frozen
+// makes the published pool immutable, while allowing an optional matching
+// poolSize preserves compatibility with code that displays the active size.
+function dailyEpochPool(epoch) {
+  if (!Object.hasOwn(epoch, "answerIds")) {
+    return { answerIds: null, poolSize: epoch.poolSize };
+  }
+
+  const { answerIds } = epoch;
+  if (!Array.isArray(answerIds) || answerIds.length === 0) {
+    throw new RangeError("epoch answerIds must be a nonempty array");
+  }
+  if (!Object.isFrozen(answerIds)) {
+    throw new TypeError("epoch answerIds must be frozen");
+  }
+
+  const seen = new Set();
+  for (const answerId of answerIds) {
+    if (!Number.isSafeInteger(answerId) || answerId < 0) {
+      throw new RangeError("epoch answerIds must contain non-negative safe integers");
+    }
+    if (seen.has(answerId)) {
+      throw new RangeError("epoch answerIds must be unique");
+    }
+    seen.add(answerId);
+  }
+
+  const poolSize = answerIds.length;
+  if (Object.hasOwn(epoch, "poolSize") && epoch.poolSize !== poolSize) {
+    throw new RangeError("epoch poolSize must match answerIds.length");
+  }
+
+  return { answerIds, poolSize };
+}
+
 // The epoch that governs today's daily word. app.js derives DAILY_POOL_SIZE
 // from this so the pool size has a single source of truth (the epoch table).
 export function getActiveDailyEpoch(date = new Date(), epochs = DAILY_EPOCHS) {
-  return dailyEpochFor(getTiranaDateKey(date), epochs);
+  const epoch = dailyEpochFor(getTiranaDateKey(date), epochs);
+  const { answerIds, poolSize } = dailyEpochPool(epoch);
+
+  if (answerIds && !Object.hasOwn(epoch, "poolSize")) {
+    return Object.freeze({ ...epoch, poolSize });
+  }
+
+  return epoch;
 }
 
 // Resolve the daily answer id for a date through the epoch table. The returned
-// value indexes the epoch's pool, which is the leading prefix of ANSWERS; since
-// ids equal their array position, it doubles as the immutable answer id. With
-// only the launch epoch present this is identical to getDailyIndex(date, 62)
-// for every date, so no historical daily word or challenge link shifts.
+// value is either the legacy leading-prefix index or an immutable id selected
+// from an explicit answerIds pool. With only the launch epoch present this is
+// identical to getDailyIndex(date, 62) for every date, so no historical daily
+// word or challenge link shifts.
 export function getDailyAnswerIndex(date, epochs = DAILY_EPOCHS) {
   const epoch = dailyEpochFor(getTiranaDateKey(date), epochs);
-  return rotationIndex(date, epoch.poolSize, epoch.stepBase, epoch.offset);
+  const { answerIds, poolSize } = dailyEpochPool(epoch);
+  const rotationPosition = rotationIndex(
+    date,
+    poolSize,
+    epoch.stepBase,
+    epoch.offset,
+  );
+
+  return answerIds ? answerIds[rotationPosition] : rotationPosition;
 }
 
 function greatestCommonDivisor(left, right) {

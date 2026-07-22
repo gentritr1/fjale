@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="sq">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta
+      name="description"
+      content="Mjeti lokal për shqyrtimin redaksional të fjalëve të FJALË-s."
+    />
+    <title>Redaksia · FJALË</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/admin/editor.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#candidate-word">Kalo te fjala</a>
+
+    <header class="editor-header">
+      <div class="header-inner">
+        <div class="brand" aria-label="FJALË">
+          <span class="brand-mark" aria-hidden="true">Ë</span>
+          <span>FJALË</span>
+        </div>
+
+        <div class="header-title">
+          <strong>Redaksia</strong>
+          <span class="local-badge">vetëm lokalisht</span>
+        </div>
+
+        <div class="header-actions">
+          <output class="save-status" id="save-status" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="save-status-copy">Duke hapur grupin…</span>
+          </output>
+          <button class="quiet-button" id="undo-button" type="button" aria-label="Zhbëj vendimin e fundit" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M9 8 5 12l4 4"></path>
+              <path d="M5 12h8a6 6 0 0 1 6 6"></path>
+            </svg>
+            <span>Zhbëj</span>
+          </button>
+          <button class="secondary-button" id="download-button" type="button" aria-label="Shkarko rishikimin si JSON" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 3v12"></path>
+              <path d="m7.5 10.5 4.5 4.5 4.5-4.5"></path>
+              <path d="M5 20h14"></path>
+            </svg>
+            <span id="download-button-copy">Shkarko JSON</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="state-panel loading-panel" id="loading-panel" aria-labelledby="loading-title">
+        <div class="loading-mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <h1 id="loading-title">Po hapet tryeza redaksionale</h1>
+        <p>Po lexohen kandidatët dhe rishikimet e ruajtura.</p>
+      </section>
+
+      <section class="state-panel error-panel" id="error-panel" aria-labelledby="error-title" hidden>
+        <span class="state-symbol" aria-hidden="true">!</span>
+        <h1 id="error-title">Grupi nuk u hap</h1>
+        <p id="error-copy">
+          Sigurohu që serveri redaksional po punon dhe provoje sërish.
+        </p>
+        <button class="primary-button" id="retry-button" type="button">Provo sërish</button>
+      </section>
+
+      <section class="state-panel setup-panel" id="setup-panel" aria-labelledby="setup-title" hidden>
+        <span class="setup-mark" aria-hidden="true">Ë</span>
+        <div>
+          <p class="setup-context" id="setup-context">Grupi redaksional</p>
+          <h1 id="setup-title">Kush po shqyrton sot?</h1>
+          <p class="setup-copy">
+            Përdor të njëjtin identifikues sa herë që vazhdon punën. Rishikimi yt ruhet
+            veçmas dhe krahasohet vetëm pasi të përfundojë.
+          </p>
+        </div>
+        <form class="reviewer-form" id="reviewer-form" novalidate>
+          <label for="reviewer-id">Identifikuesi i shqyrtuesit</label>
+          <div class="setup-input-row">
+            <input
+              id="reviewer-id"
+              name="reviewer"
+              type="text"
+              minlength="2"
+              maxlength="32"
+              pattern="[a-z0-9_-]+"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="p.sh. arta-k"
+              aria-describedby="reviewer-help reviewer-error"
+              required
+            />
+            <button class="primary-button" type="submit">Hap rishikimin</button>
+          </div>
+          <p class="field-help" id="reviewer-help">
+            2–32 shkronja të vogla, numra, vijë ose nënvizë.
+          </p>
+          <p class="field-error" id="reviewer-error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <div class="editor-shell" id="editor-app" hidden>
+        <aside class="queue-panel" aria-label="Radha e fjalëve">
+          <div class="queue-heading">
+            <div>
+              <p class="batch-label">Grupi</p>
+              <h2 id="batch-name">…</h2>
+            </div>
+            <button class="text-button" id="change-reviewer-button" type="button">
+              Ndrysho shqyrtuesin
+            </button>
+          </div>
+
+          <div class="progress-block">
+            <div class="progress-copy">
+              <strong id="progress-title">0 nga 0 të vendosura</strong>
+              <span id="progress-percent">0%</span>
+            </div>
+            <div
+              class="progress-track"
+              role="progressbar"
+              aria-label="Përparimi i rishikimit"
+              aria-valuemin="0"
+              aria-valuemax="0"
+              aria-valuenow="0"
+              id="progress-track"
+            >
+              <span id="progress-bar"></span>
+            </div>
+          </div>
+
+          <div class="filter-row" role="group" aria-label="Filtro radhën">
+            <button class="filter-button is-active" type="button" data-filter="all" aria-pressed="true">
+              Të gjitha <span id="count-all">0</span>
+            </button>
+            <button class="filter-button" type="button" data-filter="pending" aria-pressed="false">
+              Pa vendim <span id="count-pending">0</span>
+            </button>
+            <button class="filter-button" type="button" data-filter="attention" aria-pressed="false">
+              Për punë <span id="count-attention">0</span>
+            </button>
+          </div>
+
+          <nav class="candidate-queue" aria-label="Kandidatët">
+            <ol id="queue-list"></ol>
+          </nav>
+
+          <section class="reconciliation-panel" id="reconciliation-panel" hidden>
+            <h3>Bashkërendimi</h3>
+            <p id="reconciliation-copy"></p>
+          </section>
+
+          <details class="shortcut-help">
+            <summary>Shkurtoret e tastierës</summary>
+            <dl>
+              <div><dt><kbd>A</kbd></dt><dd>Prano për ditore</dd></div>
+              <div><dt><kbd>P</kbd></dt><dd>Vetëm për praktikë</dd></div>
+              <div><dt><kbd>N</kbd></dt><dd>Ka nevojë për korrigjim</dd></div>
+              <div><dt><kbd>R</kbd></dt><dd>Refuzo përmbajtjen</dd></div>
+              <div><dt><kbd>S</kbd></dt><dd>Kalo pa vendim</dd></div>
+              <div><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Fjala para / pas</dd></div>
+              <div><dt><kbd>E</kbd></dt><dd>Hap të dhënat</dd></div>
+            </dl>
+          </details>
+        </aside>
+
+        <section class="review-workspace" aria-labelledby="candidate-word">
+          <div class="candidate-navigation">
+            <button class="nav-button" id="previous-button" type="button" aria-label="Kandidati para">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></svg>
+              <span>Para</span>
+            </button>
+            <p id="candidate-position">Kandidati 0 nga 0</p>
+            <button class="nav-button" id="next-button" type="button" aria-label="Kandidati pas">
+              <span>Pas</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+          </div>
+
+          <article class="candidate-card" id="candidate-card">
+            <header class="candidate-header">
+              <div>
+                <div class="candidate-meta-line">
+                  <span id="candidate-id">ID …</span>
+                  <span class="decision-badge" id="decision-badge">Pa vendim</span>
+                </div>
+                <h1 id="candidate-word" tabindex="-1">…</h1>
+                <div class="letter-tiles" id="letter-tiles" aria-hidden="true"></div>
+              </div>
+              <span class="source-badge" id="source-badge" title="Gjurmë e burimit">burimi …</span>
+            </header>
+
+            <dl class="metadata-list" id="metadata-list">
+              <div class="metadata-row metadata-compact">
+                <dt>Lloji</dt>
+                <dd id="view-part-of-speech">…</dd>
+                <dt>Rrokjet</dt>
+                <dd id="view-syllables">…</dd>
+                <dt>Regjistri</dt>
+                <dd id="view-region">…</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Gjurmë</dt>
+                <dd id="view-clue">…</dd>
+              </div>
+              <div class="metadata-row definition-row">
+                <dt>Përkufizimi</dt>
+                <dd id="view-definition">…</dd>
+              </div>
+              <div class="metadata-row example-row">
+                <dt>Shembulli</dt>
+                <dd id="view-example">…</dd>
+              </div>
+            </dl>
+
+            <section class="edit-section" aria-labelledby="edit-heading">
+              <button
+                class="edit-toggle"
+                id="edit-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="edit-panel"
+              >
+                <span>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m4 20 4.4-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z"></path>
+                    <path d="m14.5 7.5 3 3"></path>
+                  </svg>
+                  <strong id="edit-heading">Ndrysho të dhënat</strong>
+                </span>
+                <span class="edit-state" id="edit-state">Origjinali</span>
+              </button>
+
+              <div class="edit-panel" id="edit-panel" hidden>
+                <form id="entry-form" novalidate>
+                  <p class="identity-note">Fjala dhe ID-ja janë identitete të pandryshueshme. Këtu korrigjohen vetëm të dhënat redaksionale.</p>
+                  <div class="record-conflict" id="record-conflict" role="alert" hidden>
+                    <strong>I njëjti kandidat u ndryshua në dy skeda</strong>
+                    <p>Versioni në disk ruhet derisa të zgjedhësh cilin version dëshiron.</p>
+                    <details class="record-conflict-details" id="record-conflict-details">
+                      <summary>Krahaso ndryshimet</summary>
+                      <div
+                        class="record-conflict-comparison"
+                        id="record-conflict-comparison"
+                        role="table"
+                        aria-label="Dallimet mes versionit në disk dhe atij lokal"
+                      ></div>
+                    </details>
+                    <div class="record-conflict-actions">
+                      <button class="secondary-button" id="use-disk-button" type="button">Përdor versionin në disk</button>
+                      <button class="primary-button" id="keep-local-button" type="button">Mbaj versionin lokal</button>
+                    </div>
+                  </div>
+                  <div class="field-grid field-grid-compact">
+                    <div class="field">
+                      <label for="edit-part-of-speech">Lloji</label>
+                      <input id="edit-part-of-speech" name="partOfSpeech" type="text" maxlength="64" autocomplete="off" required />
+                    </div>
+                    <div class="field">
+                      <label for="edit-syllables">Rrokjet</label>
+                      <input id="edit-syllables" name="syllables" type="text" maxlength="64" autocomplete="off" required />
+                    </div>
+                    <div class="field">
+                      <label for="edit-region">Regjistri</label>
+                      <input id="edit-region" name="region" type="text" maxlength="64" autocomplete="off" required />
+                    </div>
+                  </div>
+                  <div class="field-grid">
+                    <div class="field">
+                      <label for="edit-clue">Gjurmë</label>
+                      <textarea id="edit-clue" name="clue" rows="2" maxlength="300" required></textarea>
+                    </div>
+                    <div class="field">
+                      <label for="edit-definition">Përkufizimi</label>
+                      <textarea id="edit-definition" name="definition" rows="3" maxlength="600" required></textarea>
+                    </div>
+                    <div class="field">
+                      <label for="edit-example">Shembulli</label>
+                      <textarea id="edit-example" name="example" rows="3" maxlength="600" required></textarea>
+                    </div>
+                  </div>
+                  <div class="edit-actions">
+                    <p id="entry-validation" class="field-error" role="alert" hidden></p>
+                    <button class="quiet-button" id="reset-entry-button" type="button">
+                      Ktheje origjinalin
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <section class="decision-section" aria-labelledby="decision-title">
+              <div class="decision-heading">
+                <div>
+                  <h2 id="decision-title">Vendimi redaksional</h2>
+                  <p>Zgjidh një përfundim. Ruhet automatikisht.</p>
+                </div>
+                <span class="swipe-help">Rrëshqit ← për korrigjim · → për pranim</span>
+              </div>
+
+              <div class="verdict-grid" role="group" aria-label="Vendimi për këtë fjalë">
+                <button class="verdict-button verdict-approve" type="button" data-verdict="approve_daily">
+                  <span class="verdict-icon" aria-hidden="true">✓</span>
+                  <span><strong>Prano për ditore</strong><small>Tastiera A</small></span>
+                </button>
+                <button class="verdict-button verdict-practice" type="button" data-verdict="practice_only">
+                  <span class="verdict-icon" aria-hidden="true">∞</span>
+                  <span><strong>Vetëm për praktikë</strong><small>Tastiera P</small></span>
+                </button>
+                <button class="verdict-button verdict-revision" type="button" data-verdict="needs_revision">
+                  <span class="verdict-icon" aria-hidden="true">↺</span>
+                  <span><strong>Ka nevojë për korrigjim</strong><small>Tastiera N</small></span>
+                </button>
+                <button class="verdict-button verdict-reject" type="button" data-verdict="reject_content">
+                  <span class="verdict-icon" aria-hidden="true">×</span>
+                  <span><strong>Refuzo përmbajtjen</strong><small>Tastiera R</small></span>
+                </button>
+              </div>
+
+              <div class="decision-details" id="decision-details" hidden>
+                <div class="field" id="reason-field">
+                  <label for="decision-reason">Arsyeja <span id="reason-requirement">(e detyrueshme)</span></label>
+                  <select id="decision-reason" name="reason">
+                    <option value="">Zgjidh arsyen…</option>
+                    <option value="not_standard">Nuk është në standardin e përbashkët</option>
+                    <option value="not_daily_suitable">Nuk përshtatet si fjalë ditore</option>
+                    <option value="duplicate_or_variant">Përsëritje ose variant i panevojshëm</option>
+                    <option value="metadata_incorrect">Të dhënat janë të pasakta</option>
+                    <option value="sensitive_or_ambiguous">E ndjeshme ose tepër e paqartë</option>
+                    <option value="other">Tjetër</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="decision-notes">Shënime për shqyrtuesin tjetër</label>
+                  <textarea
+                    id="decision-notes"
+                    name="notes"
+                    rows="3"
+                    maxlength="4000"
+                    placeholder="Çfarë duhet verifikuar ose ndryshuar?"
+                  ></textarea>
+                </div>
+                <p class="field-error" id="decision-error" role="alert" hidden></p>
+              </div>
+
+              <div class="decision-footer">
+                <button class="text-button skip-button" id="skip-button" type="button">
+                  Kalo pa vendim <kbd>S</kbd>
+                </button>
+                <p id="decision-saved-at">Ende pa vendim</p>
+              </div>
+            </section>
+          </article>
+
+          <section class="state-panel empty-panel" id="empty-panel" hidden>
+            <span class="state-symbol" aria-hidden="true">✓</span>
+            <h2>Nuk ka fjalë në këtë filtër</h2>
+            <p>Ndrysho filtrin ose kthehu te të gjitha fjalët.</p>
+            <button class="secondary-button" id="show-all-button" type="button">Shfaq të gjitha</button>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div class="sr-only" id="live-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/admin/editor.js"></script>
+  </body>
+</html>

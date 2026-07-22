@@ -2,6 +2,7 @@ third_party/
 tests/
 scripts/
 editorial/
+editor/
 .impeccable/
 .claude/
 .github/
@@ -12,3 +13,4 @@ ROADMAP.md
 LEXICON.md
 LESSONS.md
 README.md
+EDITORIAL.md

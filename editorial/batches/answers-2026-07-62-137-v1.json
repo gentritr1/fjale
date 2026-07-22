@@ -1,0 +1,1152 @@
+{
+  "schemaVersion": 1,
+  "kind": "fjale-editorial-batch",
+  "batch": {
+    "id": "answers-2026-07-62-137-v1",
+    "sourceCatalogSha256": "00a765c6b8c593d3812e7e525a39fdba85401283ed77bed5b78edecc0a6a1f25",
+    "answerIds": [
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137
+    ]
+  },
+  "entries": [
+    {
+      "answerId": 62,
+      "sourceSha256": "0956467397adc5fb166769180703087b757fc8aa5846ddceebde54c9cff40cf6",
+      "entry": {
+        "id": 62,
+        "word": "balta",
+        "partOfSpeech": "emër",
+        "syllables": "bal-ta",
+        "clue": "Dhé i njomur që të ngjitet në këpucë.",
+        "definition": "Dhe i përzier me ujë që bëhet i butë dhe ngjitës.",
+        "example": "Pas shiut, rruga u mbush me baltë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 63,
+      "sourceSha256": "23b1deaab54bc047cd54ae942e721807b59542090a1affe4bfa8adb68b304a37",
+      "entry": {
+        "id": 63,
+        "word": "banka",
+        "partOfSpeech": "emër",
+        "syllables": "ban-ka",
+        "clue": "Aty njerëzit ruajnë paratë e tyre.",
+        "definition": "Institucion që ruan, jep dhe menaxhon paratë e njerëzve.",
+        "example": "Shkova në bankë për të hapur një llogari.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 64,
+      "sourceSha256": "32982e2b3345407de52196c94677d439beb01005813a2e3ed96b00025bd925c8",
+      "entry": {
+        "id": 64,
+        "word": "bishti",
+        "partOfSpeech": "emër",
+        "syllables": "bish-ti",
+        "clue": "Qeni e tund kur gëzohet.",
+        "definition": "Pjesa e pasme e trupit të shumë kafshëve.",
+        "example": "Macja e ngriti bishtin lart.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 65,
+      "sourceSha256": "46a953c5571314b47f1dedd2f789f22d816a1238e191c5809b1b05a122d5f99b",
+      "entry": {
+        "id": 65,
+        "word": "brumë",
+        "partOfSpeech": "emër",
+        "syllables": "bru-më",
+        "clue": "Nga ai del buka pasi piqet.",
+        "definition": "Përzierje mielli me ujë që përdoret për të pjekur bukë ose ëmbëlsira.",
+        "example": "Gjyshja e mbrujti brumin për byrek.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 66,
+      "sourceSha256": "ffc6f306b84c2aafa1fd38d83b3b03edd422d4eee8c405cbb408347d5e73fd29",
+      "entry": {
+        "id": 66,
+        "word": "bujku",
+        "partOfSpeech": "emër",
+        "syllables": "buj-ku",
+        "clue": "E punon tokën për të mbjellë.",
+        "definition": "Njeriu që merret me punimin e tokës dhe me bujqësi.",
+        "example": "Bujku doli herët në arë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 67,
+      "sourceSha256": "41815ee1ecfd33b3df53961d44d5a106bd7908d266ccaf7762375153e7492422",
+      "entry": {
+        "id": 67,
+        "word": "byrek",
+        "partOfSpeech": "emër",
+        "syllables": "by-rek",
+        "clue": "Petë të holla me mbushje brenda.",
+        "definition": "Gjellë me petë të holla dhe mbushje me djathë, mish ose perime.",
+        "example": "Për mëngjes hëngrëm byrek me spinaq.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 68,
+      "sourceSha256": "8ebdc75373023b5fd45e3fd31cd0b14a0558006f069d71ff15b52136c9177f16",
+      "entry": {
+        "id": 68,
+        "word": "delja",
+        "partOfSpeech": "emër",
+        "syllables": "de-lja",
+        "clue": "Jep lesh dhe qumësht në kope.",
+        "definition": "Kafshë shtëpiake e butë që rritet për lesh, mish dhe qumësht.",
+        "example": "Delja kulloste në livadh.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 69,
+      "sourceSha256": "25cc1d9e1f128934c7d80e140bc23fe9f4532b7128e023f78d7a07cefd35bb50",
+      "entry": {
+        "id": 69,
+        "word": "dhëmbi",
+        "partOfSpeech": "emër",
+        "syllables": "dhëm-bi",
+        "clue": "I bardhë në gojë, që bluan ushqimin.",
+        "definition": "Secili nga trupat e fortë në gojë që shërbejnë për të kafshuar dhe përtypur.",
+        "example": "Fëmijës i doli dhëmbi i parë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 70,
+      "sourceSha256": "defd9cb6398397a092a8bfa343a70971eb93c7b7e27666269cc80ec2eb1ce3e3",
+      "entry": {
+        "id": 70,
+        "word": "djathë",
+        "partOfSpeech": "emër",
+        "syllables": "dja-thë",
+        "clue": "Bëhet nga qumështi që mpikset.",
+        "definition": "Ushqim që përgatitet nga qumështi i mpiksur.",
+        "example": "Në tryezë kishte bukë dhe djathë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 71,
+      "sourceSha256": "d4528e54b3b9d0408c9ddab9564b99ceddbe66bcc03a86644c4b2e497d4219d9",
+      "entry": {
+        "id": 71,
+        "word": "dollap",
+        "partOfSpeech": "emër",
+        "syllables": "do-llap",
+        "clue": "Aty i vendos rrobat me radhë.",
+        "definition": "Mobilie me dyer e rafte për të mbajtur rroba ose sende.",
+        "example": "I vari xhaketat në dollap.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 72,
+      "sourceSha256": "6d9ada76c343065a10dfdd519233a502e90cd0503d4a39076caf47b606daedcb",
+      "entry": {
+        "id": 72,
+        "word": "druri",
+        "partOfSpeech": "emër",
+        "syllables": "dru-ri",
+        "clue": "Rritet me rrënjë e degë në pyll.",
+        "definition": "Bimë e madhe me trung të fortë, degë dhe gjethe.",
+        "example": "Druri i lartë hijezonte oborrin.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 73,
+      "sourceSha256": "795d1bcae0deb9714b0e3a3a321c78725db9855e3e116d74d1ce9ffc4527b1b7",
+      "entry": {
+        "id": 73,
+        "word": "flaka",
+        "partOfSpeech": "emër",
+        "syllables": "fla-ka",
+        "clue": "Gjuha e ndritshme e zjarrit.",
+        "definition": "Pjesa e ndezur dhe e ndritshme që ngrihet nga një send që digjet.",
+        "example": "Flaka e qiririt lëkundej nga era.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 74,
+      "sourceSha256": "81105e55e4200c3a0f510df3a7c50a5512a8a27524f1a3f6138295c6b1f91a41",
+      "entry": {
+        "id": 74,
+        "word": "flladi",
+        "partOfSpeech": "emër",
+        "syllables": "flla-di",
+        "clue": "Erë e lehtë e freskët në verë.",
+        "definition": "Frymë ere e lehtë dhe e këndshme.",
+        "example": "Flladi i mbrëmjes na freskoi.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 75,
+      "sourceSha256": "d5376dd01d9e3b884b9a2f13da9edda29cb3e031e0a6bd33b87b6194ac7bd677",
+      "entry": {
+        "id": 75,
+        "word": "flokë",
+        "partOfSpeech": "emër",
+        "syllables": "flo-kë",
+        "clue": "Rriten mbi kokë dhe krihen.",
+        "definition": "Qimet që mbulojnë kokën e njeriut.",
+        "example": "Vajza i krihte flokët e gjatë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 76,
+      "sourceSha256": "64becdf40b829a2e0b660247f5be3b4f787cd214f4933d101630272ab595ac1e",
+      "entry": {
+        "id": 76,
+        "word": "frika",
+        "partOfSpeech": "emër",
+        "syllables": "fri-ka",
+        "clue": "E ndien kur je në rrezik.",
+        "definition": "Ndjenjë shqetësimi para një rreziku ose kërcënimi.",
+        "example": "Frika e errësirës ia mori gjumin.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 77,
+      "sourceSha256": "78bfe72a3c2062bb39f503e81f8b38d257c7cef81cd1efb92bd4be96162f9678",
+      "entry": {
+        "id": 77,
+        "word": "fruta",
+        "partOfSpeech": "emër",
+        "syllables": "fru-ta",
+        "clue": "Të ëmbla që rriten në pemë.",
+        "definition": "Prodhime të ëmbla e të lëngshme të pemëve që hahen.",
+        "example": "Bleva fruta të freskëta në treg.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 78,
+      "sourceSha256": "aa4c24fc392085a2d2dbc02f7df3518c9139cb0678d35405c17b52e28606b28f",
+      "entry": {
+        "id": 78,
+        "word": "gishti",
+        "partOfSpeech": "emër",
+        "syllables": "gish-ti",
+        "clue": "Dora ka pesë të tillë.",
+        "definition": "Secila nga pjesët e holla e të lëvizshme në fund të dorës ose të këmbës.",
+        "example": "E tregoi shtëpinë me gisht.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 79,
+      "sourceSha256": "460b39db9a1899aba1b8eeda6ff3de50aab5e714e18a4fe296358864dedd7268",
+      "entry": {
+        "id": 79,
+        "word": "gjalpë",
+        "partOfSpeech": "emër",
+        "syllables": "gjal-pë",
+        "clue": "I verdhë, del nga ajka e qumështit.",
+        "definition": "Ushqim yndyror i verdhë që nxirret nga ajka e qumështit.",
+        "example": "E leu bukën me gjalpë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 80,
+      "sourceSha256": "3dd7a16b9489816c4d69cc5e99d0b13f5971df826c20f342030e24880934145d",
+      "entry": {
+        "id": 80,
+        "word": "gjoksi",
+        "partOfSpeech": "emër",
+        "syllables": "gjok-si",
+        "clue": "Pjesa e trupit ku rreh zemra.",
+        "definition": "Pjesa e përparme e trupit midis qafës dhe barkut.",
+        "example": "E shtrëngoi fëmijën pas gjoksit.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 81,
+      "sourceSha256": "c606f6fdbfa704e04aa3f392a95d9d5a713b12ab28408073b14ec75e5c9eb00b",
+      "entry": {
+        "id": 81,
+        "word": "gjueti",
+        "partOfSpeech": "emër",
+        "syllables": "gju-e-ti",
+        "clue": "Ndjekja e kafshëve të egra në pyll.",
+        "definition": "Veprimtaria e ndjekjes dhe kapjes së kafshëve të egra.",
+        "example": "Dolën për gjueti në agim.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 82,
+      "sourceSha256": "033212065303b2820c00ad35b82991940af89d3efe1928a426e5cfc134a44429",
+      "entry": {
+        "id": 82,
+        "word": "gryka",
+        "partOfSpeech": "emër",
+        "syllables": "gry-ka",
+        "clue": "Kalim i ngushtë mes dy maleve.",
+        "definition": "Kalim i ngushtë e i thellë midis dy maleve ose shkëmbinjve.",
+        "example": "Lumi kalonte nëpër grykë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 83,
+      "sourceSha256": "81b304b2eee23e84e9be96457326a755ba2055d912306d46b21601c90e161030",
+      "entry": {
+        "id": 83,
+        "word": "gëzim",
+        "partOfSpeech": "emër",
+        "syllables": "gë-zim",
+        "clue": "E ndien kur diçka e mirë ndodh.",
+        "definition": "Ndjenjë e këndshme kënaqësie dhe hareje.",
+        "example": "Lajmi na solli gëzim të madh.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 84,
+      "sourceSha256": "ab689a5028642c20feaabca47a521a427bde057199cba2143b0eb5fc0433ebcf",
+      "entry": {
+        "id": 84,
+        "word": "gëzof",
+        "partOfSpeech": "emër",
+        "syllables": "gë-zof",
+        "clue": "Leshi i dendur që ngroh kafshët.",
+        "definition": "Lëkurë me qime të dendura kafshësh që përdoret për veshje.",
+        "example": "Dhelpra ka gëzof të kuq.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 85,
+      "sourceSha256": "ec16d98bf99fc0782c42fdf94de1a7ae5f3388fa0084ac1bac83ab10aad53c4c",
+      "entry": {
+        "id": 85,
+        "word": "hudhra",
+        "partOfSpeech": "emër",
+        "syllables": "hudh-ra",
+        "clue": "Erëz e fortë me thelpinj të bardhë.",
+        "definition": "Bimë me kokë të përbërë nga thelpinj, që përdoret si erëz.",
+        "example": "Shtoi pak hudhër në gjellë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 86,
+      "sourceSha256": "0612a2df3e843617469c367e8bef3bf7fe110aba351096d27d63686d5b64bfd1",
+      "entry": {
+        "id": 86,
+        "word": "kajsi",
+        "partOfSpeech": "emër",
+        "syllables": "kaj-si",
+        "clue": "Frut i verdhë vere me bërthamë.",
+        "definition": "Frut i vogël i ëmbël me lëkurë të verdhë-portokalli dhe bërthamë.",
+        "example": "Pema e kajsisë ishte plot fruta.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 87,
+      "sourceSha256": "e4d884a16b56ccbd1a5575a6d2fab28a3194b4e6b8cc30bf1387afbbdae27dfe",
+      "entry": {
+        "id": 87,
+        "word": "kazan",
+        "partOfSpeech": "emër",
+        "syllables": "ka-zan",
+        "clue": "Enë e madhe ku zien shumë ujë.",
+        "definition": "Enë e madhe metalike për të zier ose ngrohur lëngje.",
+        "example": "Vunë kazanin me ujë mbi zjarr.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 88,
+      "sourceSha256": "d836cb64b8ca42f432f2ffcf86b80806be732326b43756b61e632beb4438d1b9",
+      "entry": {
+        "id": 88,
+        "word": "klasa",
+        "partOfSpeech": "emër",
+        "syllables": "kla-sa",
+        "clue": "Dhoma ku mësojnë nxënësit.",
+        "definition": "Grup nxënësish që mësojnë bashkë ose dhoma ku zhvillohet mësimi.",
+        "example": "Klasa jonë ka njëzet nxënës.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 89,
+      "sourceSha256": "df2b67e1be525980a2b01d93293ffce3a1d0d61369cdf20709d4242bdc3b3802",
+      "entry": {
+        "id": 89,
+        "word": "kodra",
+        "partOfSpeech": "emër",
+        "syllables": "ko-dra",
+        "clue": "Ngritje toke më e vogël se mali.",
+        "definition": "Ngritje e vogël natyrore e sipërfaqes së tokës.",
+        "example": "Shtëpia ndodhet mbi një kodër.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 90,
+      "sourceSha256": "8f4ef22711fcbb082dc70edfecb16891cdf30adb9d74d15fd08674df0b529867",
+      "entry": {
+        "id": 90,
+        "word": "krahu",
+        "partOfSpeech": "emër",
+        "syllables": "kra-hu",
+        "clue": "Nga supi deri te dora.",
+        "definition": "Pjesa e trupit që lidh supin me dorën.",
+        "example": "E mbajti fëmijën në krah.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 91,
+      "sourceSha256": "fc40aa1a7a5e249becd9bbff8627496f80ff69afd4ff5206aa0358189e97ca9e",
+      "entry": {
+        "id": 91,
+        "word": "kripë",
+        "partOfSpeech": "emër",
+        "syllables": "kri-pë",
+        "clue": "E bardhë, u jep shije gjellëve.",
+        "definition": "Lëndë e bardhë kristalore që përdoret për t'i dhënë shije ushqimit.",
+        "example": "Gjellës i mungon pak kripë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 92,
+      "sourceSha256": "8d406a72cef6ff3ff3760493e52d391c503af0c171dff3c0ab66d890d1a8450d",
+      "entry": {
+        "id": 92,
+        "word": "lajthi",
+        "partOfSpeech": "emër",
+        "syllables": "laj-thi",
+        "clue": "Fryt i vogël me guaskë të fortë.",
+        "definition": "Frut i vogël me lëvozhgë të fortë dhe thelb të ngrënshëm.",
+        "example": "Mblodhëm lajthi në vjeshtë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 93,
+      "sourceSha256": "066df93ec0654248d221c5e60c4d710963976ae201d41aa865e0861c18fceefc",
+      "entry": {
+        "id": 93,
+        "word": "lakër",
+        "partOfSpeech": "emër",
+        "syllables": "la-kër",
+        "clue": "Perime me shumë gjethe të mbështjella.",
+        "definition": "Bimë perimore me gjethe të gjera të mbledhura në formë koke.",
+        "example": "Gatoi lakër me mish.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 94,
+      "sourceSha256": "0cd879f574a20fcf918fa08dde02139c0c97a7bea33c1f212c8c21eeb6f28387",
+      "entry": {
+        "id": 94,
+        "word": "lapsi",
+        "partOfSpeech": "emër",
+        "syllables": "lap-si",
+        "clue": "Shkruan dhe fshihet me gomë.",
+        "definition": "Vegël e hollë me bërthamë grafiti që përdoret për të shkruar e vizatuar.",
+        "example": "E mprehu lapsin para mësimit.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 95,
+      "sourceSha256": "2139895cc0fb3d8e557e8c64ea42405e1154e26e4efe60665f8acd689c42ed81",
+      "entry": {
+        "id": 95,
+        "word": "limon",
+        "partOfSpeech": "emër",
+        "syllables": "li-mon",
+        "clue": "Frut i verdhë me shije të thartë.",
+        "definition": "Frut agrumesh me lëkurë të verdhë dhe lëng të thartë.",
+        "example": "Shtrydhi një limon në çaj.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 96,
+      "sourceSha256": "586fe51f019320fbe6b8a444cd78eb4b9eb857be6cd4d59881a0b79f2d4b35de",
+      "entry": {
+        "id": 96,
+        "word": "livadh",
+        "partOfSpeech": "emër",
+        "syllables": "li-vadh",
+        "clue": "Fushë e gjelbër me bar për kope.",
+        "definition": "Sipërfaqe toke e mbuluar me bar, ku kullotin bagëtitë.",
+        "example": "Lopët kullotnin në livadh.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 97,
+      "sourceSha256": "e0a7b58639154fbd955815a229c54c76a1068428ee01ff210bf793013f95f3de",
+      "entry": {
+        "id": 97,
+        "word": "llamba",
+        "partOfSpeech": "emër",
+        "syllables": "llam-ba",
+        "clue": "E ndez për të ndriçuar dhomën.",
+        "definition": "Pajisje që jep dritë kur ndizet.",
+        "example": "Ndezi llambën në dhomë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 98,
+      "sourceSha256": "c3e8008ce65ba5f62678082e8d6310c487f59d55899d93dbac6b5a20cdaccd10",
+      "entry": {
+        "id": 98,
+        "word": "macja",
+        "partOfSpeech": "emër",
+        "syllables": "ma-cja",
+        "clue": "Mjaullin dhe kap minj.",
+        "definition": "Kafshë e vogël shtëpiake që mban minjtë larg.",
+        "example": "Macja flinte mbi karrige.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 99,
+      "sourceSha256": "97efd2f0e1493ac39167421c5da6f2794a1b276b181df78cafcb5932baa6dc4b",
+      "entry": {
+        "id": 99,
+        "word": "mbesa",
+        "partOfSpeech": "emër",
+        "syllables": "mbe-sa",
+        "clue": "Vajza e djalit ose e vajzës tënde.",
+        "definition": "Vajza e fëmijës ose e vëllait e motrës.",
+        "example": "Gjyshja luante me mbesën.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 100,
+      "sourceSha256": "d317f8b569b6a3b66f3698c9817b62fd14b0350781c9443afd0c4687a29b9e05",
+      "entry": {
+        "id": 100,
+        "word": "mielli",
+        "partOfSpeech": "emër",
+        "syllables": "mi-e-lli",
+        "clue": "Pluhur i bardhë nga bluarja e grurit.",
+        "definition": "Lëndë pluhur që del nga bluarja e drithërave dhe përdoret për bukë.",
+        "example": "E shoshiti miellin para gatimit.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 101,
+      "sourceSha256": "9b110a57857e914631c4e19c121a49896e5c3b4921fbf7f01ae9bd13bc9ac9ac",
+      "entry": {
+        "id": 101,
+        "word": "mjeku",
+        "partOfSpeech": "emër",
+        "syllables": "mje-ku",
+        "clue": "Të viziton kur je i sëmurë.",
+        "definition": "Njeriu që kuron të sëmurët dhe kujdeset për shëndetin.",
+        "example": "Mjeku i dha ilaçe të pijë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 102,
+      "sourceSha256": "f001192fcb5fb28d8e6c9265bd71b22bd29c1d8f489aaa13b327719c8a171d2e",
+      "entry": {
+        "id": 102,
+        "word": "motra",
+        "partOfSpeech": "emër",
+        "syllables": "mo-tra",
+        "clue": "Vajza me të njëjtët prindër si ti.",
+        "definition": "Femra që ka të njëjtët prindër me një person tjetër.",
+        "example": "Motra ime është më e madhe se unë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 103,
+      "sourceSha256": "ab590996740ac7357edab2f9f2a69de386c2b8680cc6766609d3a89bc737c0e0",
+      "entry": {
+        "id": 103,
+        "word": "ngjala",
+        "partOfSpeech": "emër",
+        "syllables": "ngja-la",
+        "clue": "Peshk i gjatë si gjarpër në ujë.",
+        "definition": "Peshk i gjatë e i rrëshqitshëm që jeton në ujëra të ëmbla dhe të kripura.",
+        "example": "Zunë një ngjalë të madhe në liqen.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 104,
+      "sourceSha256": "8f6c36675ff062f0fbaf75c45ad56b726e1887c1bc4578af125762ee5a513dad",
+      "entry": {
+        "id": 104,
+        "word": "pjata",
+        "partOfSpeech": "emër",
+        "syllables": "pja-ta",
+        "clue": "E rrumbullakët, ushqimin e mban sipër.",
+        "definition": "Enë e cekët ku vihet ushqimi për t'u ngrënë.",
+        "example": "E ktheu pjatën në lavaman.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 105,
+      "sourceSha256": "0fca659abbeafe4c59964e31305cd89e1229ca229f36cc0a991d2a75b883e356",
+      "entry": {
+        "id": 105,
+        "word": "polic",
+        "partOfSpeech": "emër",
+        "syllables": "po-lic",
+        "clue": "Ruan rendin dhe qytetarët.",
+        "definition": "Punonjës që ruan rendin publik dhe zbatimin e ligjit.",
+        "example": "Polici drejtonte trafikun.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 106,
+      "sourceSha256": "84ac049fa2ba1d120e6e72bde7034dd01fcd7d55ddfd9c4766c1848a96475f4d",
+      "entry": {
+        "id": 106,
+        "word": "pupla",
+        "partOfSpeech": "emër",
+        "syllables": "pu-pla",
+        "clue": "Mbulojnë trupin e zogut.",
+        "definition": "Formacionet e lehta e të buta që mbulojnë trupin e shpendëve.",
+        "example": "Puplat e bardha mbuluan folenë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 107,
+      "sourceSha256": "bfa83f27a366c99caf3bdd4f7d601bb01be1beeeac53d7c448e1d6fd40bdec33",
+      "entry": {
+        "id": 107,
+        "word": "putra",
+        "partOfSpeech": "emër",
+        "syllables": "pu-tra",
+        "clue": "Këmba e butë e maces a e qenit.",
+        "definition": "Pjesa e fundit e këmbës së disa kafshëve, me jastëkë e thonj.",
+        "example": "Qeni e ngriti putrën për të përshëndetur.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 108,
+      "sourceSha256": "2400977bb41fdea8f32906241d1b187a7e72fc437965da942c0f757c48e5560c",
+      "entry": {
+        "id": 108,
+        "word": "qershi",
+        "partOfSpeech": "emër",
+        "syllables": "qer-shi",
+        "clue": "Frut i vogël i kuq me bishtin e gjatë.",
+        "definition": "Frut i vogël i ëmbël e i kuq me një bërthamë brenda.",
+        "example": "Fëmijët hëngrën qershi nën pemë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 109,
+      "sourceSha256": "7661c3020c95a9b3d97230eb5e76b473db045e8c6aa9596bd85b03ddd020185a",
+      "entry": {
+        "id": 109,
+        "word": "qeshje",
+        "partOfSpeech": "emër",
+        "syllables": "qesh-je",
+        "clue": "Del në fytyrë kur je i lumtur.",
+        "definition": "Shprehje gëzimi me buzë dhe zë që tregon hare.",
+        "example": "Qeshja e saj ngrohu të gjithë dhomën.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 110,
+      "sourceSha256": "2f01a58dd1d62a62840bcf3ea5771fafe231d0b382e33fa6c3ace28c82d5d795",
+      "entry": {
+        "id": 110,
+        "word": "qielli",
+        "partOfSpeech": "emër",
+        "syllables": "qi-e-lli",
+        "clue": "I kaltër lart, ku noton dielli.",
+        "definition": "Hapësira e gjerë blu që shihet sipër tokës.",
+        "example": "Qielli ishte plot yje.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 111,
+      "sourceSha256": "3430ef9b3a6414daa54b2509aa1474b539c37db3c5441a22d917224feea121a9",
+      "entry": {
+        "id": 111,
+        "word": "qymyr",
+        "partOfSpeech": "emër",
+        "syllables": "qy-myr",
+        "clue": "I zi, digjet për të dhënë nxehtësi.",
+        "definition": "Lëndë e zezë djegëse që përdoret për ngrohje.",
+        "example": "E ndezën sobën me qymyr.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 112,
+      "sourceSha256": "a91ef51c0300c1c880a5877ee0e5f7d960db613de0bd1bded460f3a2679a4868",
+      "entry": {
+        "id": 112,
+        "word": "rosak",
+        "partOfSpeech": "emër",
+        "syllables": "ro-sak",
+        "clue": "Shpend ujor mashkull që noton në pellg.",
+        "definition": "Shpendi mashkull i rosës.",
+        "example": "Rosaku notonte para rosave.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 113,
+      "sourceSha256": "e7b76d60f637d5438feafd2a9b041b0409d887f448afba1746f273bf2a2e884d",
+      "entry": {
+        "id": 113,
+        "word": "rrezik",
+        "partOfSpeech": "emër",
+        "syllables": "rre-zik",
+        "clue": "Ke nevojë të ruhesh prej tij.",
+        "definition": "Mundësia që të ndodhë diçka e keqe ose e dëmshme.",
+        "example": "Rruga e lagësht sjell rrezik.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 114,
+      "sourceSha256": "ff01fb8ac9a7c0e829a9e6216d55143ec8a16aa50a698ea1c1228b246a761c92",
+      "entry": {
+        "id": 114,
+        "word": "rruaza",
+        "partOfSpeech": "emër",
+        "syllables": "rru-a-za",
+        "clue": "Kokrra të vogla që kalohen në fill.",
+        "definition": "Kokrra të vogla me vrimë që lidhen për zbukurim.",
+        "example": "Vajza bëri një gjerdan me rruaza.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 115,
+      "sourceSha256": "eee602efcde7da8bdf3529c0d6912b300fa606c939759ba1096f8c24510b17b9",
+      "entry": {
+        "id": 115,
+        "word": "rrëfim",
+        "partOfSpeech": "emër",
+        "syllables": "rrë-fim",
+        "clue": "Kur dikush tregon një ngjarje.",
+        "definition": "Tregim me gojë ose me shkrim i një ngjarjeje.",
+        "example": "Gjyshi filloi një rrëfim të gjatë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 116,
+      "sourceSha256": "d9df2b5b332e5362ab522d56110527bde6cc703b5c24290051686a2688446ff4",
+      "entry": {
+        "id": 116,
+        "word": "salcë",
+        "partOfSpeech": "emër",
+        "syllables": "sal-cë",
+        "clue": "Lëng i trashë që i shtohet gjellës.",
+        "definition": "Përzierje e lëngshme që shoqëron ose i jep shije ushqimit.",
+        "example": "Makaronat i hëngri me salcë domatesh.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 117,
+      "sourceSha256": "c199f1c0201902cd4a16eee221c246048b97f03dddfdc9defa2b41f466f45cf3",
+      "entry": {
+        "id": 117,
+        "word": "shalqi",
+        "partOfSpeech": "emër",
+        "syllables": "shal-qi",
+        "clue": "Frut i madh veror, i kuq brenda.",
+        "definition": "Frut i madh me lëkurë të gjelbër dhe tul të kuq e të ujshëm.",
+        "example": "Në verë hëngrëm shalqi të ftohtë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 118,
+      "sourceSha256": "a35e24c2900b8d445a63703f688254562a04c466b307f4c81514e9294e5e42d8",
+      "entry": {
+        "id": 118,
+        "word": "shkëmb",
+        "partOfSpeech": "emër",
+        "syllables": "shkëmb",
+        "clue": "Gur i madh e i fortë në mal.",
+        "definition": "Masë e madhe guri e fortë në natyrë.",
+        "example": "Dallgët përplaseshin pas shkëmbit.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 119,
+      "sourceSha256": "1cbfcf2f28cd661e9b265257dfb7295cbc19f221af67eefd795c4bec9f8c7015",
+      "entry": {
+        "id": 119,
+        "word": "shpejt",
+        "partOfSpeech": "ndajfolje",
+        "syllables": "shpejt",
+        "clue": "Pa humbur kohë, me nxitim.",
+        "definition": "Në mënyrë të shpejtë, brenda pak kohe.",
+        "example": "Eja shpejt se po fillojmë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 120,
+      "sourceSha256": "bfe69e56b0033015dd4698cec5cc8956c33f75da6d61e894d67ff407695a16c8",
+      "entry": {
+        "id": 120,
+        "word": "shpellë",
+        "partOfSpeech": "emër",
+        "syllables": "shpe-llë",
+        "clue": "Zgavër e errët brenda malit.",
+        "definition": "Zgavër e madhe natyrore në shkëmb ose në mal.",
+        "example": "Eksploruan një shpellë të thellë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 121,
+      "sourceSha256": "eec29492e3d52519e65d299120eb392e4d6ca9d06563806d68283b34f05f98dd",
+      "entry": {
+        "id": 121,
+        "word": "shpina",
+        "partOfSpeech": "emër",
+        "syllables": "shpi-na",
+        "clue": "Pjesa e pasme e trupit, prapa gjoksit.",
+        "definition": "Pjesa e pasme e trupit të njeriut nga qafa te beli.",
+        "example": "E dhembte shpina nga pesha.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 122,
+      "sourceSha256": "8371c8b8f9922372a2fe39ad7d0d39c07f576df76dd99f022adeb5169d1ce84a",
+      "entry": {
+        "id": 122,
+        "word": "shpirt",
+        "partOfSpeech": "emër",
+        "syllables": "shpirt",
+        "clue": "Bota e brendshme që nuk shihet.",
+        "definition": "Thelbi i brendshëm jomaterial i njeriut.",
+        "example": "E këndoi këngën me gjithë shpirt.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 123,
+      "sourceSha256": "cd8cc4ff55e335ba7bc0859d208c21c7c43d5ffeca254076aab0c52622f8d195",
+      "entry": {
+        "id": 123,
+        "word": "shtati",
+        "partOfSpeech": "emër",
+        "syllables": "shta-ti",
+        "clue": "Sa i gjatë e i madh është trupi.",
+        "definition": "Trupi i njeriut sipas gjatësisë dhe formës së tij.",
+        "example": "Ai është djalë me shtat të lartë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 124,
+      "sourceSha256": "13f950f9600d396c702dfe8dc9688a207460b712ce544748b1f250d414c2e0c4",
+      "entry": {
+        "id": 124,
+        "word": "shtyllë",
+        "partOfSpeech": "emër",
+        "syllables": "shty-llë",
+        "clue": "Mban çatinë që të mos bjerë.",
+        "definition": "Trup i gjatë e vertikal që mban peshën e një ndërtese.",
+        "example": "Çatia mbahej nga katër shtylla.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 125,
+      "sourceSha256": "f8fdf3dc1c0bbda9b4f53b9f8a2fd592e44f61de84c15759392a8b53484104ba",
+      "entry": {
+        "id": 125,
+        "word": "speca",
+        "partOfSpeech": "emër",
+        "syllables": "spe-ca",
+        "clue": "Perime të gjelbra a të kuqe, ndonjëherë djegëse.",
+        "definition": "Perime me tul e zgavër brenda, që hahen të gjalla ose të gatuara.",
+        "example": "Mbushi specat me oriz.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 126,
+      "sourceSha256": "311655e2153d47369ba2dac46ba088a53b4cd3a37590f04204257e902659cf4c",
+      "entry": {
+        "id": 126,
+        "word": "stinë",
+        "partOfSpeech": "emër",
+        "syllables": "sti-në",
+        "clue": "Viti ndahet në katër të tilla.",
+        "definition": "Secila nga katër periudhat e vitit sipas motit.",
+        "example": "Vjeshta është stina ime e preferuar.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 127,
+      "sourceSha256": "71e614634b62b1f11ffcb165cc4e84fed3a2e28a3e67cafb7be9927c72e712ed",
+      "entry": {
+        "id": 127,
+        "word": "stuhi",
+        "partOfSpeech": "emër",
+        "syllables": "stu-hi",
+        "clue": "Erë e fortë me shi e bubullima.",
+        "definition": "Kohë me erë shumë të fortë, shpesh me shi ose borë.",
+        "example": "Stuhia rrëzoi disa pemë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 128,
+      "sourceSha256": "fc34f9a94734301f9545d2ebb6150aae1b1d32698ab92dc3f4c428fc78b6c06d",
+      "entry": {
+        "id": 128,
+        "word": "tigan",
+        "partOfSpeech": "emër",
+        "syllables": "ti-gan",
+        "clue": "Enë e cekët ku skuqet ushqimi.",
+        "definition": "Enë e cekët me bisht që përdoret për të skuqur ushqime.",
+        "example": "I skuqi vezët në tigan.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 129,
+      "sourceSha256": "b7b5388d78ee8af24034f68eb7db29ae05468f09376dd217d9ea8353e38efccb",
+      "entry": {
+        "id": 129,
+        "word": "tigri",
+        "partOfSpeech": "emër",
+        "syllables": "ti-gri",
+        "clue": "Mace e madhe e egër me vija.",
+        "definition": "Kafshë e madhe mishngrënëse me lëkurë të verdhë me vija të zeza.",
+        "example": "Tigri fshihej mes barishteve.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 130,
+      "sourceSha256": "a1ec46f36df4345961f3a523fd833a4633a647a31cffc72e5d114dfa52cc8b22",
+      "entry": {
+        "id": 130,
+        "word": "trung",
+        "partOfSpeech": "emër",
+        "syllables": "trung",
+        "clue": "Pjesa e trashë e drurit nga rrënja te degët.",
+        "definition": "Pjesa kryesore e fortë e drurit që mban degët.",
+        "example": "U ul të pushonte mbi një trung.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 131,
+      "sourceSha256": "40c8a120d35128b0f7f08ebfde14ce96f91bf1788827ecd1b1b646f358663e51",
+      "entry": {
+        "id": 131,
+        "word": "xhezve",
+        "partOfSpeech": "emër",
+        "syllables": "xhez-ve",
+        "clue": "Enë e vogël ku ziehet kafeja.",
+        "definition": "Enë e vogël metalike me bisht për të zier kafe.",
+        "example": "E vuri xhezven mbi zjarr.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 132,
+      "sourceSha256": "e03663ea700da4a980cafa13ed04407063056b179437b843a2c548c7b836ef4b",
+      "entry": {
+        "id": 132,
+        "word": "çekan",
+        "partOfSpeech": "emër",
+        "syllables": "çe-kan",
+        "clue": "Vegël që i bie gozhdës në kokë.",
+        "definition": "Vegël me kokë të rëndë që përdoret për të goditur gozhda.",
+        "example": "E nguli gozhdën me çekan.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 133,
+      "sourceSha256": "b5469e2d279e1ed64db60c716618388fd19ffa9a101a34d295b073e140fe1213",
+      "entry": {
+        "id": 133,
+        "word": "çelik",
+        "partOfSpeech": "emër",
+        "syllables": "çe-lik",
+        "clue": "Metal shumë i fortë nga hekuri.",
+        "definition": "Lidhje e fortë metalike që përftohet nga hekuri.",
+        "example": "Ura ishte ndërtuar me çelik.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 134,
+      "sourceSha256": "dfad2e4799d28b35094553468efc8c36b5586903eb748b734b0ff7ae2c09a0f7",
+      "entry": {
+        "id": 134,
+        "word": "çelës",
+        "partOfSpeech": "emër",
+        "syllables": "çe-lës",
+        "clue": "Hap e mbyll bravën e derës.",
+        "definition": "Vegël e vogël metalike që hap e mbyll një bravë.",
+        "example": "E humbi çelësin e shtëpisë.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 135,
+      "sourceSha256": "fe652943268397e4042fd77c46a61b5d304e3dd81ecb9c82a5d2ba4bc30196cf",
+      "entry": {
+        "id": 135,
+        "word": "çezmë",
+        "partOfSpeech": "emër",
+        "syllables": "çez-më",
+        "clue": "E hap dhe rrjedh uji prej saj.",
+        "definition": "Pajisje nga e cila merret uji kur hapet.",
+        "example": "E mbylli çezmën që të mos rridhte uji.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 136,
+      "sourceSha256": "4c7b5287b5067d30f3762dbe5fb5831d52a3dcf1b315ab8c547023ed796a711c",
+      "entry": {
+        "id": 136,
+        "word": "çizme",
+        "partOfSpeech": "emër",
+        "syllables": "çiz-me",
+        "clue": "Këpucë të larta për shi e baltë.",
+        "definition": "Këpucë të gjata që mbulojnë edhe pjesë të këmbës mbi kyç.",
+        "example": "Veshi çizmet për të dalë në shi.",
+        "region": "standard"
+      }
+    },
+    {
+      "answerId": 137,
+      "sourceSha256": "29065e463c4ed23c10f38d0ad5191e837abf0a9d142bdce5d06a1901c62d2577",
+      "entry": {
+        "id": 137,
+        "word": "çorap",
+        "partOfSpeech": "emër",
+        "syllables": "ço-rap",
+        "clue": "E vesh në këmbë para këpucës.",
+        "definition": "Veshje e hollë që mbulon këmbën brenda këpucës.",
+        "example": "Veshi një palë çorape të leshta.",
+        "region": "standard"
+      }
+    }
+  ]
+}

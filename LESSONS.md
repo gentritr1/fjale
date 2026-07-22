@@ -74,15 +74,15 @@ screenshots — math never closes a "looks bad" ticket.
 - **Problem:** the daily-answer formula depended on pool size; adding word 63
   would silently change every past and future daily answer.
 - **Diagnosis:** read the formula: `(dayNumber * step + offset) % poolSize`.
-- **Fix:** append-only epoch table — each epoch freezes `{start, poolSize,
-  stepBase, offset}`; dates resolve through the epoch active at that date.
-  Growth = append a later-dated epoch, provably unable to touch earlier dates
-  (a test appends a synthetic 138-word epoch and asserts every launch-era date
-  unchanged — and that the new pool genuinely engages, so the proof can't pass
-  vacuously).
+- **Fix:** append-only epoch table. The launch epoch freezes its historical
+  `{start, poolSize, stepBase, offset}` contract; future epochs freeze an
+  explicit list of approved answer IDs. Dates resolve through the epoch active
+  at that date, so later growth cannot touch an earlier epoch. Tests cover both
+  historical stability and a reviewed pool that skips rejected IDs.
 - **Lesson:** before refactoring scheduling logic, snapshot the complete
-  observable behavior (here: 534 date→word rows) and require byte-identical
-  output after. "Zero behavior change" is testable; test it.
+  observable behavior (here: 1,630 date→word rows through 2030-12-31) and
+  require byte-identical output after. "Zero behavior change" is testable;
+  test it.
 
 ## 6. Challenge links pointed at array positions
 

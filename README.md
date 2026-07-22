@@ -20,8 +20,8 @@ mbërrin ekipit vetëm nëse lojtari dërgon email-in e paraplotësuar që hap l
 Pool-i ditor mbetet 62 fjalë (epoka e nisjes). Skema e pandryshueshme e epokave
 tashmë është zbatuar: çdo përgjigje ka një ID të pandryshueshme, kodet e sfidave
 dhe fjala e ditës zgjidhen sipas ID-së, dhe rritja e pool-it bëhet vetëm duke
-shtuar një epokë të re — jo duke ndryshuar numrin — pa prekur fjalët historike
-apo lidhjet e vjetra të sfidave.
+shtuar një epokë të re me listën e ngrirë të ID-ve të miratuara. Kjo lejon të
+anashkalohen fjalët e refuzuara pa prekur historinë ose lidhjet e vjetra.
 
 ## Nisja lokale
 
@@ -46,13 +46,26 @@ npm run check
 
 `npm run check` kontrollon sintaksën e serverit dhe service worker-it, pastaj ekzekuton testet e Node-it.
 
+## Redaksia lokale
+
+Grupi i fjalëve në pritje mund të shqyrtohet në një mjet lokal në shfletues:
+
+```sh
+npm run editorial
+```
+
+Hap `http://127.0.0.1:4317/admin`. Rishikimet ruhen si JSON të ndara për çdo
+shqyrtues; mjeti nuk publikohet dhe nuk ndryshon vetë fjalorin ose epokat.
+Rrjedha e plotë, bashkërendimi dhe propozimi i epokës dokumentohen te
+[`EDITORIAL.md`](EDITORIAL.md).
+
 ## Struktura
 
 - `server.mjs` shërben vetëm skedarë brenda projektit, me MIME types dhe headers sigurie. Vetëm `/` kalon te `index.html`; rrugët dhe skedarët e panjohur kthejnë `404`.
 - `manifest.webmanifest` përmban emrin, gjuhën, ngjyrat dhe ikonat e instalimit.
 - `service-worker.js` ruan shell-in lokal për përdorim offline.
 - `favicon.svg` është ikona e faqes dhe e PWA-së.
-- `og-fjale-v1.png` dhe burimi i tij SVG janë karta e versionuar për ndarje.
+- `og-fjale-v3.png` dhe burimi i tij SVG janë karta aktive e versionuar për ndarje; versionet e mëparshme ruhen për lidhjet e cache-uara.
 - `robots.txt` dhe `sitemap.xml` tregojnë origjinën kanonike për kërkuesit.
 - `vercel.json` mban headers-at e sigurisë dhe politikën e cache-it në production.
 
@@ -62,6 +75,8 @@ npm run check
   identitetin e sfidave dhe epokat ditore.
 - [`ROADMAP.md`](ROADMAP.md) ndan punën në Tani, Më pas dhe Më vonë, me kushtet
   e publikimit.
+- [`EDITORIAL.md`](EDITORIAL.md) përshkruan rishikimin me dy shqyrtues dhe
+  propozimin e sigurt të epokave.
 - [`PRODUCT.md`](PRODUCT.md) dhe [`DESIGN.md`](DESIGN.md) ruajnë premtimin e
   produktit dhe drejtimin vizual.
 

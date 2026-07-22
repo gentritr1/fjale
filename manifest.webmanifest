@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "FJALË — Loja shqipe e fjalës",
+  "name": "FJALË · Fjala shqipe e ditës",
   "short_name": "FJALË",
-  "description": "Gjeje fjalën shqipe të ditës.",
+  "description": "Fjala shqipe e ditës. Pesë shkronja, gjashtë prova.",
   "lang": "sq",
   "dir": "ltr",
   "start_url": "/",

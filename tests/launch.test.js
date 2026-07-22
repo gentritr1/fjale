@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const CANONICAL_ORIGIN = "https://fjale-self.vercel.app/";
-const OG_IMAGE_URL = `${CANONICAL_ORIGIN}og-fjale-v2.png`;
+const CANONICAL_ORIGIN = "https://www.xn--fjal-opa.com/";
+const OG_IMAGE_FILENAME = "og-fjale-v3.png";
+const OG_IMAGE_URL = `${CANONICAL_ORIGIN}${OG_IMAGE_FILENAME}`;
 
 test("keeps canonical, social, structured-data, and CSP metadata coherent", async () => {
   const [html, serverSource, vercelSource] = await Promise.all([
@@ -28,21 +29,30 @@ test("keeps canonical, social, structured-data, and CSP metadata coherent", asyn
 
   assert.ok(html.includes(`<link rel="canonical" href="${CANONICAL_ORIGIN}"`));
   assert.ok(html.includes(`<meta property="og:image" content="${OG_IMAGE_URL}"`));
+  assert.ok(html.includes('<meta property="og:site_name" content="FJALË"'));
+  assert.ok(html.includes('<meta property="og:title" content="FJALË · Fjala shqipe e ditës"'));
+  assert.doesNotMatch(html, /fjale-self\.vercel\.app/u);
   assert.equal(structuredData["@type"], "WebApplication");
   assert.equal(structuredData.url, CANONICAL_ORIGIN);
   assert.equal(structuredData.image, OG_IMAGE_URL);
   assert.ok(productionCsp?.includes(`'${structuredDataHash}'`));
   assert.ok(serverSource.includes(`"script-src 'self' '${structuredDataHash}'"`));
-  assert.ok(serverSource.includes('"/og-fjale-v2.png"'));
+  assert.ok(serverSource.includes(`"/${OG_IMAGE_FILENAME}"`));
 });
 
 test("keeps the versioned social card at the declared dimensions", async () => {
-  const png = await readFile("og-fjale-v2.png");
+  const [png, svg] = await Promise.all([
+    readFile(OG_IMAGE_FILENAME),
+    readFile("og-fjale-v3.svg", "utf8"),
+  ]);
 
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal(png.toString("ascii", 12, 16), "IHDR");
   assert.equal(png.readUInt32BE(16), 1_200);
   assert.equal(png.readUInt32BE(20), 630);
+  assert.match(svg, />fjalë\.com</u);
+  assert.match(svg, />36</u);
+  assert.doesNotMatch(svg, /fjale-self\.vercel\.app/u);
 });
 
 test("keeps the signature art wired end to end", async () => {
@@ -152,6 +162,24 @@ test("keeps the paid, non-spoiling hint flow explicit", async () => {
     /hintDescription\.textContent\s*=\s*`\$\{answer\.partOfSpeech\}\s*·\s*\$\{answer\.syllables\}`/u,
     "the active hint must not reveal the word's syllable spelling",
   );
+});
+
+test("keeps hint grammar correct and shared results compact", async () => {
+  const app = await readFile("src/app.js", "utf8");
+
+  assert.ok(app.includes('"Gjurmë pas një prove tjetër."'));
+  assert.ok(app.includes('`Gjurmë pas ${remaining} provash të tjera.`'));
+  assert.doesNotMatch(app, /\$\{remaining === 1 \? "prove" : "provash"\} të tjera/u);
+  assert.ok(
+    app.includes('const SHARE_MARK = Object.freeze({ absent: "×", present: "•", correct: "✓" });'),
+  );
+  assert.ok(app.includes('.map((status) => SHARE_MARK[status])\n      .join(" ")'));
+  assert.ok(app.includes('gridRows.splice(state.hintRow, 0, "💡 Gjurmë")'));
+  assert.ok(app.includes('"✓ në vend · • diku tjetër · × jo në fjalë"'));
+  assert.ok(app.includes("formatShareDate("));
+  assert.ok(app.includes('currentRoot.hostname === "fjale-self.vercel.app"'));
+  assert.ok(app.includes("canonicalHref"));
+  assert.doesNotMatch(app, /⬛|🟨|🟩/u);
 });
 
 test("keeps touch interaction contracts for mobile", async () => {
@@ -291,6 +319,8 @@ test("keeps internal documents out of the deployment", async () => {
     "DESIGN.md",
     "PRODUCT.md",
     "README.md",
+    "EDITORIAL.md",
+    "editor/",
     "tests/",
     "scripts/",
     "editorial/",

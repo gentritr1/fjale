@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">FJALË · Fjala shqipe e ditës</title>
+  <desc id="description">Pesë shkronja, gjashtë prova. Të 36 shkronjat e alfabetit shqip vlejnë.</desc>
+
+  <rect width="1200" height="630" fill="#fcfaf5" />
+  <rect x="760" width="440" height="630" fill="#b87500" />
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+    <rect x="72" y="64" width="76" height="76" rx="12" fill="#cc8800" />
+    <text x="110" y="120" fill="#ffffff" font-size="49" font-weight="850" text-anchor="middle">Ë</text>
+    <text x="170" y="119" fill="#302c28" font-size="53" font-weight="850" letter-spacing="-1.2">FJALË</text>
+
+    <text x="72" y="282" fill="#302c28" font-size="76" font-weight="820" letter-spacing="-2">Fjala shqipe</text>
+    <text x="72" y="367" fill="#302c28" font-size="76" font-weight="820" letter-spacing="-2">e ditës.</text>
+    <text x="75" y="438" fill="#655e57" font-size="29" font-weight="560">Pesë shkronja. Gjashtë prova. Një fjalë çdo ditë.</text>
+
+    <line x1="72" y1="530" x2="688" y2="530" stroke="#ded8cf" stroke-width="2" />
+    <text x="72" y="579" fill="#302c28" font-size="25" font-weight="760">fjalë.com</text>
+    <text x="688" y="579" fill="#7a7168" font-size="23" font-weight="650" text-anchor="end">Luaj sot</text>
+
+    <text x="980" y="91" fill="#fff1d2" font-size="20" font-weight="760" letter-spacing="2.6" text-anchor="middle">ALFABETI SHQIP</text>
+    <text x="980" y="332" fill="#ffffff" font-size="210" font-weight="880" letter-spacing="-8" text-anchor="middle">36</text>
+    <text x="980" y="390" fill="#ffffff" font-size="33" font-weight="760" text-anchor="middle">Të gjitha vlejnë.</text>
+
+    <g transform="translate(813 472)">
+      <g fill="#fcfaf5">
+        <rect x="0" y="0" width="58" height="58" rx="8" />
+        <rect x="66" y="0" width="58" height="58" rx="8" />
+        <rect x="132" y="0" width="58" height="58" rx="8" />
+        <rect x="198" y="0" width="58" height="58" rx="8" />
+      </g>
+      <rect x="264" y="0" width="58" height="58" rx="8" fill="#302c28" />
+      <g fill="#302c28" font-size="29" font-weight="850" text-anchor="middle">
+        <text x="29" y="39">F</text>
+        <text x="95" y="39">J</text>
+        <text x="161" y="39">A</text>
+        <text x="227" y="39">L</text>
+      </g>
+      <text x="293" y="39" fill="#ffffff" font-size="29" font-weight="850" text-anchor="middle">Ë</text>
+    </g>
+  </g>
+</svg>
