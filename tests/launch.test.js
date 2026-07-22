@@ -3,6 +3,13 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+  assertCacheVersionBump,
+  findChangedCachedFiles,
+  readAppShellFiles,
+  readCacheVersion,
+} from "../scripts/check-cache-version-bump.mjs";
+
 const CANONICAL_ORIGIN = "https://www.xn--fjal-opa.com/";
 const OG_IMAGE_FILENAME = "og-fjale-v3.png";
 const OG_IMAGE_URL = `${CANONICAL_ORIGIN}${OG_IMAGE_FILENAME}`;
@@ -386,4 +393,43 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
   const corpus = await readFile("src/accepted-words.js", "utf8");
   assert.match(corpus, /Corpus version: \S+/u, "corpus must declare its version");
   assert.match(serviceWorker, /const CACHE_NAME = "fjale-shell-v\d+"/u);
+});
+
+test("pins the release cache and guards every cached runtime update", async () => {
+  const serviceWorker = await readFile("service-worker.js", "utf8");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v14", "fjale-shell-v13");
+
+  // This pin advances with every production release. CI additionally compares
+  // the branch against its base so cached files cannot change without a bump.
+  assert.equal(readCacheVersion(serviceWorker), 14);
+  assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
+  assert.ok(
+    readAppShellFiles(
+      serviceWorker.replace('"/src/game.js"', "'/src/game.js?release=example#shell'"),
+    ).includes("src/game.js"),
+  );
+  assert.throws(
+    () => readAppShellFiles(serviceWorker.replace('"/src/game.js"', "runtimePath")),
+    /only quoted root-relative paths/u,
+  );
+  assert.deepEqual(
+    findChangedCachedFiles(
+      ["src/game.js", "README.md", "service-worker.js"],
+      previousServiceWorker,
+      serviceWorker,
+    ),
+    ["src/game.js", "service-worker.js"],
+  );
+  assert.deepEqual(
+    findChangedCachedFiles(["README.md"], previousServiceWorker, serviceWorker),
+    [],
+  );
+  assert.throws(
+    () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
+    /did not advance beyond fjale-shell-v13/u,
+  );
+  assert.deepEqual(
+    assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
+    { previousVersion: 13, currentVersion: 14 },
+  );
 });

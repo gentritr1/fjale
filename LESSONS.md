@@ -37,6 +37,8 @@ screenshots — math never closes a "looks bad" ticket.
   must never surprise-reload mid-game). Versioned cache purge on activate.
 - **Lesson:** users should never need Cmd+Shift+R; the app owns its update
   path. Guard every `controllerchange` reload against the first-install case.
+  Every release that changes a precached runtime file must also advance
+  `CACHE_NAME`; CI compares the cached-file diff and rejects a missing bump.
 
 ## 3. Update banner broken at phone widths
 

@@ -101,7 +101,13 @@ if ("serviceWorker" in navigator) {
 }
 ```
 
-Lista e shell-it gjendet te `APP_SHELL` në `service-worker.js`. Kur ndryshon vetë strategjia ose dëshiron të heqësh përfundimisht hyrje të vjetra, ndrysho edhe `CACHE_NAME`. URL-të absolute presupozojnë se aplikacioni hostohet në rrënjën e domain-it.
+Lista e shell-it gjendet te `APP_SHELL` në `service-worker.js`. **Rregull
+publikimi:** çdo release që ndryshon një skedar të kësaj liste duhet të rrisë
+numrin e `CACHE_NAME`, që klientët ekzistues të marrin njoftimin `Rifresko` dhe
+një cache të re. `npm run check` e verifikon kundrejt worktree-t ose commit-it
+paraardhës; CI e përsërit kundrejt commit-it bazë të push-it/PR-së. Një ndryshim
+runtime nuk është gati për publikim kur ky kontroll dështon. URL-të absolute
+presupozojnë se aplikacioni hostohet në rrënjën e domain-it.
 
 Serveri i përfshirë është i përshtatshëm për zhvillim dhe preview lokal. Për publikim production përdor një host me HTTPS, compression dhe menaxhim të certifikatave.
 

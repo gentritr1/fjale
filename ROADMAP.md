@@ -310,3 +310,5 @@ agent is not a substitute for observing the flow.
   are covered by regression tests.
 - Canonical URL, social preview, sitemap/structured metadata, cache behavior,
   and production security headers are verified on the deployed origin.
+- Every change to a precached runtime file advances `CACHE_NAME`; the CI
+  cache-version guard must pass before publication.
