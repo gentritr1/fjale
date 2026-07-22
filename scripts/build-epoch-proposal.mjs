@@ -12,7 +12,10 @@ import { fileURLToPath } from "node:url";
 import { DAILY_EPOCHS, getDailyAnswerIndex } from "../src/game.js";
 import { ANSWERS } from "../src/words.js";
 import { canonicalJson, sha256 } from "./build-editorial-batch.mjs";
-import { DEFAULT_EDITORIAL_DECISIONS_PATH } from "./reconcile-editorial-reviews.mjs";
+import {
+  DEFAULT_EDITORIAL_DECISIONS_PATH,
+  isSingleReviewerException,
+} from "./reconcile-editorial-reviews.mjs";
 
 export const EPOCH_PROPOSAL_SCHEMA_VERSION = 1;
 export const EPOCH_PROPOSAL_KIND = "fjale-daily-epoch-proposal";
@@ -327,15 +330,21 @@ export function validateDecisionsDocument(
   ) {
     throw new Error("Decisions batch reference does not match the frozen editorial batch.");
   }
+  const reviewersUseApprovedException = isSingleReviewerException(
+    decisionsDocument.batch,
+    decisionsDocument.reviewers,
+  );
   if (
     !Array.isArray(decisionsDocument.reviewers) ||
-    decisionsDocument.reviewers.length < 2 ||
+    (decisionsDocument.reviewers.length < 2 && !reviewersUseApprovedException) ||
     decisionsDocument.reviewers.some(
       (reviewer) => typeof reviewer !== "string" || reviewer.trim() === "",
     ) ||
     new Set(decisionsDocument.reviewers).size !== decisionsDocument.reviewers.length
   ) {
-    throw new Error("A reconciled document requires at least two unique reviewers.");
+    throw new Error(
+      "A reconciled document requires at least two unique reviewers unless it matches the documented one-time exception.",
+    );
   }
   const reviewers = [...decisionsDocument.reviewers].sort();
   if (canonicalJson(reviewers) !== canonicalJson(decisionsDocument.reviewers)) {

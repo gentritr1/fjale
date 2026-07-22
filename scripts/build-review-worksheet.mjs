@@ -1,15 +1,25 @@
-// Generates the editorial-review worksheet for the appended, not-yet-reviewed
-// answers (ids 62+): editorial/review-<year>-<month>.md (instructions + table)
-// and .csv (for spreadsheet review). Rerun after catalog changes; the editorial/
-// directory is excluded from deployment via .vercelignore.
+// Generates the editorial-review worksheet for catalog answers that are not in
+// any frozen daily epoch: editorial/review-<year>-<month>.md (instructions +
+// table) and .csv (for spreadsheet review). Rerun after catalog changes; the
+// editorial/ directory is excluded from deployment via .vercelignore.
 //
 // Usage: node scripts/build-review-worksheet.mjs [batch-label]
 import { mkdir, writeFile } from "node:fs/promises";
+import { DAILY_EPOCHS } from "../src/game.js";
 import { ANSWERS } from "../src/words.js";
 
-const PUBLISHED_POOL_SIZE = 62;
 const label = process.argv[2] ?? "2026-07";
-const pending = ANSWERS.filter((answer) => answer.id >= PUBLISHED_POOL_SIZE);
+const scheduledAnswerIds = new Set(
+  DAILY_EPOCHS.flatMap((epoch) =>
+    epoch.answerIds ?? Array.from({ length: epoch.poolSize }, (_, answerId) => answerId),
+  ),
+);
+const pending = ANSWERS.filter((answer) => !scheduledAnswerIds.has(answer.id));
+
+if (pending.length === 0) {
+  console.log("No unscheduled answers need an editorial worksheet.");
+  process.exit(0);
+}
 
 function csvField(value) {
   const text = String(value ?? "");
@@ -49,9 +59,9 @@ const csvRows = pending.map((answer) =>
 
 const markdown = `# Rishikimi editorial — ${label} (${pending.length} fjalë në pritje)
 
-Ky dokument mbulon fjalët e shtuara me id ${pending[0]?.id}–${pending.at(-1)?.id}, të cilat
+Ky dokument mbulon fjalët e paplanifikuara me id ${pending[0]?.id}–${pending.at(-1)?.id}, të cilat
 NUK futen në rotacionin ditor para se dy recensues shqipfolës t'i miratojnë.
-Fjalët e para ${PUBLISHED_POOL_SIZE} (id 0–${PUBLISHED_POOL_SIZE - 1}) janë tashmë të botuara dhe të ngrira.
+${scheduledAnswerIds.size} fjalë gjenden tashmë në epoka ditore të ngrira.
 
 ## Udhëzime për recensuesit
 

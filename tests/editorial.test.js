@@ -27,7 +27,10 @@ import {
   readEditorialBatch,
   withReviewFileLock,
 } from "../scripts/editorial-server.mjs";
-import { reconcileEditorialReviews } from "../scripts/reconcile-editorial-reviews.mjs";
+import {
+  isSingleReviewerException,
+  reconcileEditorialReviews,
+} from "../scripts/reconcile-editorial-reviews.mjs";
 import {
   claimReviewTabId,
   readReviewBackup,
@@ -1134,4 +1137,70 @@ test("reconciliation preserves unanimous editorial outcomes and isolates conflic
   assert.equal(Object.hasOwn(summaryDocument.summary, "approved"), false);
   assert.equal(summaryDocument.reviewers.every((reviewer) => !Object.hasOwn(reviewer, "reviewerId")), true);
   assert.doesNotMatch(summaryResponse.text(), /"verdict"|"reason"|"notes"|"reviewedAt"/u);
+});
+
+test("single-reviewer reconciliation is restricted to the approved frozen batch and reviewer", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "fjale-single-reviewer-test-"));
+  const reviewsDir = resolve(directory, "reviews");
+  const decisionsPath = resolve(directory, "decisions", "result.json");
+  const batch = await readEditorialBatch();
+  await atomicWriteReview(reviewsDir, createCompleteReview(batch, "neki"));
+
+  assert.equal(isSingleReviewerException(batch.batch, ["neki"]), true);
+  assert.equal(isSingleReviewerException(batch.batch, ["other-reviewer"]), false);
+  assert.equal(
+    isSingleReviewerException({ ...batch.batch, id: "answers-future-batch" }, ["neki"]),
+    false,
+  );
+  assert.equal(
+    isSingleReviewerException({ ...batch.batch, sourceCatalogSha256: "0".repeat(64) }, ["neki"]),
+    false,
+  );
+
+  await assert.rejects(
+    reconcileEditorialReviews({
+      reviewsDir,
+      decisionsPath,
+      generatedAt: FIXED_TIME,
+      reviewerIds: ["neki"],
+    }),
+    /at least two independent reviewer IDs/u,
+  );
+  await assert.rejects(
+    reconcileEditorialReviews({
+      reviewsDir,
+      decisionsPath,
+      generatedAt: FIXED_TIME,
+      allowSingleReviewerException: true,
+    }),
+    /requires an explicit reviewer ID/u,
+  );
+  await assert.rejects(
+    reconcileEditorialReviews({
+      reviewsDir,
+      decisionsPath,
+      generatedAt: FIXED_TIME,
+      reviewerIds: ["other-reviewer"],
+      allowSingleReviewerException: true,
+    }),
+    /limited to batch answers-2026-07-62-137-v1 and reviewer neki/u,
+  );
+
+  const { output } = await reconcileEditorialReviews({
+    reviewsDir,
+    decisionsPath,
+    generatedAt: FIXED_TIME,
+    reviewerIds: ["neki"],
+    allowSingleReviewerException: true,
+  });
+  assert.deepEqual(output.reviewers, ["neki"]);
+  assert.equal(output.summary.approved, 76);
+  assert.equal(output.summary.incomplete, 0);
+  assert.equal(output.decisions.every(({ outcome }) => outcome === "approve_daily"), true);
+  assert.equal(
+    output.decisions.every(
+      ({ reviews }) => reviews.length === 1 && reviews[0].reviewerId === "neki",
+    ),
+    true,
+  );
 });

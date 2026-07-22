@@ -4,7 +4,7 @@ FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është 
 
 ## Çfarë përfshin
 
-- 138 përgjigje të redaktuara me gjurmë, përkufizime, rrokje dhe shembuj; pool-i ditor v1 ruan 62 fjalët e para pa ndryshuar historinë.
+- 138 përgjigje të redaktuara me gjurmë, përkufizime, rrokje dhe shembuj; epoka e nisjes ruan 62 fjalët e para, ndërsa epoka e 23 korrikut i planifikon të 138-at pa ndryshuar historinë.
 - 21,481 prova të pranuara nga fjalori shqip, tani edhe me trajtat e lakuara e të zgjedhuara që deklaron Hunspell-i, me nëntë dyshkronjëshat si shkronja të vetme.
 - Fjalën e ditës, Arkivën për ditët e humbura, lojë pa fund dhe sfida me të njëjtën fjalë për miqtë.
 - Gjurmën pas provës së tretë, e cila zbulon kuptimin pa shkronja dhe përdor një provë; mënyrën **Besa** pa ndihmë; dhe Pasaportën e alfabetit.
@@ -17,11 +17,12 @@ FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është 
 
 Vlerësimet dhe klikimet e raportimit ruhen vetëm në shfletues. Një raport i
 mbërrin ekipit vetëm nëse lojtari dërgon email-in e paraplotësuar që hap lidhja.
-Pool-i ditor mbetet 62 fjalë (epoka e nisjes). Skema e pandryshueshme e epokave
-tashmë është zbatuar: çdo përgjigje ka një ID të pandryshueshme, kodet e sfidave
-dhe fjala e ditës zgjidhen sipas ID-së, dhe rritja e pool-it bëhet vetëm duke
-shtuar një epokë të re me listën e ngrirë të ID-ve të miratuara. Kjo lejon të
-anashkalohen fjalët e refuzuara pa prekur historinë ose lidhjet e vjetra.
+Epoka e nisjes mbetet e ngrirë me 62 fjalë deri më 22 korrik 2026; nga 23
+korriku epoka e dytë përdor të 138 përgjigjet e miratuara. Çdo përgjigje ka një
+ID të pandryshueshme, kodet e sfidave dhe fjala e ditës zgjidhen sipas ID-së,
+dhe çdo rritje e ardhshme bëhet vetëm me një epokë të re e me listë të ngrirë
+ID-sh. Kjo lejon të anashkalohen fjalët e refuzuara pa prekur historinë ose
+lidhjet e vjetra.
 
 ## Nisja lokale
 
@@ -75,8 +76,9 @@ Rrjedha e plotë, bashkërendimi dhe propozimi i epokës dokumentohen te
   identitetin e sfidave dhe epokat ditore.
 - [`ROADMAP.md`](ROADMAP.md) ndan punën në Tani, Më pas dhe Më vonë, me kushtet
   e publikimit.
-- [`EDITORIAL.md`](EDITORIAL.md) përshkruan rishikimin me dy shqyrtues dhe
-  propozimin e sigurt të epokave.
+- [`EDITORIAL.md`](EDITORIAL.md) përshkruan rregullin me dy shqyrtues,
+  përjashtimin e vetëm të dokumentuar për grupin e korrikut dhe propozimin e
+  sigurt të epokave.
 - [`PRODUCT.md`](PRODUCT.md) dhe [`DESIGN.md`](DESIGN.md) ruajnë premtimin e
   produktit dhe drejtimin vizual.
 

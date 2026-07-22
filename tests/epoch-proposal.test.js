@@ -25,6 +25,7 @@ const BATCH_URL = new URL(
   import.meta.url,
 );
 const FIXTURE_URL = new URL("./fixtures/daily-schedule.json", import.meta.url);
+const LAUNCH_EPOCHS = Object.freeze([DAILY_EPOCHS[0]]);
 
 async function loadInputs() {
   const [batchDocument, fixture] = await Promise.all([
@@ -34,14 +35,16 @@ async function loadInputs() {
   return { batchDocument, fixture };
 }
 
-function buildDecisions(batchDocument, outcomes = new Map()) {
-  const reviewers = ["reviewer-1", "reviewer-2"];
+function buildDecisions(
+  batchDocument,
+  outcomes = new Map(),
+  reviewers = ["reviewer-1", "reviewer-2"],
+) {
   const decisions = batchDocument.entries.map((source) => {
     const outcome = outcomes.get(source.answerId) ?? "reject_content";
-    const reviewVerdicts =
-      outcome === "conflict"
-        ? ["approve_daily", "reject_content"]
-        : [outcome, outcome];
+    const reviewVerdicts = outcome === "conflict"
+      ? reviewers.map((_, index) => (index === 0 ? "approve_daily" : "reject_content"))
+      : reviewers.map(() => outcome);
     const decision = {
       answerId: source.answerId,
       sourceSha256: source.sourceSha256,
@@ -93,15 +96,16 @@ test("builds an immutable explicit-id proposal and a 90-day answer preview", asy
     ]),
   );
   const proposal = buildEpochProposal({
-    start: "2026-09-01",
+    start: "2026-07-23",
     decisionsDocument,
     batchDocument,
     fixture,
     generatedAt: FIXED_TIME,
+    existingEpochs: LAUNCH_EPOCHS,
   });
 
   assert.equal(proposal.kind, "fjale-daily-epoch-proposal");
-  assert.equal(proposal.proposal.id, "epoch-2026-09-01-answers-2026-07-62-137-v1-v1");
+  assert.equal(proposal.proposal.id, "epoch-2026-07-23-answers-2026-07-62-137-v1-v1");
   assert.deepEqual(proposal.epoch.answerIds, [
     ...Array.from({ length: 62 }, (_, answerId) => answerId),
     62,
@@ -120,8 +124,8 @@ test("builds an immutable explicit-id proposal and a 90-day answer preview", asy
   assert.deepEqual(proposal.excludedAnswerIds.conflict, []);
 
   assert.equal(proposal.preview.days, 90);
-  assert.equal(proposal.preview.start, "2026-09-01");
-  assert.equal(proposal.preview.end, "2026-11-29");
+  assert.equal(proposal.preview.start, "2026-07-23");
+  assert.equal(proposal.preview.end, "2026-10-20");
   assert.equal(Object.keys(proposal.preview.schedule).length, 90);
   const previewIds = new Set(
     Object.values(proposal.preview.schedule).map(({ answerId }) => answerId),
@@ -138,7 +142,7 @@ test("builds an immutable explicit-id proposal and a 90-day answer preview", asy
       last: proposal.historyProof.lastCheckedDate,
       unchanged: proposal.historyProof.unchanged,
     },
-    { checkedDates: 47, first: "2026-07-16", last: "2026-08-31", unchanged: true },
+    { checkedDates: 7, first: "2026-07-16", last: "2026-07-22", unchanged: true },
   );
   assert.equal(
     proposal.historyProof.fixturePrefixSha256,
@@ -166,6 +170,22 @@ test("accepts the latest frozen explicit answer-id pool instead of a legacy pref
   const resolved = currentDailyAnswerIds(epochs, ANSWERS);
   assert.deepEqual(resolved, explicitIds);
   assert.ok(Object.isFrozen(resolved));
+});
+
+test("accepts only the documented one-reviewer decisions exception", async () => {
+  const { batchDocument } = await loadInputs();
+  const outcomes = new Map(
+    batchDocument.batch.answerIds.map((answerId) => [answerId, "approve_daily"]),
+  );
+  const approvedException = buildDecisions(batchDocument, outcomes, ["neki"]);
+
+  assert.equal(validateDecisionsDocument(approvedException, batchDocument), approvedException);
+
+  const unapprovedReviewer = buildDecisions(batchDocument, outcomes, ["other-reviewer"]);
+  assert.throws(
+    () => validateDecisionsDocument(unapprovedReviewer, batchDocument),
+    /documented one-time exception/u,
+  );
 });
 
 test("rejects unresolved revision and conflict outcomes and identifies their ids", async () => {
@@ -256,10 +276,11 @@ test("refuses a start at the latest epoch and detects any fixture-history drift"
     batchDocument,
     fixture,
     generatedAt: FIXED_TIME,
+    existingEpochs: LAUNCH_EPOCHS,
   };
 
   assert.throws(
-    () => buildEpochProposal({ ...options, start: DAILY_EPOCHS.at(-1).start }),
+    () => buildEpochProposal({ ...options, start: LAUNCH_EPOCHS.at(-1).start }),
     /must be after the latest epoch start/u,
   );
   assert.throws(
@@ -290,7 +311,9 @@ test("numbers proposal files monotonically and writes versioned JSON end to end"
   const { batchDocument, fixture } = await loadInputs();
   const decisionsDocument = buildDecisions(
     batchDocument,
-    new Map([[62, "approve_daily"]]),
+    new Map(
+      batchDocument.batch.answerIds.map((answerId) => [answerId, "approve_daily"]),
+    ),
   );
   const directory = await mkdtemp(resolve(tmpdir(), "fjale-epoch-proposal-"));
   const batchesDir = resolve(directory, "batches");

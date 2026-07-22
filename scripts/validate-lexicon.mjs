@@ -7,7 +7,7 @@
 // Warnings (exit 0, printed): editorial-balance findings a human must weigh —
 // part-of-speech imbalance and clue/definition stem leaks. These block nothing
 // but are the standing brief for the editorial review.
-import { ALBANIAN_ALPHABET, tokenizeAlbanian } from "../src/game.js";
+import { ALBANIAN_ALPHABET, DAILY_EPOCHS, tokenizeAlbanian } from "../src/game.js";
 import { ANSWERS } from "../src/words.js";
 
 const LETTERS = new Set(ALBANIAN_ALPHABET);
@@ -53,8 +53,9 @@ ANSWERS.forEach((answer, position) => {
   }
 });
 
-// Part-of-speech balance, split into the published daily pool and the pending
-// appended answers, so the editorial review sees where the imbalance lives.
+// Part-of-speech balance, split by scheduled daily IDs instead of a hardcoded
+// catalog position so a newly published epoch cannot leave stale "pending"
+// counts behind.
 function posBreakdown(entries) {
   const counts = new Map();
   for (const entry of entries) {
@@ -66,12 +67,20 @@ function posBreakdown(entries) {
     .join(", ");
 }
 
-const published = ANSWERS.filter((answer) => answer.id < 62);
-const pending = ANSWERS.filter((answer) => answer.id >= 62);
-console.log(`Lexicon: ${ANSWERS.length} answers (${published.length} published, ${pending.length} pending review)`);
-console.log(`  published pool POS — ${posBreakdown(published)}`);
-if (pending.length > 0) {
-  console.log(`  pending POS — ${posBreakdown(pending)}`);
+const scheduledIds = new Set(
+  DAILY_EPOCHS.flatMap((epoch) =>
+    epoch.answerIds ?? Array.from({ length: epoch.poolSize }, (_, answerId) => answerId),
+  ),
+);
+const scheduled = ANSWERS.filter((answer) => scheduledIds.has(answer.id));
+const unscheduled = ANSWERS.filter((answer) => !scheduledIds.has(answer.id));
+console.log(
+  `Lexicon: ${ANSWERS.length} answers ` +
+    `(${scheduled.length} scheduled daily, ${unscheduled.length} awaiting review)`,
+);
+console.log(`  scheduled pool POS — ${posBreakdown(scheduled)}`);
+if (unscheduled.length > 0) {
+  console.log(`  awaiting-review POS — ${posBreakdown(unscheduled)}`);
 }
 
 const nounShare = ANSWERS.filter((answer) => answer.partOfSpeech === "emër").length / ANSWERS.length;

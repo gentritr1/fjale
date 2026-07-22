@@ -939,7 +939,15 @@ export async function loadEditorialReviews(reviewsDir, batch) {
   return reviews;
 }
 
-export function buildReconciliation(batch, reviews, generatedAt = new Date().toISOString()) {
+export function buildReconciliation(
+  batch,
+  reviews,
+  generatedAt = new Date().toISOString(),
+  { minimumReviewerCount = 2 } = {},
+) {
+  if (!Number.isSafeInteger(minimumReviewerCount) || minimumReviewerCount < 1) {
+    throw new TypeError("minimumReviewerCount must be a positive safe integer.");
+  }
   const normalizedReviews = [...reviews].sort((a, b) =>
     a.reviewer.id.localeCompare(b.reviewer.id, "en"),
   );
@@ -964,7 +972,7 @@ export function buildReconciliation(batch, reviews, generatedAt = new Date().toI
       ];
     });
     const hasCompleteReviewerCoverage =
-      decisions.length >= 2 && decisions.length === reviewMaps.length;
+      decisions.length >= minimumReviewerCount && decisions.length === reviewMaps.length;
     let state = "incomplete";
     let approvedEntrySha256 = null;
 

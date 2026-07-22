@@ -540,35 +540,37 @@ test("challenge codes round-trip, are case-insensitive, and reject invalid range
   assert.throws(() => createChallengeCode(-1), RangeError);
 });
 
-// Daily-history fixture. Each pair was computed on this branch and must equal
-// the word main's getDailyIndex(date, 62) produced for that date; the reviewer
-// diffs against a full fixture generated on main, so any formula drift fails
-// even though these pins are internally consistent. Noon UTC always resolves to
-// the same Tirana calendar day, so the archive resolves the same words.
+// Daily-history fixture. Launch-era pairs retain getDailyIndex(date, 62)
+// parity; later pairs pin the reviewed 138-answer epoch. The full fixture below
+// catches drift across every date. Noon UTC always resolves to the same Tirana
+// calendar day, so the archive resolves the same words.
 test("getDailyAnswerIndex reproduces the published daily history byte-for-byte", () => {
   const history = [
     ["2026-07-16", "bardhë"], // first published daily
     ["2026-07-17", "mësim"],
     ["2026-07-18", "dhjetë"],
-    ["2026-08-01", "letër"],
-    ["2026-09-15", "hapur"],
-    ["2026-10-25", "ëndërr"], // Tirana DST fall-back day
-    ["2026-12-31", "dëgjon"],
-    ["2027-01-01", "xhiron"],
-    ["2027-03-29", "thesar"], // Tirana DST spring-forward day
-    ["2027-06-15", "fillim"],
-    ["2027-09-01", "zemër"],
-    ["2027-12-30", "këmbë"],
-    ["2027-12-31", "cikli"], // last date in the pinned span
+    ["2026-07-22", "llambë"], // final launch-epoch day
+    ["2026-07-23", "cikli"], // first 138-answer epoch day
+    ["2026-07-24", "rregull"],
+    ["2026-08-01", "byrek"],
+    ["2026-09-15", "frika"],
+    ["2026-10-25", "lepur"], // Tirana DST fall-back day
+    ["2026-12-31", "kafshë"],
+    ["2027-01-01", "djathë"],
+    ["2027-03-29", "rrëfim"], // Tirana DST spring-forward day
+    ["2027-06-15", "ngjala"],
+    ["2027-09-01", "kripë"],
+    ["2027-12-30", "rrëfim"],
+    ["2027-12-31", "darkë"], // last date in the pinned span
   ];
 
   for (const [dateKey, word] of history) {
     const date = new Date(`${dateKey}T12:00:00Z`);
     const index = getDailyAnswerIndex(date);
     assert.equal(getAnswerById(index).word, word, `${dateKey} must resolve to ${word}`);
-    // The epoch resolver must match the raw pool-size formula while the launch
-    // epoch is the only entry — this is the parity guarantee against main.
-    assert.equal(index, getDailyIndex(date, 62), `${dateKey} epoch/raw parity`);
+    if (dateKey < "2026-07-23") {
+      assert.equal(index, getDailyIndex(date, 62), `${dateKey} launch epoch/raw parity`);
+    }
   }
 });
 
@@ -697,6 +699,13 @@ test("explicit answer-id epochs reject mutable, empty, duplicate, and invalid id
 test("DAILY_EPOCHS is frozen, sorted, non-overlapping, and pinned", () => {
   assert.deepEqual(DAILY_EPOCHS, [
     { start: "2026-07-16", poolSize: 62, stepBase: 37, offset: 911 },
+    {
+      start: "2026-07-23",
+      answerIds: Array.from({ length: 138 }, (_, answerId) => answerId),
+      poolSize: 138,
+      stepBase: 37,
+      offset: 911,
+    },
   ]);
   assert.ok(Object.isFrozen(DAILY_EPOCHS), "epoch table must be frozen");
 
@@ -711,6 +720,9 @@ test("DAILY_EPOCHS is frozen, sorted, non-overlapping, and pinned", () => {
       { length: epoch.poolSize },
       (_, answerId) => answerId,
     );
+    if (epoch.answerIds) {
+      assert.ok(Object.isFrozen(epoch.answerIds), "published answerIds must be frozen");
+    }
     for (const answerId of answerIds) {
       assert.ok(getAnswerById(answerId), `daily epoch ${epoch.start} references missing answer id ${answerId}`);
     }
@@ -727,9 +739,11 @@ test("DAILY_EPOCHS is frozen, sorted, non-overlapping, and pinned", () => {
 
 // DAILY_POOL_SIZE in app.js is derived from this, so the pool size cannot drift
 // from a second constant. The active epoch on a launch-era date is the launch
-// epoch with its 62-word pool.
+// epoch with its 62-word pool; the reviewed second epoch starts with 138.
 test("getActiveDailyEpoch returns the governing epoch for a date", () => {
   assert.equal(getActiveDailyEpoch(new Date("2026-07-18T12:00:00Z")).poolSize, 62);
+  assert.equal(getActiveDailyEpoch(new Date("2026-07-22T12:00:00Z")).poolSize, 62);
+  assert.equal(getActiveDailyEpoch(new Date("2026-07-23T12:00:00Z")).poolSize, 138);
   assert.equal(getActiveDailyEpoch(new Date("2026-07-16T12:00:00Z")), DAILY_EPOCHS[0]);
   // Dates before the first epoch clamp to it (preserving pre-epoch behavior).
   assert.equal(getActiveDailyEpoch(new Date("2000-01-01T12:00:00Z")), DAILY_EPOCHS[0]);
@@ -737,7 +751,7 @@ test("getActiveDailyEpoch returns the governing epoch for a date", () => {
 
 // The complete published daily mapping is locked by a golden fixture: every
 // Tirana date from launch through 2030-12-31 must resolve to exactly the word
-// recorded in tests/fixtures/daily-schedule.json. The 13-date pin above catches
+// recorded in tests/fixtures/daily-schedule.json. The sample pins above catch
 // formula drift quickly; this catches ANY drift, including a fixture edit —
 // regenerating via scripts/build-daily-fixture.mjs is only legitimate when a
 // new epoch is appended, and the diff must touch no date before that epoch.

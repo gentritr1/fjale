@@ -40,7 +40,7 @@ Extend this list by appending; never renumber shipped tiers.
   resolver work by ID (legacy `SQ-*` links and all historical daily words are
   byte-stable), and `DAILY_POOL_SIZE` derives from the active epoch. Growing the
   daily pool is now an append-only editorial act (add a later-dated epoch), never
-  a resize. This is architecture only — no observable behavior changed.
+  a resize. The first expansion uses that path from 2026-07-23.
 - The lexicon, daily, challenge, streak, and release contracts live in this file
   and `LEXICON.md`.
 
@@ -98,22 +98,27 @@ Extend this list by appending; never renumber shipped tiers.
   it refuses starts on or before the already-published Tirana date. It never
   edits `src/words.js`, `DAILY_EPOCHS`, or the fixture automatically.
 
-## Now — editorial runway before 2026-09-16
+## Completed — first reviewed pool expansion (2026-07-22)
 
-The repository now contains release-ready work that is not considered live
-until it is committed, deployed, and checked at the public origin. The daily
-pool has 62 words; `bardhë` (2026-07-16) repeats on 2026-09-16, so a reviewed
-second epoch must be published before that date.
+- Reviewer `neki` completed all 76 frozen candidates. The owner explicitly
+  approved a one-time, hash-pinned single-reviewer exception for this batch;
+  every future batch still requires two independent Albanian reviewers.
+- All 76 candidates were approved. Four reviewer-selected metadata edits were
+  applied to `balta`, `bishti`, `brumë`, and `lajthi`; word IDs and spellings
+  remain immutable.
+- The versioned proposal proved all seven served dates unchanged. A second
+  epoch starts on 2026-07-23 with a frozen list of IDs 0–137, expanding the
+  daily pool from 62 to 138 without changing the launch epoch.
 
-- Two Albanian reviewers independently process the 76 appended answers in the
-  local studio (`npm run editorial`; see `EDITORIAL.md`). The Markdown/CSV
-  worksheet remains a printable fallback. Corrections may edit metadata, but
-  word/ID changes, removal, and reordering stay forbidden.
-- Reconcile the two files, resolve any conflict or revision request, generate a
-  versioned epoch proposal, review its 90-day preview, then deliberately append
-  the approved epoch and regenerate the fixture. No promotion step is automatic.
+## Now — verify the expanded beta
+
+The launch pool remains 62 words through 2026-07-22; the scheduled pool is 138
+from 2026-07-23. Close the release with public-origin and physical-device
+checks, then build the next unpublished buffer under the normal two-reviewer
+rule.
+
 - Improve verb/adjective/adverb representation: 125 of 138 answers are nouns
-  (75 of the 76 pending are nouns — see validator warnings).
+  (see validator warnings); prioritize non-nouns in the next candidate batch.
 - Run the remaining physical-device gate: iPhone Safari, Android Chrome/Firefox,
   and one WhatsApp share paste.
 - Begin collecting missing-word emails manually; do not infer aggregate demand
@@ -143,9 +148,9 @@ or a backend to the V1 polish round.
 - Immutable answer IDs and legacy challenge-link preservation: **implemented**
   (see "Completed"). Reordering `ANSWERS` stays forbidden while legacy pre-ID
   clients persist raw indices.
-- Append-only daily epochs: **implemented**. Expanding the 62-word daily pool is
-  now done only by appending a later-dated epoch with a frozen list of approved
-  answer IDs, after native review — never by resizing the launch epoch.
+- Append-only daily epochs: **implemented and exercised**. The 2026-07-23 epoch
+  expands the pool from 62 to 138 through a frozen list of approved answer IDs;
+  later growth uses the same append-only path and never resizes an old epoch.
 - Grow to at least 365 two-reviewer daily answers with a maintained 90-day
   unpublished buffer, publishing pool growth through a new epoch.
 - Keep accepted guesses broad and daily answers common, fair, and
@@ -189,12 +194,13 @@ competitors add store distribution, accounts, coins or leaderboards. The
 original luaj.live is dead.
 
 FJALË's defensible moat is no longer digraph handling by itself. It is the
-combination of first-class Albanian tokenization, two-reviewer answers with
-definitions/syllables/examples, symbol-backed accessibility, true no-analytics
-privacy, reliable offline play, and the daily/archive/practice/Besa ritual.
+combination of first-class Albanian tokenization, human-reviewed answers with a
+two-reviewer standard for future batches, definitions/syllables/examples,
+symbol-backed accessibility, true no-analytics privacy, reliable offline play,
+and the daily/archive/practice/Besa ritual.
 
-Known weaknesses to close, in wedge order: shallowest daily history in the
-field (62 words — P2 epochs), stats die with localStorage (P3 recovery code;
+Known weaknesses to close, in wedge order: daily history remains young even
+with 138 scheduled answers (P2 epochs), stats die with localStorage (P3 recovery code;
 fjalth ships stats transfer), no store shelf presence (P1), asynchronous-only
 social (P4). Brand hazard: "FJALË" as a search term is owned by the fjale.al
 dictionary — the custom-domain decision must weigh a distinctive name.

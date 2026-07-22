@@ -27,6 +27,24 @@ export const DEFAULT_EDITORIAL_DECISIONS_PATH = resolve(
   "decisions",
   `${EDITORIAL_BATCH_ID}.json`,
 );
+export const SINGLE_REVIEWER_EXCEPTION = Object.freeze({
+  batchId: "answers-2026-07-62-137-v1",
+  sourceCatalogSha256:
+    "00a765c6b8c593d3812e7e525a39fdba85401283ed77bed5b78edecc0a6a1f25",
+  reviewerId: "neki",
+  approvedOn: "2026-07-22",
+});
+
+export function isSingleReviewerException(batchReference, reviewerIds) {
+  return (
+    batchReference?.id === SINGLE_REVIEWER_EXCEPTION.batchId &&
+    batchReference?.sourceCatalogSha256 ===
+      SINGLE_REVIEWER_EXCEPTION.sourceCatalogSha256 &&
+    Array.isArray(reviewerIds) &&
+    reviewerIds.length === 1 &&
+    reviewerIds[0] === SINGLE_REVIEWER_EXCEPTION.reviewerId
+  );
+}
 
 async function atomicWriteJson(pathname, value) {
   await mkdir(dirname(pathname), { recursive: true });
@@ -45,9 +63,14 @@ async function atomicWriteJson(pathname, value) {
   }
 }
 
-function validateReviewerSelection(reviewerIds) {
-  if (reviewerIds === undefined) return null;
-  if (!Array.isArray(reviewerIds) || reviewerIds.length < 2) {
+function validateReviewerSelection(reviewerIds, batchReference, allowSingleReviewerException) {
+  if (reviewerIds === undefined) {
+    if (allowSingleReviewerException) {
+      throw new Error("The single-reviewer exception requires an explicit reviewer ID.");
+    }
+    return null;
+  }
+  if (!Array.isArray(reviewerIds) || reviewerIds.length === 0) {
     throw new Error("Choose at least two independent reviewer IDs for reconciliation.");
   }
 
@@ -59,6 +82,15 @@ function validateReviewerSelection(reviewerIds) {
   }
   if (new Set(normalized).size !== normalized.length) {
     throw new Error("Reviewer IDs for reconciliation must be unique.");
+  }
+  const usesApprovedException = isSingleReviewerException(batchReference, normalized);
+  if (allowSingleReviewerException && !usesApprovedException) {
+    throw new Error(
+      "The single-reviewer exception is limited to batch answers-2026-07-62-137-v1 and reviewer neki.",
+    );
+  }
+  if (normalized.length < 2 && !(allowSingleReviewerException && usesApprovedException)) {
+    throw new Error("Choose at least two independent reviewer IDs for reconciliation.");
   }
   return normalized;
 }
@@ -87,14 +119,25 @@ export async function reconcileEditorialReviews({
   decisionsPath = DEFAULT_EDITORIAL_DECISIONS_PATH,
   generatedAt = new Date().toISOString(),
   reviewerIds,
+  allowSingleReviewerException = false,
 } = {}) {
   const batch = await readEditorialBatch(batchPath);
-  const selectedReviewerIds = validateReviewerSelection(reviewerIds);
+  const selectedReviewerIds = validateReviewerSelection(
+    reviewerIds,
+    batch.batch,
+    allowSingleReviewerException,
+  );
   const reviews = selectedReviewerIds
     ? await loadSelectedReviews(reviewsDir, batch, selectedReviewerIds)
     : await loadEditorialReviews(reviewsDir, batch);
+  const usesApprovedException =
+    allowSingleReviewerException &&
+    isSingleReviewerException(
+      batch.batch,
+      reviews.map(({ reviewer }) => reviewer.id),
+    );
 
-  if (reviews.length < 2) {
+  if (reviews.length < 2 && !usesApprovedException) {
     throw new Error(
       `Reconciliation requires at least two independent review files; found ${reviews.length}.`,
     );
@@ -113,7 +156,9 @@ export async function reconcileEditorialReviews({
     );
   }
 
-  const reconciliation = buildReconciliation(batch, reviews, generatedAt);
+  const reconciliation = buildReconciliation(batch, reviews, generatedAt, {
+    minimumReviewerCount: usesApprovedException ? 1 : 2,
+  });
   const reviewMaps = new Map(
     reviews.map((review) => [
       review.reviewer.id,
@@ -164,13 +209,22 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(imp
 
 if (isMain) {
   try {
-    const reviewerIds = process.argv.slice(2);
-    if (reviewerIds.length < 2) {
+    const args = process.argv.slice(2);
+    const allowSingleReviewerException = args[0] === "--allow-single-reviewer-exception";
+    const reviewerIds = allowSingleReviewerException ? args.slice(1) : args;
+    if (
+      (allowSingleReviewerException && reviewerIds.length !== 1) ||
+      (!allowSingleReviewerException && reviewerIds.length < 2)
+    ) {
       throw new Error(
-        "Usage: npm run editorial:reconcile -- <reviewer-id-1> <reviewer-id-2> [reviewer-id-3 ...]",
+        "Usage: npm run editorial:reconcile -- <reviewer-id-1> <reviewer-id-2> [reviewer-id-3 ...]\n" +
+          "One-time exception: npm run editorial:reconcile -- --allow-single-reviewer-exception neki",
       );
     }
-    const { decisionsPath, output } = await reconcileEditorialReviews({ reviewerIds });
+    const { decisionsPath, output } = await reconcileEditorialReviews({
+      reviewerIds,
+      allowSingleReviewerException,
+    });
     console.log(`Wrote ${decisionsPath}.`);
     console.log(
       `Approved: ${output.summary.approved}; practice-only: ${output.summary.practiceOnly}; ` +

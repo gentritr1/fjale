@@ -6,11 +6,12 @@ quality are separate concerns.
 
 ## Current baseline
 
-- The answer catalog contains 138 metadata-bearing entries awaiting the stated
-  native-review gate where applicable. Every entry carries an immutable `id`
+- The answer catalog contains 138 metadata-bearing, human-reviewed entries.
+  Every entry carries an immutable `id`
   (`0`–`137`, currently equal to its array position); see "Published identity is
   immutable".
-- The published daily v1 pool is the first 62 entries, in its existing order.
+- The launch daily epoch is the first 62 entries through 2026-07-22. The second
+  epoch schedules all 138 reviewed IDs from 2026-07-23.
 - The final accepted-guess set contains 21,481 entries (corpus version
   `2-hunspell-declared-2026-07-18`): the 14,255 five-token roots from the
   vendored `sq_AL.dic`, plus the Hunspell-declared affix forms from the paired
@@ -86,6 +87,13 @@ Generated definitions, examples, pronunciations, and regional labels are never
 published without human review. Reports are triaged in batches, with source,
 decision, reviewer, and date recorded for every manual override.
 
+One narrowly pinned exception was approved for the frozen July 2026 batch:
+`answers-2026-07-62-137-v1`, source hash
+`00a765c6b8c593d3812e7e525a39fdba85401283ed77bed5b78edecc0a6a1f25`, was
+reviewed by `neki` and accepted by the owner on 2026-07-22. The executable gate
+matches that complete tuple and requires explicit opt-in. The two-independent-
+reviewer policy in the table remains mandatory for every future answer batch.
+
 ## Published identity is immutable
 
 ### Immutable answer IDs (implemented)
@@ -136,6 +144,10 @@ The launch epoch `{ "2026-07-16", 62, 37, 911 }` reproduces the previous
 selector for every date, so no historical daily word or challenge link shifts.
 Dates before the first epoch clamp to it; the archive UI already gates out dates
 earlier than the first published daily.
+
+The second epoch starts on `2026-07-23`, freezes answer IDs `0`–`137`, and keeps
+the same step base and offset. The last launch-era answer on `2026-07-22` stays
+unchanged; the larger pool governs only the new epoch and later dates.
 
 Growing the daily pool happens **only** by appending a later-dated epoch with a
 frozen explicit list of approved IDs — an editorial act taken after native
