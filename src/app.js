@@ -13,8 +13,11 @@ import {
   getAttemptCount,
   getDailyAnswerIndex,
   getTiranaDateKey,
+  mergePhysicalCharacterAt,
   normalizeWord,
+  removeGuessTokenAt,
   removeLastToken,
+  replaceGuessToken,
   sanitizeDailyResults,
   sanitizeModeStats,
   sanitizeReportedWords,
@@ -62,11 +65,14 @@ const ALPHABET_SET = new Set(ALBANIAN_ALPHABET);
 const ANSWER_SET = new Set(ANSWERS.map((entry) => entry.word));
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+// Keep the ordinary keys in the familiar Albanian QWERTZ order. W and
+// punctuation are omitted because guesses use exactly the 36 letters of the
+// Albanian alphabet; the nine atomic digraphs have their own final row.
 const KEYBOARD_ROWS = Object.freeze([
-  ["q", "e", "r", "rr", "t", "th", "y", "u", "i", "o"],
-  ["p", "ç", "a", "s", "sh", "d", "dh", "f", "g", "gj"],
-  ["h", "j", "k", "l", "ll", "ë", "z", "zh", "x", "xh"],
-  ["c", "v", "b", "n", "nj", "m", "backspace", "enter"],
+  ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë"],
+  ["y", "x", "c", "v", "b", "n", "m", "backspace"],
+  ["dh", "gj", "ll", "nj", "rr", "sh", "th", "xh", "zh", "enter"],
 ]);
 
 const ALBANIAN_MONTHS_SHORT = Object.freeze([
@@ -220,6 +226,11 @@ let updateReloadArmed = false;
 // appears only for a genuine completion — never on reload of a game that
 // finished before ratings existed, or in a previous session without a rating.
 let justCompletedPuzzleId = null;
+// Current-row editing is deliberately transient: it is an interaction cursor,
+// not saved game data. The pending index lets a physical S then H still become
+// one SH token after replacing a tile in a full row.
+let selectedCurrentIndex = null;
+let pendingEditedDigraphIndex = null;
 
 if (ANSWERS.length < DAILY_POOL_SIZE) {
   throw new Error(`Daily pool requires at least ${DAILY_POOL_SIZE} answers.`);
@@ -468,6 +479,8 @@ function wireInteractions() {
   elements.hintConfirm.addEventListener("click", revealHint);
   elements.hintCancel.addEventListener("click", () => closeHintConfirmation(true));
   elements.besaButton.addEventListener("click", toggleBesa);
+  elements.board.addEventListener("click", handleBoardClick);
+  elements.board.addEventListener("keydown", handleBoardKeydown);
   elements.keyboard.addEventListener("click", handleKeyboardClick);
   elements.shareButton.addEventListener("click", shareResult);
   elements.challengeButton.addEventListener("click", shareChallenge);
@@ -480,6 +493,13 @@ function wireInteractions() {
   elements.calendarNext.addEventListener("click", () => shiftCalendar(1));
   elements.calendarBody.addEventListener("click", handleCalendarClick);
   document.addEventListener("keydown", handlePhysicalKeyboard);
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      pendingEditedDigraphIndex = null;
+    },
+    { passive: true },
+  );
   window.addEventListener("storage", handleStorageChange);
 
   document.querySelectorAll("[data-open-dialog]").forEach((button) => {
@@ -681,6 +701,79 @@ function clearTransientState() {
   animatingRow = null;
   isAnimating = false;
   invalidPulse = false;
+  selectedCurrentIndex = null;
+  pendingEditedDigraphIndex = null;
+}
+
+function handleBoardClick(event) {
+  const tile = event.target.closest("[data-current-index]");
+  if (!tile || !elements.board.contains(tile)) {
+    return;
+  }
+
+  selectCurrentTile(Number(tile.dataset.currentIndex));
+}
+
+function handleBoardKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  const tile = event.target.closest("[data-current-index]");
+  if (!tile || !elements.board.contains(tile)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  selectCurrentTile(Number(tile.dataset.currentIndex), true);
+}
+
+function getSelectedCurrentIndex() {
+  return Number.isInteger(selectedCurrentIndex) &&
+    selectedCurrentIndex >= 0 &&
+    selectedCurrentIndex < state.current.length
+    ? selectedCurrentIndex
+    : null;
+}
+
+function selectCurrentTile(index, restoreFocus = false) {
+  if (
+    state.status !== "playing" ||
+    isAnimating ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= state.current.length
+  ) {
+    return;
+  }
+
+  selectedCurrentIndex = index;
+  pendingEditedDigraphIndex = null;
+  const rowNumber = getStateAttemptCount() + 1;
+
+  for (const tile of elements.board.querySelectorAll("[data-current-index]")) {
+    const selected = Number(tile.dataset.currentIndex) === index;
+    tile.classList.toggle("is-selected", selected);
+    tile.setAttribute("aria-selected", String(selected));
+    const token = state.current[Number(tile.dataset.currentIndex)];
+    tile.setAttribute(
+      "aria-label",
+      selected
+        ? `Rreshti ${rowNumber}, kutia ${index + 1}: ${token.toLocaleUpperCase("sq-AL")}, e zgjedhur për zëvendësim`
+        : `Rreshti ${rowNumber}, kutia ${Number(tile.dataset.currentIndex) + 1}: ${token.toLocaleUpperCase("sq-AL")}. Zgjidhe për ta zëvendësuar`,
+    );
+  }
+
+  if (restoreFocus) {
+    elements.board.querySelector(`[data-current-index="${index}"]`)?.focus({
+      preventScroll: true,
+    });
+  }
+
+  announce(
+    `Kutia ${index + 1}, ${state.current[index].toLocaleUpperCase("sq-AL")}, u zgjodh. Shkruaj shkronjën e re.`,
+  );
 }
 
 function handleKeyboardClick(event) {
@@ -694,6 +787,7 @@ function handleKeyboardClick(event) {
   window.setTimeout(() => key.classList.remove("is-pressed"), 90);
 
   if (value === "enter") {
+    pendingEditedDigraphIndex = null;
     submitGuess();
   } else if (value === "backspace") {
     removeLetter();
@@ -703,14 +797,26 @@ function handleKeyboardClick(event) {
 }
 
 function handlePhysicalKeyboard(event) {
-  if (
+  const isLetterKey = /^[a-zçë]$/iu.test(event.key);
+  const hasOpenDialog = Boolean(document.querySelector("dialog[open]"));
+  const hasTextInputTarget = ["INPUT", "SELECT", "TEXTAREA"].includes(
+    event.target?.tagName,
+  );
+  const gameplayInputBlocked =
     event.defaultPrevented ||
     event.metaKey ||
     event.ctrlKey ||
     event.altKey ||
-    document.querySelector("dialog[open]") ||
-    ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)
+    hasOpenDialog ||
+    hasTextInputTarget;
+  if (
+    gameplayInputBlocked ||
+    (!isLetterKey && event.key !== "Shift" && event.key !== "CapsLock")
   ) {
+    pendingEditedDigraphIndex = null;
+  }
+
+  if (gameplayInputBlocked) {
     return;
   }
 
@@ -743,13 +849,13 @@ function handlePhysicalKeyboard(event) {
     return;
   }
 
-  if (/^[a-zçë]$/iu.test(event.key)) {
+  if (isLetterKey) {
     event.preventDefault();
-    inputLetter(event.key);
+    inputLetter(event.key, { fromPhysicalKeyboard: true });
   }
 }
 
-function inputLetter(letter) {
+function inputLetter(letter, { fromPhysicalKeyboard = false } = {}) {
   if (!ensureCurrentDailyPuzzle() || state.status !== "playing" || isAnimating) {
     return;
   }
@@ -762,6 +868,61 @@ function inputLetter(letter) {
 
   const before = state.current;
   const normalized = normalizeWord(letter);
+  const selectedIndex = getSelectedCurrentIndex();
+
+  if (selectedIndex !== null && ALPHABET_SET.has(normalized)) {
+    const returnFocusToBoard = document.activeElement?.matches?.(
+      `[data-current-index="${selectedIndex}"]`,
+    );
+    state.current = replaceGuessToken(before, selectedIndex, normalized);
+    selectedCurrentIndex = null;
+    pendingEditedDigraphIndex =
+      fromPhysicalKeyboard && !DIGRAPH_SET.has(normalized) ? selectedIndex : null;
+    state.startedAt ??= Date.now();
+    persistGame();
+    resetBoardMessage();
+    renderBoard();
+    if (returnFocusToBoard) {
+      elements.boardStage.focus({ preventScroll: true });
+    }
+    playSound("key");
+    announce(
+      `Kutia ${selectedIndex + 1} u zëvendësua me ${normalized.toLocaleUpperCase("sq-AL")}.`,
+    );
+    return;
+  }
+
+  if (
+    fromPhysicalKeyboard &&
+    Number.isInteger(pendingEditedDigraphIndex) &&
+    pendingEditedDigraphIndex >= 0 &&
+    pendingEditedDigraphIndex < before.length &&
+    !DIGRAPH_SET.has(normalized)
+  ) {
+    const editedIndex = pendingEditedDigraphIndex;
+    const returnFocusToBoard = document.activeElement?.matches?.(
+      `[data-current-index="${editedIndex}"]`,
+    );
+    const merged = mergePhysicalCharacterAt(before, editedIndex, normalized);
+    pendingEditedDigraphIndex = null;
+    if (!tokensEqual(before, merged)) {
+      state.current = merged;
+      persistGame();
+      resetBoardMessage();
+      renderBoard();
+      if (returnFocusToBoard) {
+        elements.boardStage.focus({ preventScroll: true });
+      }
+      playSound("key");
+      announce(
+        `Kutia ${editedIndex + 1} u bashkua si ${merged[editedIndex].toLocaleUpperCase("sq-AL")}.`,
+      );
+      return;
+    }
+  } else {
+    pendingEditedDigraphIndex = null;
+  }
+
   const next = DIGRAPH_SET.has(normalized)
     ? before.length < COLUMN_COUNT
       ? [...before, normalized]
@@ -788,11 +949,26 @@ function removeLetter() {
 
   closeHintConfirmation(false);
 
-  state.current = removeLastToken(state.current);
+  const selectedIndex = getSelectedCurrentIndex();
+  const returnFocusToBoard =
+    selectedIndex !== null &&
+    document.activeElement?.matches?.(`[data-current-index="${selectedIndex}"]`);
+  state.current =
+    selectedIndex === null
+      ? removeLastToken(state.current)
+      : removeGuessTokenAt(state.current, selectedIndex);
+  selectedCurrentIndex = null;
+  pendingEditedDigraphIndex = null;
   persistGame();
   resetBoardMessage();
   renderBoard();
+  if (returnFocusToBoard) {
+    elements.boardStage.focus({ preventScroll: true });
+  }
   playSound("key");
+  if (selectedIndex !== null) {
+    announce(`Shkronja në kutinë ${selectedIndex + 1} u fshi.`);
+  }
 }
 
 function submitGuess() {
@@ -819,6 +995,8 @@ function submitGuess() {
   const statuses = evaluateGuess(answerTokens, guessTokens);
   state.guesses.push(guessTokens);
   state.current = [];
+  selectedCurrentIndex = null;
+  pendingEditedDigraphIndex = null;
   state.startedAt ??= Date.now();
 
   if (statuses.every((status) => status === "correct")) {
@@ -1264,6 +1442,14 @@ function renderBoard() {
 
       if (isCurrentRow) {
         tile.classList.add("is-current-row");
+        if (token) {
+          const selected = columnIndex === getSelectedCurrentIndex();
+          tile.classList.add("is-editable");
+          tile.classList.toggle("is-selected", selected);
+          tile.dataset.currentIndex = String(columnIndex);
+          tile.tabIndex = 0;
+          tile.setAttribute("aria-selected", String(selected));
+        }
       }
 
       if (status) {
@@ -1282,9 +1468,15 @@ function renderBoard() {
 
       const letterLabel = token ? token.toLocaleUpperCase("sq-AL") : "bosh";
       const statusLabel = status ? `, ${STATUS_LABEL[status]}` : "";
+      const editLabel =
+        isCurrentRow && token
+          ? columnIndex === getSelectedCurrentIndex()
+            ? ", e zgjedhur për zëvendësim"
+            : ". Zgjidhe për ta zëvendësuar"
+          : "";
       tile.setAttribute(
         "aria-label",
-        `Rreshti ${rowIndex + 1}, kutia ${columnIndex + 1}: ${letterLabel}${statusLabel}`,
+        `Rreshti ${rowIndex + 1}, kutia ${columnIndex + 1}: ${letterLabel}${statusLabel}${editLabel}`,
       );
       row.append(tile);
     }
@@ -1327,6 +1519,7 @@ function renderKeyboard() {
   for (const keys of KEYBOARD_ROWS) {
     const row = document.createElement("div");
     row.className = "keyboard-row";
+    row.classList.toggle("is-short-row", keys.includes("backspace"));
 
     for (const value of keys) {
       const key = document.createElement("button");
@@ -1344,7 +1537,7 @@ function renderKeyboard() {
         key.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 5v7H6"></path><path d="m10 8-4 4 4 4"></path></svg>';
       } else if (value === "backspace") {
         key.classList.add("is-wide");
-        key.setAttribute("aria-label", "Fshi shkronjën e fundit");
+        key.setAttribute("aria-label", "Fshi shkronjën e zgjedhur ose të fundit");
         key.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5h10V7z"></path><path d="m12 10 4 4M16 10l-4 4"></path></svg>';
       } else {
         key.textContent = value.toLocaleUpperCase("sq-AL");
@@ -1968,6 +2161,12 @@ function renderDefaultBoardMessage() {
   }
   if (state.usedHint) {
     return { text: `Gjurmë: ${getAnswer().clue}`, tone: "" };
+  }
+  if (state.current.length > 0) {
+    return {
+      text: "Prek një shkronjë për ta ndërruar; SH dhe RR zënë një kuti.",
+      tone: "",
+    };
   }
   return { text: "Dyshkronjëshat si SH dhe RR zënë vetëm një kuti.", tone: "" };
 }

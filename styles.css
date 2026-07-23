@@ -74,7 +74,7 @@
     --present: oklch(0.62 0.14 75);
     --absent: oklch(0.43 0.018 252);
     --danger: oklch(0.54 0.19 25);
-    --focus: oklch(0.55 0.18 252);
+    --focus: var(--primary-deep);
     --on-primary: oklch(0.16 0.014 65);
     --on-correct: oklch(1 0 0);
     --on-present: oklch(0.16 0.014 65);
@@ -111,7 +111,6 @@
     --present: oklch(0.67 0.13 75);
     --absent: oklch(0.39 0.015 252);
     --danger: oklch(0.67 0.17 25);
-    --focus: oklch(0.72 0.14 245);
     --on-correct: oklch(0.13 0.008 65);
     --backdrop: oklch(0.03 0 0 / 0.7);
     --shadow-dialog: 0 22px 55px oklch(0.02 0 0 / 0.55);
@@ -138,7 +137,6 @@
       --present: oklch(0.67 0.13 75);
       --absent: oklch(0.39 0.015 252);
       --danger: oklch(0.67 0.17 25);
-      --focus: oklch(0.72 0.14 245);
       --on-correct: oklch(0.13 0.008 65);
       --backdrop: oklch(0.03 0 0 / 0.7);
       --shadow-dialog: 0 22px 55px oklch(0.02 0 0 / 0.55);
@@ -579,17 +577,12 @@
     place-items: center;
   }
 
-  /* Pointer focus (tabindex="-1" focused by mouse/touch) never paints a ring;
-     only keyboard / programmatic focus (:focus-visible) shows the on-brand
-     outline, matching the button focus treatment. */
+  /* This programmatic destination receives screen-reader focus after a hint.
+     It is not an interactive control, so outlining the whole board would look
+     like a selection state. */
   .board-stage:focus {
     outline: none;
-  }
-
-  .board-stage:focus-visible {
-    border-radius: var(--radius-md);
-    outline: 3px solid var(--focus);
-    outline-offset: 5px;
+    box-shadow: none;
   }
 
   .board {
@@ -668,6 +661,36 @@
   .tile.is-filled:not(.is-correct, .is-present, .is-absent) {
     box-shadow: inset 0 0 0 2px var(--ink-soft);
     animation: tile-pop 130ms var(--ease-out);
+  }
+
+  .tile.is-editable {
+    cursor: pointer;
+  }
+
+  .tile.is-editable:focus {
+    outline: none;
+  }
+
+  .tile.is-editable:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .tile.is-editable.is-selected {
+    background: var(--primary-pale);
+    box-shadow: inset 0 0 0 3px var(--primary-deep);
+  }
+
+  .tile.is-editable.is-selected::after {
+    position: absolute;
+    left: 50%;
+    bottom: 4px;
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--primary-deep);
+    content: "";
+    transform: translateX(-50%);
   }
 
   .tile.is-correct,
@@ -778,6 +801,11 @@
     gap: 4px;
   }
 
+  .keyboard-row.is-short-row {
+    width: 82%;
+    align-self: center;
+  }
+
   .key {
     position: relative;
     min-width: 0;
@@ -787,6 +815,7 @@
     place-items: center;
     border: 0;
     border-radius: var(--radius-sm);
+    padding: 0 2px;
     background: var(--surface-strong);
     color: var(--ink);
     font-size: clamp(0.65rem, 2.3vw, 0.82rem);
@@ -813,7 +842,7 @@
   }
 
   .key.is-wide {
-    flex-grow: 1.55;
+    flex: 0 0 clamp(44px, 12vw, 64px);
   }
 
   /* The Enter key adopts the brand accent (same tokens as .brand-mark and the
@@ -1063,11 +1092,7 @@
 
   .result-panel:focus {
     outline: none;
-  }
-
-  .result-panel:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 5px;
+    box-shadow: none;
   }
 
   .result-panel[hidden] {
@@ -2306,7 +2331,7 @@
   .key {
     height: 44px;
     border-radius: 6px;
-    font-size: clamp(0.58rem, 2.45vw, 0.7rem);
+    font-size: clamp(0.64rem, 2.7vw, 0.75rem);
   }
 
   .key svg {

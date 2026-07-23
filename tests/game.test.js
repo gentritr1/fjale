@@ -18,9 +18,12 @@ import {
   getDailyAnswerIndex,
   getDailyIndex,
   getTiranaDateKey,
+  mergePhysicalCharacterAt,
   MODE_STATS_KEYS,
   normalizeWord,
+  removeGuessTokenAt,
   removeLastToken,
+  replaceGuessToken,
   sanitizeDailyResults,
   sanitizeModeStats,
   sanitizeReportedWords,
@@ -111,6 +114,33 @@ test("removeLastToken removes one Albanian letter, including a whole digraph", (
   assert.deepEqual(removeLastToken(tokens), ["gj", "y"]);
   assert.deepEqual(tokens, ["gj", "y", "sh"]);
   assert.deepEqual(removeLastToken([]), []);
+});
+
+test("replaceGuessToken edits one occupied tile without reordering or mutation", () => {
+  const original = ["a", "r", "s", "t", "a"];
+
+  assert.deepEqual(replaceGuessToken(original, 2, "GJ"), ["a", "r", "gj", "t", "a"]);
+  assert.deepEqual(replaceGuessToken(original, 4, "E\u0308"), ["a", "r", "s", "t", "ë"]);
+  assert.deepEqual(replaceGuessToken(original, 9, "a"), original);
+  assert.deepEqual(replaceGuessToken(original, 1, "w"), original);
+  assert.deepEqual(original, ["a", "r", "s", "t", "a"]);
+});
+
+test("mergePhysicalCharacterAt completes a digraph at an edited full-row tile", () => {
+  const edited = ["a", "r", "s", "t", "ë"];
+
+  assert.deepEqual(mergePhysicalCharacterAt(edited, 2, "H"), ["a", "r", "sh", "t", "ë"]);
+  assert.deepEqual(mergePhysicalCharacterAt(edited, 2, "a"), edited);
+  assert.deepEqual(mergePhysicalCharacterAt(edited, -1, "h"), edited);
+  assert.deepEqual(edited, ["a", "r", "s", "t", "ë"]);
+});
+
+test("removeGuessTokenAt deletes the selected Albanian token and shifts the rest", () => {
+  const original = ["a", "gj", "y", "sh"];
+
+  assert.deepEqual(removeGuessTokenAt(original, 1), ["a", "y", "sh"]);
+  assert.deepEqual(removeGuessTokenAt(original, 8), original);
+  assert.deepEqual(original, ["a", "gj", "y", "sh"]);
 });
 
 test("evaluateGuess gives exact matches priority when letters repeat", () => {

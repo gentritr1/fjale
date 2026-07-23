@@ -14,7 +14,7 @@ colors:
   correct: "oklch(0.5 0.125 145)"
   present: "oklch(0.62 0.14 75)"
   absent: "oklch(0.43 0.018 252)"
-  focus: "oklch(0.55 0.18 252)"
+  focus: "oklch(0.52 0.14 68)"
 typography:
   headline:
     fontFamily: "ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
@@ -160,7 +160,7 @@ FJALË is flat by default. Structure comes from tonal layers and one-pixel divid
 
 - **Shape:** Gently squared controls (7px); compact tools may use a full pill.
 - **Primary:** Coffee Ink fill, Literal White text, 46px height, and no border.
-- **Hover / Focus:** A darker tonal shift on hover; a two-ring focus treatment using the page background and Focus Blue.
+- **Hover / Focus:** A darker tonal shift on hover; a two-ring focus treatment using the page background and Toasted Honey. Programmatically focused reading regions do not imitate an interactive selection.
 - **Secondary:** Transparent surface with a single structural stroke; no decorative shadow.
 
 ### Chips
@@ -188,7 +188,7 @@ The centered wordmark anchors a 56–62px header. Daily and endless modes use a 
 
 ### Albanian Tile and Keyboard
 
-Each board tile represents one of the 36 Albanian letters, not one Unicode character. `DH`, `GJ`, `LL`, `NJ`, `RR`, `SH`, `TH`, `XH`, and `ZH` receive dedicated keys and an optically smaller tile size. Four compact keyboard rows keep every touch target at least 24px wide even at the 320px minimum viewport. Reveal states flip quickly, then expose a persistent symbol. Physical typing merges a digraph atomically and backspace removes it as one unit.
+Each board tile represents one of the 36 Albanian letters, not one Unicode character. `DH`, `GJ`, `LL`, `NJ`, `RR`, `SH`, `TH`, `XH`, and `ZH` receive dedicated keys and an optically smaller tile size. The ordinary keys follow Albanian QWERTZ muscle memory, while the nine digraphs occupy a dedicated final row; Backspace sits at the right edge of the last ordinary-letter row and Enter at the bottom-right. Four compact rows keep every touch target at least 24px wide even at the 320px minimum viewport. Tapping an occupied tile in the current guess selects it for in-place replacement, including replacement by an atomic digraph. Reveal states flip quickly, then expose a persistent symbol. Physical typing merges a digraph atomically and backspace removes it as one unit.
 
 ## Do's and Don'ts
 

@@ -180,6 +180,60 @@ export function appendPhysicalCharacter(currentTokens, character, max = 5) {
   return nextTokens;
 }
 
+export function replaceGuessToken(tokens, index, replacement) {
+  if (!Array.isArray(tokens)) {
+    throw new TypeError("tokens must be an array");
+  }
+
+  const nextTokens = [...tokens];
+  if (!Number.isInteger(index) || index < 0 || index >= nextTokens.length) {
+    return nextTokens;
+  }
+
+  const replacementTokens = tokenizeAlbanian(replacement);
+  if (replacementTokens.length !== 1 || !ALBANIAN_LETTERS.has(replacementTokens[0])) {
+    return nextTokens;
+  }
+
+  nextTokens[index] = replacementTokens[0];
+  return nextTokens;
+}
+
+export function mergePhysicalCharacterAt(tokens, index, character) {
+  if (!Array.isArray(tokens)) {
+    throw new TypeError("tokens must be an array");
+  }
+
+  const nextTokens = [...tokens];
+  if (!Number.isInteger(index) || index < 0 || index >= nextTokens.length) {
+    return nextTokens;
+  }
+
+  const typedTokens = tokenizeAlbanian(character);
+  if (typedTokens.length !== 1 || !ALBANIAN_LETTERS.has(typedTokens[0])) {
+    return nextTokens;
+  }
+
+  const mergedToken = `${normalizeWord(nextTokens[index])}${typedTokens[0]}`;
+  if (ALBANIAN_DIGRAPH_SET.has(mergedToken)) {
+    nextTokens[index] = mergedToken;
+  }
+
+  return nextTokens;
+}
+
+export function removeGuessTokenAt(tokens, index) {
+  if (!Array.isArray(tokens)) {
+    throw new TypeError("tokens must be an array");
+  }
+
+  if (!Number.isInteger(index) || index < 0 || index >= tokens.length) {
+    return [...tokens];
+  }
+
+  return [...tokens.slice(0, index), ...tokens.slice(index + 1)];
+}
+
 export function removeLastToken(tokens) {
   if (!Array.isArray(tokens)) {
     throw new TypeError("tokens must be an array");

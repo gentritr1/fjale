@@ -9,6 +9,7 @@ import {
   readAppShellFiles,
   readCacheVersion,
 } from "../scripts/check-cache-version-bump.mjs";
+import { ALBANIAN_ALPHABET } from "../src/game.js";
 
 const CANONICAL_ORIGIN = "https://www.xn--fjal-opa.com/";
 const OG_IMAGE_FILENAME = "og-fjale-v3.png";
@@ -264,6 +265,69 @@ test("keeps touch interaction contracts for mobile", async () => {
   );
 });
 
+test("keeps focus treatment branded and non-interactive destinations quiet", async () => {
+  const styles = await readFile("styles.css", "utf8");
+
+  assert.match(styles, /--focus:\s*var\(--primary-deep\)/u);
+  assert.match(
+    styles,
+    /:where\(button, a, select, input\):focus-visible\s*\{[^}]*var\(--focus\)/u,
+  );
+  assert.match(
+    styles,
+    /\.result-panel:focus\s*\{[^}]*outline:\s*none;[^}]*box-shadow:\s*none;/u,
+  );
+  assert.match(
+    styles,
+    /\.board-stage:focus\s*\{[^}]*outline:\s*none;[^}]*box-shadow:\s*none;/u,
+  );
+  assert.doesNotMatch(styles, /\.result-panel:focus-visible/u);
+  assert.doesNotMatch(styles, /\.board-stage:focus-visible/u);
+});
+
+test("keeps the mobile keyboard in Albanian QWERTZ order with edge controls", async () => {
+  const app = await readFile("src/app.js", "utf8");
+  const keyboardBlock = app.match(
+    /const KEYBOARD_ROWS = Object\.freeze\(\[([\s\S]*?)\]\);/u,
+  );
+  assert.ok(keyboardBlock, "app.js must declare literal keyboard rows");
+
+  const rows = [...keyboardBlock[1].matchAll(/\[([^\]]+)\]/gu)].map(([, row]) =>
+    [...row.matchAll(/"([^"]+)"/gu)].map(([, key]) => key),
+  );
+  assert.deepEqual(rows, [
+    ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë"],
+    ["y", "x", "c", "v", "b", "n", "m", "backspace"],
+    ["dh", "gj", "ll", "nj", "rr", "sh", "th", "xh", "zh", "enter"],
+  ]);
+
+  const letters = rows.flat().filter((key) => !["backspace", "enter"].includes(key));
+  assert.equal(new Set(letters).size, ALBANIAN_ALPHABET.length);
+  assert.deepEqual([...letters].sort(), [...ALBANIAN_ALPHABET].sort());
+  assert.equal(rows[2].at(-1), "backspace");
+  assert.equal(rows[3].at(-1), "enter");
+});
+
+test("keeps current guess tiles selectable and replaceable without a saved cursor", async () => {
+  const [app, styles] = await Promise.all([
+    readFile("src/app.js", "utf8"),
+    readFile("styles.css", "utf8"),
+  ]);
+
+  assert.ok(app.includes('elements.board.addEventListener("click", handleBoardClick)'));
+  assert.ok(app.includes('elements.board.addEventListener("keydown", handleBoardKeydown)'));
+  assert.ok(app.includes("tile.dataset.currentIndex = String(columnIndex)"));
+  assert.ok(app.includes('tile.setAttribute("aria-selected", String(selected))'));
+  assert.ok(app.includes("replaceGuessToken(before, selectedIndex, normalized)"));
+  assert.ok(app.includes("mergePhysicalCharacterAt(before, editedIndex, normalized)"));
+  assert.ok(app.includes("removeGuessTokenAt(state.current, selectedIndex)"));
+  assert.ok(app.includes("inputLetter(event.key, { fromPhysicalKeyboard: true })"));
+  assert.match(app, /fromPhysicalKeyboard\s*&&\s*Number\.isInteger\(pendingEditedDigraphIndex\)/u);
+  assert.ok(app.includes("elements.boardStage.focus({ preventScroll: true })"));
+  assert.match(styles, /\.tile\.is-editable\.is-selected\s*\{/u);
+});
+
 test("publishes crawl directives for the canonical origin", async () => {
   const [robots, sitemap, serverSource] = await Promise.all([
     readFile("robots.txt", "utf8"),
@@ -397,11 +461,11 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v14", "fjale-shell-v13");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v15", "fjale-shell-v14");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 14);
+  assert.equal(readCacheVersion(serviceWorker), 15);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -426,10 +490,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v13/u,
+    /did not advance beyond fjale-shell-v14/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 13, currentVersion: 14 },
+    { previousVersion: 14, currentVersion: 15 },
   );
 });
