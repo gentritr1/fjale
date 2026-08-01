@@ -627,6 +627,33 @@ test("a legacy profile keeps playing, earning, and persisting the new fields", (
   assert.deepEqual(sanitizeProfile(persisted), result.profile, "the new fields round-trip");
 });
 
+test("a captured real production profile loads intact and keeps its earned badge state", async () => {
+  // Captured from localStorage (fjale:profile:v1) after playing the 2026-08-01
+  // daily to a Besa win on the shipped build at commit 1de4ae0 — a genuine
+  // production write, not a hand-built shape.
+  const { readFile } = await import("node:fs/promises");
+  const raw = await readFile(
+    new URL("./fixtures/profile-production-2026-08-01.json", import.meta.url),
+    "utf8",
+  );
+  const captured = JSON.parse(raw);
+  const loaded = sanitizeProfile(captured);
+
+  assert.deepEqual(
+    { ...loaded, besaDailyWins: undefined, lastGraceDate: undefined, milestones: undefined },
+    { ...captured, besaDailyWins: undefined, lastGraceDate: undefined, milestones: undefined },
+    "every captured field survives the load path unchanged",
+  );
+  assert.equal(loaded.besaDailyWins, 0);
+  assert.equal(loaded.lastGraceDate, null);
+  assert.deepEqual(loaded.milestones, []);
+
+  const badges = new Map(computeEarnedBadges(loaded).map((b) => [b.id, b.earned]));
+  assert.equal(badges.get("daily-win-1"), true, "first daily win badge from the captured win");
+  assert.equal(badges.get("daily-attempt-1"), true, "won in one attempt on the captured day");
+  assert.equal(badges.get("besa-3"), false, "one Besa win does not reach the badge");
+});
+
 test("a corrupt or absent profile still loads a complete, zeroed shape", () => {
   for (const input of [null, undefined, "nope", [], 7, { collection: "x", milestones: "streak-7" }]) {
     const loaded = sanitizeProfile(input);
