@@ -9,7 +9,8 @@ import {
   readAppShellFiles,
   readCacheVersion,
 } from "../scripts/check-cache-version-bump.mjs";
-import { ALBANIAN_ALPHABET } from "../src/game.js";
+import { ALBANIAN_ALPHABET, BADGE_IDS, MILESTONE_IDS } from "../src/game.js";
+import { REWARDS_ENABLED } from "../src/config.js";
 
 const CANONICAL_ORIGIN = "https://www.xn--fjal-opa.com/";
 const OG_IMAGE_FILENAME = "og-fjale-v3.png";
@@ -408,12 +409,135 @@ test("keeps the report address in exactly one configurable place", async () => {
   ]);
 
   assert.match(config, /export const REPORT_EMAIL = "[^"@]+@[^"@]+"/u);
-  assert.ok(app.includes('import { REPORT_EMAIL } from "./config.js"'));
+  // The address must reach app.js only through the config module. Other config
+  // constants may share the import, so match the binding rather than the whole
+  // statement.
+  assert.match(app, /import \{[^}]*\bREPORT_EMAIL\b[^}]*\} from "\.\/config\.js"/u);
   assert.doesNotMatch(
     app,
     /[\w.+-]+@[\w-]+\.[\w.]+/u,
     "app.js must not hardcode an email address",
   );
+});
+
+test("ships the reward layer dark and gates every rule behind one class", async () => {
+  const [app, styles, html] = await Promise.all([
+    readFile("src/app.js", "utf8"),
+    readFile("styles.css", "utf8"),
+    readFile("index.html", "utf8"),
+  ]);
+
+  // The layer must reach production switched off. Flipping this constant is a
+  // product decision; this assertion is what forces it to be a deliberate one.
+  assert.equal(REWARDS_ENABLED, false, "REWARDS_ENABLED must ship false");
+
+  // Every new stylesheet rule hangs off the body class, so "flag off" means no
+  // reward selector can match rather than "the rules happen not to apply".
+  assert.match(app, /classList\.toggle\("rewards-on", rewardsEnabled\(\)\)/u);
+  // The section runs from its banner to the end of the components layer, so the
+  // token audit below cannot drift into unrelated rules.
+  const rewardStart = styles.indexOf("Lëvizje & shpërblime (plan §4)");
+  const rewardBlock = styles.slice(rewardStart, styles.indexOf("@layer utilities"));
+  assert.ok(rewardStart > 0 && rewardBlock.length > 0, "styles.css must carry the reward section");
+
+  // Timings and easings come straight from the §4.3 table; only the two
+  // existing easing tokens are permitted.
+  const timings = {
+    "digraph-snap": "140ms",
+    "stamp-land": "260ms",
+    "streak-tick": "220ms",
+    "besa-seal-press": "320ms",
+    "hot-underline": "300ms",
+    "milestone-band": "700ms",
+  };
+  for (const [name, duration] of Object.entries(timings)) {
+    assert.ok(
+      new RegExp(`animation: ${name} ${duration} var\\(--ease-(out|standard)\\)`, "u").test(styles),
+      `${name} must animate for ${duration} on an existing easing token`,
+    );
+  }
+  assert.doesNotMatch(
+    rewardBlock,
+    /cubic-bezier|--ease-(?!out\b|standard\b)[a-z-]+/u,
+    "the reward layer must introduce no third easing curve",
+  );
+
+  // Motion is transform and opacity only: no layout property and no box-shadow
+  // may appear inside a reward keyframe.
+  const rewardKeyframes = [
+    ...styles.matchAll(
+      /@keyframes (digraph-snap|digraph-snap-letter|stamp-land|streak-tick|hot-underline|besa-seal-press|milestone-band|milestone-band-fade)\s*\{([^}]*\{[^}]*\}\s*)*\}/gu,
+    ),
+  ];
+  assert.equal(rewardKeyframes.length, 8, "every reward keyframe must be present");
+  for (const [block, name] of rewardKeyframes) {
+    assert.doesNotMatch(
+      block,
+      /\b(width|height|top|left|right|bottom|margin|padding|box-shadow)\s*:/u,
+      `@keyframes ${name} may animate only transform and opacity`,
+    );
+  }
+
+  // Each animation carries its own reduced-motion rule; the blunt global only
+  // lands correctly for `both`-filled animations with a real final keyframe.
+  const reducedBlocks = [...styles.matchAll(/@media \(prefers-reduced-motion: reduce\) \{/gu)];
+  assert.ok(reducedBlocks.length >= 2, "the reward layer needs its own reduced-motion block");
+  for (const selector of [
+    ".tile.is-digraph.is-snapping",
+    ".key.is-pressed",
+    ".alphabet-stamp.is-landing",
+    ".streak-figure.is-ticking .streak-digit",
+    "#stat-streak.is-hot::after",
+    ".result-besa-seal.is-pressing",
+    ".milestone-band.is-running",
+  ]) {
+    assert.ok(
+      styles.slice(styles.lastIndexOf("@media (prefers-reduced-motion: reduce)")).includes(selector),
+      `${selector} needs an explicit reduced-motion fallback`,
+    );
+  }
+
+  // No new colour token: the layer paints only with tokens both themes declare.
+  const rewardColours = [...rewardBlock.matchAll(/var\((--[a-z-]+)\)/gu)].map(([, token]) => token);
+  const allowed = new Set([
+    "--primary", "--primary-deep", "--primary-pale", "--correct", "--ink", "--ink-soft",
+    "--muted", "--faint", "--surface", "--surface-hover", "--line-strong", "--on-primary",
+    "--ease-out", "--ease-standard", "--radius-sm", "--radius-md", "--stamp-delay",
+  ]);
+  for (const token of new Set(rewardColours)) {
+    assert.ok(allowed.has(token), `${token} is not an approved reward-layer token`);
+  }
+
+  // The badge page lives inside the existing passport dialog — not a new dialog
+  // and not a new nav item — and every id from the game layer has Albanian copy.
+  const passportDialog = html.slice(
+    html.indexOf('id="passport-dialog"'),
+    html.indexOf('id="stats-dialog"'),
+  );
+  assert.ok(passportDialog.includes('id="passport-tablist"'));
+  assert.ok(passportDialog.includes('id="badge-grid"'));
+
+  // The alphabet section is on screen whether or not the flag is set, so its
+  // tabpanel semantics must be attached at runtime. Authored in the markup they
+  // would give the shipped dialog an extra tab stop and a tabpanel with no
+  // tablist above it — "flag off" would stop meaning "unchanged".
+  assert.doesNotMatch(
+    passportDialog,
+    /role="tabpanel"/u,
+    "tabpanel roles must be applied by applyRewardsVisibility, not authored",
+  );
+  assert.match(app, /panel\.setAttribute\("role", "tabpanel"\)/u);
+  assert.equal(
+    [...html.matchAll(/<dialog/gu)].length,
+    4,
+    "Vulat must not add a fifth dialog",
+  );
+  for (const id of [...BADGE_IDS, ...MILESTONE_IDS]) {
+    assert.ok(app.includes(`"${id}"`), `app.js must carry Albanian copy for ${id}`);
+  }
+  // New Albanian copy stays flagged for a native pass.
+  assert.ok(app.includes("UNVERIFIED sq copy"));
+  assert.ok(html.includes("UNVERIFIED sq copy"));
 });
 
 test("surfaces invalid challenge links instead of silently opening the daily", async () => {
@@ -461,11 +585,11 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v15", "fjale-shell-v14");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v16", "fjale-shell-v15");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 15);
+  assert.equal(readCacheVersion(serviceWorker), 16);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -490,10 +614,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v14/u,
+    /did not advance beyond fjale-shell-v15/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 14, currentVersion: 15 },
+    { previousVersion: 15, currentVersion: 16 },
   );
 });

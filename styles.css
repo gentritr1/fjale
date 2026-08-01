@@ -2110,6 +2110,357 @@
     color: var(--ink);
     text-align: center;
   }
+
+  /* ==========================================================================
+     Lëvizje & shpërblime (plan §4)
+
+     Every rule below is scoped to `.rewards-on`, the class src/app.js puts on
+     <body> only when the feature flag resolves true. With the flag off not one
+     of these selectors can match, so the rendered app is byte-for-byte the
+     shipped one. Motion here is transform and opacity only — no width, height,
+     top, left, margin, or box-shadow is ever animated — and uses only the two
+     existing easing tokens. Each animation has its own reduced-motion rule at
+     the end of this file; the blunt global cannot be trusted to land these.
+     Colours come from --primary, --primary-deep, --primary-pale, --correct and
+     the --ink family, all of which are redeclared for the dark theme, so both
+     themes inherit without a single new token.
+     ========================================================================== */
+
+  /* digraph-snap — 140ms, --ease-out. The product's signature interaction
+     finally gets a signature motion: the tile takes the pair with a small
+     overshoot while the letters condense into their digraph width. Driven by a
+     one-shot class consumed in renderBoard, because renderBoard rebuilds every
+     tile and an unconditional class would replay this on every keystroke. */
+  .rewards-on .tile.is-digraph.is-snapping {
+    animation: digraph-snap 140ms var(--ease-out) both;
+  }
+
+  .rewards-on .tile.is-digraph.is-snapping .tile-letter {
+    animation: digraph-snap-letter 140ms var(--ease-out) both;
+  }
+
+  /* key-press — 90ms, --ease-out. The shipped key already dips on :active; the
+     refinement drops the 2px translate so the key scales in place, which reads
+     as a press rather than a slide. The transition duration is unchanged. */
+  .rewards-on .key:active:not(:disabled),
+  .rewards-on .key.is-pressed {
+    transform: scale(0.96);
+  }
+
+  /* stamp-land — 260ms, --ease-out, 40ms stagger. Fires only for letters this
+     win newly added to the collection. */
+  .rewards-on .alphabet-stamp.is-landing,
+  .rewards-on .rare-letter.is-landing {
+    animation: stamp-land 260ms var(--ease-out) both;
+    animation-delay: var(--stamp-delay, 0ms);
+  }
+
+  /* streak-tick — 220ms, --ease-out. Two stacked digits inside a clipped
+     window; the pair translates one digit-height so the new number rises into
+     place. At rest the stack already sits on the new digit, so a re-render
+     without the ticking class simply shows the current streak. */
+  .streak-figure {
+    position: relative;
+    display: none;
+  }
+
+  .rewards-on .streak-figure {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 10px;
+    padding-bottom: 6px;
+    color: var(--ink);
+    font-size: 0.72rem;
+    font-weight: 750;
+  }
+
+  .rewards-on .streak-figure[hidden] {
+    display: none;
+  }
+
+  .streak-caption {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .streak-digits {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    height: 1.15em;
+    font-size: 1.5rem;
+    font-weight: 860;
+    line-height: 1.15em;
+    color: var(--primary-deep);
+  }
+
+  .streak-digit {
+    display: block;
+    height: 1.15em;
+    line-height: 1.15em;
+    text-align: center;
+    /* Resting position: the second digit is the one on show. */
+    transform: translateY(-100%);
+  }
+
+  .rewards-on .streak-figure.is-ticking .streak-digit {
+    animation: streak-tick 220ms var(--ease-out) both;
+  }
+
+  /* hot-underline — 300ms, --ease-standard. A honey rule that thickens with the
+     streak and deepens at 30. This is the entire hot-streak visual: no flame,
+     no emoji, no glow. */
+  .rewards-on .streak-figure::after,
+  .rewards-on #stat-streak::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--primary);
+    transform: scaleX(0);
+  }
+
+  .rewards-on #stat-streak {
+    position: relative;
+  }
+
+  .rewards-on .streak-figure.is-hot::after,
+  .rewards-on #stat-streak.is-hot::after {
+    animation: hot-underline 300ms var(--ease-standard) both;
+  }
+
+  .rewards-on .streak-figure.is-hotter::after,
+  .rewards-on #stat-streak.is-hotter::after {
+    height: 3px;
+  }
+
+  .rewards-on .streak-figure.is-hottest::after,
+  .rewards-on #stat-streak.is-hottest::after {
+    background: var(--primary-deep);
+  }
+
+  /* besa-seal-press — 320ms, --ease-out. The seal keeps its resting -8deg tilt
+     through the whole animation, so the press reads as a stamp coming down
+     rather than a rotation. */
+  .rewards-on .result-besa-seal.is-pressing {
+    animation: besa-seal-press 320ms var(--ease-out) both;
+  }
+
+  /* milestone-band — 700ms, once. The rule sweeps out from the centre and the
+     whole band then fades. The label is a separate node so it is never squashed
+     by the bar's scaleX. Decorative: the milestone is announced separately. */
+  .milestone-band {
+    display: none;
+  }
+
+  .rewards-on .milestone-band {
+    position: relative;
+    display: grid;
+    place-items: center;
+    margin-top: 12px;
+    padding: 7px 0;
+    pointer-events: none;
+  }
+
+  .rewards-on .milestone-band[hidden] {
+    display: none;
+  }
+
+  .rewards-on .milestone-band::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: var(--radius-sm);
+    background: var(--primary-pale);
+    transform: scaleX(0);
+  }
+
+  .milestone-band-label {
+    position: relative;
+    padding: 0 10px;
+    color: var(--primary-deep);
+    font-size: 0.82rem;
+    font-weight: 860;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .rewards-on .milestone-band.is-running::before {
+    animation: milestone-band 700ms var(--ease-out) both;
+  }
+
+  .rewards-on .milestone-band.is-running {
+    animation: milestone-band-fade 700ms var(--ease-out) both;
+  }
+
+  /* ---- Vulat: the badge page of the passport dialog (plan §4.5) ---------- */
+
+  .passport-tablist {
+    display: none;
+  }
+
+  .rewards-on .passport-tablist {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    padding: 3px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .rewards-on .passport-tablist[hidden] {
+    display: none;
+  }
+
+  /* The tab's four states are spelled out rather than blended. Both themes
+     redeclare every token used here, and no state is produced by mixing amber
+     with a near-white surface — that drift is what made an earlier
+     pressed-plus-disabled pairing unreadable. */
+  .passport-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 38px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 780;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-standard), color 150ms var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .passport-tab:hover:not(:disabled, [aria-selected="true"]) {
+      background: var(--surface-hover);
+      color: var(--ink);
+    }
+  }
+
+  .passport-tab[aria-selected="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  @media (hover: hover) {
+    .passport-tab[aria-selected="true"]:hover:not(:disabled) {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
+  }
+
+  .passport-tab:disabled {
+    background: transparent;
+    color: var(--faint);
+    cursor: default;
+  }
+
+  /* The readable disabled-and-selected pairing: keep the pale honey plate and
+     the full-strength ink instead of fading the label into the plate. */
+  .passport-tab[aria-selected="true"]:disabled {
+    background: var(--primary-pale);
+    color: var(--primary-deep);
+  }
+
+  .badge-intro {
+    margin-top: 0;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+
+  /* One column at 320px, two once there is room. Chips are content-sized in
+     both directions so a long Albanian earn condition wraps instead of
+     overflowing the dialog. */
+  .badge-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 380px) {
+    .badge-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* Unearned: a dimmed outline carrying the goal, because a stated target is
+     the retention mechanism and a hidden badge is a surprise, not a goal. */
+  .badge-chip {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 9px;
+    align-items: center;
+    min-width: 0;
+    padding: 10px 11px;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: transparent;
+  }
+
+  /* Earned: the passport's own stamp language — the honey plate and the tick
+     already used by a collected letter. */
+  .badge-chip.is-earned {
+    border: 1px solid transparent;
+    background: var(--primary-pale);
+  }
+
+  .badge-seal {
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--faint);
+    font-size: 0.8rem;
+    font-weight: 840;
+  }
+
+  .badge-chip.is-earned .badge-seal {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .badge-name {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.79rem;
+    font-weight: 840;
+    overflow-wrap: anywhere;
+  }
+
+  .badge-chip.is-earned .badge-name {
+    color: var(--ink);
+  }
+
+  .badge-goal {
+    min-width: 0;
+    margin-top: 2px;
+    color: var(--faint);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  /* An earned badge no longer needs to state its goal; keeping the row present
+     but quiet holds the chip heights even across a two-column grid. */
+  .badge-chip.is-earned .badge-goal {
+    color: var(--ink-soft);
+  }
 }
 
 @layer utilities {
@@ -2200,6 +2551,59 @@
 @keyframes hint-confirmation-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Lëvizje & shpërblime keyframes (plan §4.3) -------------------------- */
+
+@keyframes digraph-snap {
+  0% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes digraph-snap-letter {
+  0% { transform: scaleX(0.9); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes stamp-land {
+  0% { opacity: 0; transform: scale(0.72); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes streak-tick {
+  0% { opacity: 0.35; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(-100%); }
+}
+
+@keyframes hot-underline {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+/* The seal's resting -8deg tilt is carried through both frames so the press is
+   a scale, never a rotation. */
+@keyframes besa-seal-press {
+  0% { opacity: 0; transform: rotate(-8deg) scale(0.86); }
+  100% { opacity: 1; transform: rotate(-8deg) scale(1); }
+}
+
+@keyframes milestone-band {
+  0% { transform: scaleX(0); }
+  38%, 100% { transform: scaleX(1); }
+}
+
+@keyframes milestone-band-fade {
+  0% { opacity: 0; }
+  16%, 72% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Reduced-motion counterpart: the band holds still and full width for 2.4s,
+   then fades on opacity alone. src/app.js matches this with a 2400ms teardown
+   timer, so the node is removed only after the fade completes. */
+@keyframes milestone-band-static {
+  0%, 83% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 @media (max-width: 880px) {
@@ -2459,6 +2863,74 @@
   .celebration {
     display: none;
   }
+}
+
+/* Reduced-motion fallbacks for the reward layer (plan §4.3, fallback column).
+   Written out per animation rather than left to the blunt global above, which
+   only lands correctly for `both`-filled animations with a meaningful final
+   keyframe. Each rule below out-specifies the `*` selector, so its !important
+   wins over the global !important regardless of source order. */
+@media (prefers-reduced-motion: reduce) {
+  /* digraph-snap — none. The tile renders directly in its final digraph state. */
+  .rewards-on .tile.is-digraph.is-snapping,
+  .rewards-on .tile.is-digraph.is-snapping .tile-letter {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* key-press — none. The existing background change still confirms the tap. */
+  .rewards-on .key:active:not(:disabled),
+  .rewards-on .key.is-pressed {
+    transform: none !important;
+  }
+
+  /* stamp-land — the stamp is already in its final state; a 900ms honey outline
+     is what marks which letters are new. Outline is painted, not laid out, so
+     it cannot shift the grid it sits in. */
+  .rewards-on .alphabet-stamp.is-landing,
+  .rewards-on .rare-letter.is-landing {
+    animation: stamp-new-outline 900ms step-end both !important;
+    animation-delay: 0ms !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* streak-tick — the number swaps instantly; the honey underline still
+     applies, so only the digit motion is removed. */
+  .rewards-on .streak-figure.is-ticking .streak-digit {
+    animation: none !important;
+    transform: translateY(-100%);
+  }
+
+  /* hot-underline — static honey rule, no grow. */
+  .rewards-on .streak-figure.is-hot::after,
+  .rewards-on #stat-streak.is-hot::after {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+
+  /* besa-seal-press — seal in its final state. */
+  .rewards-on .result-besa-seal.is-pressing {
+    animation: none !important;
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
+
+  /* milestone-band — a static full-width band for 2.4s, then opacity only. */
+  .rewards-on .milestone-band.is-running::before {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+
+  .rewards-on .milestone-band.is-running {
+    animation: milestone-band-static 2400ms linear both !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+@keyframes stamp-new-outline {
+  0% { outline: 2px solid var(--primary); outline-offset: 2px; }
+  100% { outline: 2px solid transparent; outline-offset: 2px; }
 }
 
 /* Static pages (privatesia.html): same tokens as the app, document layout. */

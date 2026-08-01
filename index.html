@@ -293,6 +293,19 @@
               <span class="result-label" id="result-label">Pas fjalës</span>
               <span class="result-time" id="result-time">00:00</span>
             </div>
+            <!-- The milestone band lives in the result panel, not over the
+                 board: finishGame scrolls this panel to the top of the viewport,
+                 so a band anywhere above it is off-screen before it is seen. -->
+            <div class="milestone-band" id="milestone-band" aria-hidden="true" hidden>
+              <span class="milestone-band-label" id="milestone-band-label"></span>
+            </div>
+            <p class="streak-figure" id="result-streak" hidden>
+              <span class="streak-caption">Seria</span>
+              <span class="streak-digits" aria-hidden="true">
+                <span class="streak-digit" id="result-streak-previous">0</span>
+                <span class="streak-digit" id="result-streak-next">0</span>
+              </span>
+            </p>
             <img
               class="result-besa-seal"
               id="result-besa-seal"
@@ -387,12 +400,51 @@
           </button>
         </header>
         <div class="dialog-content">
-          <div class="passport-dialog-summary">
-            <strong id="passport-dialog-count">0 / 36</strong>
-            <p>Çdo fjalë e zgjidhur vulos shkronjat që përmban. Mblidhi të gjitha, edhe të rrallat.</p>
+          <!-- UNVERIFIED sq copy — the tablist label, the two tab names, and the
+               badge-page intro line below are generated Albanian awaiting a
+               native pass. The badge names and earn conditions live in
+               BADGE_COPY in src/app.js under the same marker. -->
+          <div class="passport-tablist" id="passport-tablist" role="tablist" aria-label="Faqet e pasaportës" hidden>
+            <button
+              class="passport-tab"
+              id="passport-tab-alphabet"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="passport-panel-alphabet"
+            >
+              Alfabeti
+            </button>
+            <button
+              class="passport-tab"
+              id="passport-tab-badges"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="passport-panel-badges"
+              tabindex="-1"
+            >
+              Vulat
+            </button>
           </div>
-          <div class="alphabet-grid" id="alphabet-grid" aria-label="Alfabeti shqip"></div>
-          <p class="passport-tip" id="passport-tip">Fillo me fjalën e sotme për të marrë vulën e parë.</p>
+
+          <!-- The tabpanel role, label and tab stop are attached by
+               applyRewardsVisibility only when the flag is on. Authored here
+               they would add a focusable panel and a tabpanel with no tablist
+               to the shipped dialog whenever the flag is off. -->
+          <div id="passport-panel-alphabet">
+            <div class="passport-dialog-summary">
+              <strong id="passport-dialog-count">0 / 36</strong>
+              <p>Çdo fjalë e zgjidhur vulos shkronjat që përmban. Mblidhi të gjitha, edhe të rrallat.</p>
+            </div>
+            <div class="alphabet-grid" id="alphabet-grid" aria-label="Alfabeti shqip"></div>
+            <p class="passport-tip" id="passport-tip">Fillo me fjalën e sotme për të marrë vulën e parë.</p>
+          </div>
+
+          <div id="passport-panel-badges" hidden>
+            <p class="passport-tip badge-intro">Vulat fitohen një herë dhe nuk humbin kurrë.</p>
+            <ul class="badge-grid" id="badge-grid"></ul>
+          </div>
         </div>
       </div>
     </dialog>

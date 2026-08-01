@@ -1,9 +1,11 @@
 import {
   ALBANIAN_ALPHABET,
   ALBANIAN_DIGRAPHS,
+  BADGE_IDS,
   COMPLETED_PUZZLES_CAP,
   applyCompletedGameToProfile,
   appendPhysicalCharacter,
+  computeEarnedBadges,
   createChallengeCode,
   decodeChallengeCode,
   evaluateGuess,
@@ -14,6 +16,7 @@ import {
   getDailyAnswerIndex,
   getTiranaDateKey,
   mergePhysicalCharacterAt,
+  MILESTONE_IDS,
   normalizeStreakForDate,
   normalizeWord,
   removeGuessTokenAt,
@@ -27,7 +30,7 @@ import {
   WORD_RATING_VALUES,
 } from "./game.js";
 import { ACCEPTED_GUESSES, ANSWERS, getAnswerById } from "./words.js";
-import { REPORT_EMAIL } from "./config.js";
+import { REPORT_EMAIL, REWARDS_ENABLED } from "./config.js";
 
 const ROW_COUNT = 6;
 const COLUMN_COUNT = 5;
@@ -64,6 +67,92 @@ const DIGRAPH_SET = new Set(ALBANIAN_DIGRAPHS);
 const ALPHABET_SET = new Set(ALBANIAN_ALPHABET);
 const ANSWER_SET = new Set(ANSWERS.map((entry) => entry.word));
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+// ---------------------------------------------------------------------------
+// Lëvizje & shpërblime (plan §4) — feature flag
+//
+// Effective state = the reviewed config constant OR a local override toggled by
+// URL: ?shperblime=1 stores the override, ?shperblime=0 removes it. Read once
+// here so a single module-scope boolean answers every gate; nothing re-reads
+// storage or the query string later, and the flag can never change mid-session.
+//
+// OFF must behave byte-identically to the shipped app: the 760ms reveal lock,
+// confetti on every win, no Vulat tab, none of the new motion.
+// ---------------------------------------------------------------------------
+const REWARDS_FLAG_KEY = "fjale:flag:shperblime";
+const REWARDS_ON = resolveRewardsFlag();
+
+function resolveRewardsFlag() {
+  const override = new URLSearchParams(window.location.search).get("shperblime");
+  try {
+    if (override === "1") {
+      window.localStorage.setItem(REWARDS_FLAG_KEY, "1");
+    } else if (override === "0") {
+      window.localStorage.removeItem(REWARDS_FLAG_KEY);
+    }
+    return REWARDS_ENABLED || window.localStorage.getItem(REWARDS_FLAG_KEY) === "1";
+  } catch {
+    // Private-mode storage failures must never disable the game itself, so the
+    // reviewed constant remains the answer.
+    return REWARDS_ENABLED;
+  }
+}
+
+function rewardsEnabled() {
+  return REWARDS_ON;
+}
+
+/* UNVERIFIED sq copy — every Albanian string in the three maps below (badge
+   names, badge earn conditions, milestone names) is generated, not written by a
+   native speaker. It is the single grep-able marker for this round's new copy;
+   nothing else in this commit introduces player-facing Albanian text. Ids come
+   from BADGE_IDS / MILESTONE_IDS in game.js and are asserted complete below, so
+   a new id fails loudly instead of rendering an empty chip. */
+const BADGE_COPY = Object.freeze({
+  "daily-win-1": { name: "Vula e parë", goal: "Fito fjalën e ditës një herë." },
+  "daily-attempt-1": {
+    name: "Goditje e parë",
+    goal: "Gjeje fjalën e ditës me provën e parë.",
+  },
+  "daily-attempt-6": {
+    name: "Këmbëngulja",
+    goal: "Gjeje fjalën e ditës me provën e gjashtë.",
+  },
+  "daily-fast-10": {
+    name: "Dora e sigurt",
+    goal: "10 fitore ditore me tri prova ose më pak.",
+  },
+  "streak-7": { name: "Java e plotë", goal: "Seri prej 7 ditësh radhazi." },
+  "streak-30": { name: "Muaji i plotë", goal: "Seri prej 30 ditësh radhazi." },
+  "daily-played-100": { name: "Njëqind ditë", goal: "Luaj 100 fjalë të ditës." },
+  "archive-won-25": { name: "Arkivari", goal: "25 fitore nga arkiva." },
+  "digraphs-9": { name: "Nëntë vulat", goal: "Mblidh të nëntë dyshkronjëshat." },
+  "letters-36": { name: "Pasaporta e plotë", goal: "Mblidh të 36 shkronjat." },
+  "besa-3": { name: "Besa e trefishtë", goal: "Fito 3 herë me Besë." },
+});
+
+/* UNVERIFIED sq copy — milestone band labels. */
+const MILESTONE_COPY = Object.freeze({
+  "streak-7": "Java e plotë",
+  "streak-30": "Muaji i plotë",
+  "streak-100": "Njëqind ditë rresht",
+  "digraphs-9": "Nëntë vulat",
+  "letters-36": "Pasaporta e plotë",
+  "besa-first": "Besa e parë",
+  "daily-wins-100": "Njëqind fitore",
+});
+
+for (const id of BADGE_IDS) {
+  if (!BADGE_COPY[id]) {
+    throw new Error(`Missing Albanian copy for badge "${id}".`);
+  }
+}
+
+for (const id of MILESTONE_IDS) {
+  if (!MILESTONE_COPY[id]) {
+    throw new Error(`Missing Albanian copy for milestone "${id}".`);
+  }
+}
 
 // Keep the ordinary keys in the familiar Albanian QWERTZ order. W and
 // punctuation are omitted because guesses use exactly the 36 letters of the
@@ -128,6 +217,7 @@ const ALBANIAN_WEEKDAYS_LONG = Object.freeze([
 
 const elements = {
   alphabetGrid: document.querySelector("#alphabet-grid"),
+  badgeGrid: document.querySelector("#badge-grid"),
   besaButton: document.querySelector("#besa-button"),
   besaCard: document.querySelector("#besa-card"),
   besaDescription: document.querySelector("#besa-description"),
@@ -157,11 +247,17 @@ const elements = {
   hintCopy: document.querySelector("#hint-copy"),
   hintDescription: document.querySelector("#hint-description"),
   keyboard: document.querySelector("#keyboard"),
+  milestoneBand: document.querySelector("#milestone-band"),
+  milestoneBandLabel: document.querySelector("#milestone-band-label"),
   passportCopy: document.querySelector("#passport-copy"),
   passportButton: document.querySelector(".passport-button"),
   passportCount: document.querySelector("#passport-count"),
   passportDialogCount: document.querySelector("#passport-dialog-count"),
+  passportPanelAlphabet: document.querySelector("#passport-panel-alphabet"),
+  passportPanelBadges: document.querySelector("#passport-panel-badges"),
   passportRing: document.querySelector("#passport-ring"),
+  passportTablist: document.querySelector("#passport-tablist"),
+  passportTabs: document.querySelectorAll("#passport-tablist [role='tab']"),
   passportTip: document.querySelector("#passport-tip"),
   practiceMode: document.querySelector("#practice-mode"),
   puzzleInstruction: document.querySelector("#puzzle-instruction"),
@@ -193,6 +289,9 @@ const elements = {
   statPlayed: document.querySelector("#stat-played"),
   statPracticePlayed: document.querySelector("#stat-practice-played"),
   statPracticeWon: document.querySelector("#stat-practice-won"),
+  resultStreak: document.querySelector("#result-streak"),
+  resultStreakNext: document.querySelector("#result-streak-next"),
+  resultStreakPrevious: document.querySelector("#result-streak-previous"),
   statStreak: document.querySelector("#stat-streak"),
   statWinRate: document.querySelector("#stat-win-rate"),
   themeSelect: document.querySelector("#theme-select"),
@@ -237,6 +336,20 @@ let pendingEditedDigraphIndex = null;
 // to re-derive a diff and a replayed puzzle never re-fires anything. The full
 // contract is documented with applyCompletedGameToProfile in game.js.
 let lastCompletionEvents = null;
+// One-shot render flags for the reward motion (plan §4.1). renderBoard and
+// renderPassport call replaceChildren(), so every tile and every stamp is a new
+// DOM node on each render and any animation class attached unconditionally
+// would restart on every keystroke. Each flag below is written at the instant
+// the event happens and cleared by the render that consumes it — the same
+// pattern as pendingEditedDigraphIndex.
+let justMergedDigraphIndex = null;
+let pendingStampLetters = [];
+let pendingStreakTick = false;
+let pendingBesaSealPress = false;
+// Which streak figure to draw in the result panel, held separately from the
+// profile so the digit that ticks away is the pre-win one.
+let resultStreakDigits = null;
+let milestoneBandTimer = null;
 
 if (ANSWERS.length < DAILY_POOL_SIZE) {
   throw new Error(`Daily pool requires at least ${DAILY_POOL_SIZE} answers.`);
@@ -245,12 +358,20 @@ if (ANSWERS.length < DAILY_POOL_SIZE) {
 initialize();
 
 function initialize() {
+  // One class gates every new stylesheet rule, so with the flag off not a
+  // single reward selector can match and the rendered app is the shipped one.
+  document.body.classList.toggle("rewards-on", rewardsEnabled());
+  applyRewardsVisibility();
   normalizeExpiredStreak();
   applyPreferences();
   wireInteractions();
 
   if (state.status !== "playing") {
+    // A completion restored from storage on reload is not a fresh celebration.
+    // recordCompletedGame is deduplicated in the game layer, but drain the
+    // handoff anyway so nothing can fire on a page refresh.
     recordCompletedGame();
+    consumeCompletionEvents();
   }
 
   renderAll();
@@ -507,6 +628,11 @@ function wireInteractions() {
     { passive: true },
   );
   window.addEventListener("storage", handleStorageChange);
+
+  if (rewardsEnabled()) {
+    elements.passportTablist.addEventListener("click", handlePassportTabClick);
+    elements.passportTablist.addEventListener("keydown", handlePassportTabKeydown);
+  }
 
   document.querySelectorAll("[data-open-dialog]").forEach((button) => {
     button.addEventListener("click", () => openDialog(button.dataset.openDialog));
@@ -913,6 +1039,7 @@ function inputLetter(letter, { fromPhysicalKeyboard = false } = {}) {
     pendingEditedDigraphIndex = null;
     if (!tokensEqual(before, merged)) {
       state.current = merged;
+      justMergedDigraphIndex = editedIndex;
       persistGame();
       resetBoardMessage();
       renderBoard();
@@ -938,6 +1065,14 @@ function inputLetter(letter, { fromPhysicalKeyboard = false } = {}) {
   if (tokensEqual(before, next)) {
     playSound("error");
     return;
+  }
+
+  // appendPhysicalCharacter folds the typed character into the previous tile
+  // when the pair forms a digraph, which is exactly the row-length-preserving
+  // case below. Tapping a whole digraph key is an append, not a merge, so it
+  // correctly does not snap.
+  if (next.length === before.length && DIGRAPH_SET.has(next.at(-1))) {
+    justMergedDigraphIndex = next.length - 1;
   }
 
   state.current = next;
@@ -1024,7 +1159,10 @@ function submitGuess() {
   const announcement = guessTokens
     .map((token, index) => `${token.toLocaleUpperCase("sq-AL")}, ${STATUS_LABEL[statuses[index]]}`)
     .join(". ");
-  const revealDuration = REDUCED_MOTION.matches ? 10 : 760;
+  // The last tile starts at 4 × 72 = 288ms and finishes at 288 + 360 = 648ms,
+  // so 760ms left 112ms of dead time on every guess. 680ms keeps a 32ms settle
+  // and removes 80ms of felt latency up to six times a game (plan §4.2).
+  const revealDuration = REDUCED_MOTION.matches ? 10 : rewardsEnabled() ? 680 : 760;
 
   revealTimer = window.setTimeout(() => {
     isAnimating = false;
@@ -1042,6 +1180,12 @@ function submitGuess() {
 
 function finishGame() {
   recordCompletedGame();
+  // Read the completion contract once, before the render that consumes the
+  // one-shot flags it stages. A duplicate completion yields a neutral events
+  // object, so a replay can never re-fire any of this.
+  const events = consumeCompletionEvents();
+  const milestones = rewardsEnabled() ? (events?.newMilestones ?? []) : [];
+  stageWinChoreography(events);
   justCompletedPuzzleId = state.puzzleId;
   persistGame();
   renderAll();
@@ -1050,7 +1194,12 @@ function finishGame() {
   if (state.status === "won") {
     const attemptCount = getStateAttemptCount();
     playSound("win");
-    showCelebration();
+    // Tier 3 only, once the flag is on: the particles are not deleted, they are
+    // made scarce (plan §4.4). With the flag off they still fire on every win,
+    // which is the shipped behavior the flag promises to preserve.
+    if (!rewardsEnabled() || milestones.length > 0) {
+      showCelebration();
+    }
     announce(
       `E gjete fjalën ${getAnswer().word} në ${attemptCount} ${attemptCount === 1 ? "provë" : "prova"}.`,
     );
@@ -1059,12 +1208,113 @@ function finishGame() {
     announce(`Loja mbaroi. Fjala ishte ${getAnswer().word}.`);
   }
 
+  if (milestones.length > 0) {
+    showMilestoneBand(milestones);
+  }
+
   window.setTimeout(() => {
     elements.resultPanel.scrollIntoView({
       block: "start",
       behavior: REDUCED_MOTION.matches ? "auto" : "smooth",
     });
   }, REDUCED_MOTION.matches ? 0 : 420);
+}
+
+// Turn one completion contract into the one-shot flags the renderers consume
+// (plan §4.4). Nothing here decides *whether* something was earned — that is
+// settled in the game layer — it only decides what moves.
+function stageWinChoreography(events) {
+  pendingStampLetters = [];
+  pendingStreakTick = false;
+  pendingBesaSealPress = false;
+  resultStreakDigits = null;
+
+  if (!rewardsEnabled() || !events || events.status !== "won") {
+    return;
+  }
+
+  // Tier 2 — a new stamp lands.
+  pendingStampLetters = [...events.newLetters];
+  // Tier 1 — the streak continues. The streak figure is a daily concept, so it
+  // is drawn only for the mode that can move it.
+  if (events.mode === "daily" && events.streak.current > 0) {
+    resultStreakDigits = {
+      previous: events.streak.previous,
+      current: events.streak.current,
+    };
+    pendingStreakTick = events.streak.current > events.streak.previous;
+  }
+  pendingBesaSealPress = events.besaDaily;
+}
+
+// Tier 3. One band per completion even if two milestones land together: a
+// second band would read as a bug, so the first is named and the rest are
+// counted. The band is inert decoration — the announcement carries the name.
+function showMilestoneBand(milestones) {
+  const [first] = milestones;
+  const label =
+    milestones.length > 1
+      ? `${MILESTONE_COPY[first]} +${milestones.length - 1}`
+      : MILESTONE_COPY[first];
+
+  window.clearTimeout(milestoneBandTimer);
+  elements.milestoneBandLabel.textContent = label;
+  elements.milestoneBand.hidden = false;
+  elements.milestoneBand.classList.remove("is-running");
+  startMilestoneBandWhenVisible();
+
+  // The only announcement this layer adds: a milestone is the one moment worth
+  // interrupting a screen reader for. Delayed past the win announcement, which
+  // announce() would otherwise clobber within its own 20ms reset.
+  window.setTimeout(() => announce(`Vulë e re: ${label}.`), 900);
+}
+
+// The band lives in the result panel, and finishGame smooth-scrolls that panel
+// into view starting at 420ms. On the single-column layout the panel is below
+// the fold until that scroll lands, so a band started immediately would finish
+// its 700ms run off-screen — the tier-3 moment would never be seen. Waiting for
+// the band to actually intersect the viewport is deterministic where guessing a
+// delay that beats an unknown-duration smooth scroll is not.
+function startMilestoneBandWhenVisible() {
+  const band = elements.milestoneBand;
+  let fallbackTimer = null;
+
+  const start = () => {
+    window.clearTimeout(fallbackTimer);
+    // Restart the animation on a node that may already have been visible.
+    band.classList.remove("is-running");
+    void band.offsetWidth;
+    band.classList.add("is-running");
+    milestoneBandTimer = window.setTimeout(
+      () => {
+        band.hidden = true;
+        band.classList.remove("is-running");
+      },
+      REDUCED_MOTION.matches ? 2400 : 700,
+    );
+  };
+
+  if (typeof window.IntersectionObserver !== "function") {
+    start();
+    return;
+  }
+
+  const observer = new window.IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        start();
+      }
+    },
+    { threshold: 0.6 },
+  );
+  observer.observe(band);
+  // A band that never scrolls into view still plays, so the teardown always
+  // runs and the node can never be left on screen.
+  fallbackTimer = window.setTimeout(() => {
+    observer.disconnect();
+    start();
+  }, 1600);
 }
 
 function showInvalid(message) {
@@ -1390,6 +1640,10 @@ function renderBoard() {
   elements.board.classList.toggle("is-won", state.status === "won" && !isAnimating);
   const answerTokens = getAnswerTokens();
   const currentAttemptIndex = getStateAttemptCount();
+  // Consume the digraph-snap flag before the loop: every tile below is a brand
+  // new node, so a class left set would replay the snap on the next keystroke.
+  const snapIndex = rewardsEnabled() ? justMergedDigraphIndex : null;
+  justMergedDigraphIndex = null;
 
   for (let rowIndex = 0; rowIndex < ROW_COUNT; rowIndex += 1) {
     const row = document.createElement("div");
@@ -1444,6 +1698,9 @@ function renderBoard() {
 
       if (DIGRAPH_SET.has(token)) {
         tile.classList.add("is-digraph");
+        if (isCurrentRow && columnIndex === snapIndex) {
+          tile.classList.add("is-snapping");
+        }
       }
 
       if (isCurrentRow) {
@@ -1594,6 +1851,13 @@ function renderPassport() {
         ? `Në kërkim të ${missingDigraph.toLocaleUpperCase("sq-AL")} — zgjidh fjalë të reja për ta gjetur.`
         : "Dyshkronjëshat u mblodhën. Tani plotëso pjesën tjetër të alfabetit.";
 
+  // stamp-land is a one-shot: the letters this win added are consumed by the
+  // first render after the win, so re-rendering the passport for any other
+  // reason (or reopening the dialog) never replays the landing.
+  const landing = rewardsEnabled() ? pendingStampLetters : [];
+  pendingStampLetters = [];
+  const landingOrder = new Map(landing.map((letter, index) => [letter, index]));
+
   elements.rareLetterRow.replaceChildren();
   for (const letter of ALBANIAN_DIGRAPHS) {
     const stamp = document.createElement("span");
@@ -1604,6 +1868,7 @@ function renderPassport() {
       "aria-label",
       `${letter.toLocaleUpperCase("sq-AL")}: ${collected.has(letter) ? "e mbledhur" : "ende pa u mbledhur"}`,
     );
+    applyStampLanding(stamp, landingOrder.get(letter));
     elements.rareLetterRow.append(stamp);
   }
 
@@ -1619,7 +1884,135 @@ function renderPassport() {
       "aria-label",
       `${letter.toLocaleUpperCase("sq-AL")}: ${isCollected ? "e mbledhur" : "ende pa u mbledhur"}`,
     );
+    applyStampLanding(stamp, landingOrder.get(letter));
     elements.alphabetGrid.append(stamp);
+  }
+
+  renderBadges();
+}
+
+// 40ms stagger per newly collected letter (plan §4.3). The delay is a custom
+// property rather than an inline animation so the reduced-motion rule can drop
+// the whole thing to a static final state without fighting a specificity war.
+function applyStampLanding(stamp, order) {
+  if (order === undefined) {
+    return;
+  }
+  stamp.classList.add("is-landing");
+  stamp.style.setProperty("--stamp-delay", `${order * 40}ms`);
+}
+
+// The eleven local badges (plan §4.5). Earned chips reuse the .alphabet-stamp
+// visual language; unearned ones stay visible as dimmed outlines carrying the
+// earn condition, because a stated goal is the retention mechanism.
+function renderBadges() {
+  if (!rewardsEnabled() || !elements.badgeGrid) {
+    return;
+  }
+
+  elements.badgeGrid.replaceChildren();
+  for (const { id, earned } of computeEarnedBadges(profile)) {
+    const copy = BADGE_COPY[id];
+    const chip = document.createElement("li");
+    chip.className = "badge-chip";
+    chip.classList.toggle("is-earned", earned);
+    chip.setAttribute(
+      "aria-label",
+      `${copy.name}: ${earned ? "e fituar" : `ende pa u fituar. ${copy.goal}`}`,
+    );
+
+    const seal = document.createElement("span");
+    seal.className = "badge-seal";
+    seal.setAttribute("aria-hidden", "true");
+    seal.textContent = earned ? "✓" : "·";
+
+    const name = document.createElement("strong");
+    name.className = "badge-name";
+    name.textContent = copy.name;
+
+    const goal = document.createElement("span");
+    goal.className = "badge-goal";
+    goal.textContent = copy.goal;
+
+    chip.append(seal, name, goal);
+    elements.badgeGrid.append(chip);
+  }
+}
+
+// With the flag off the reward DOM must not merely be unstyled — it must not
+// exist for assistive technology or the tab order either. The passport dialog
+// is the sharp edge: the alphabet section is always on screen, so its tabpanel
+// semantics are attached here rather than authored in the markup. Left in the
+// HTML they would give the shipped dialog an extra focusable panel and a
+// tabpanel with no tablist above it.
+function applyRewardsVisibility() {
+  const on = rewardsEnabled();
+  elements.passportTablist.hidden = !on;
+  elements.passportPanelBadges.hidden = true;
+  elements.milestoneBand.hidden = true;
+  elements.resultStreak.hidden = true;
+
+  if (!on) {
+    return;
+  }
+
+  for (const tab of elements.passportTabs) {
+    const panel = document.querySelector(`#${tab.getAttribute("aria-controls")}`);
+    if (panel) {
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.tabIndex = 0;
+    }
+  }
+
+  selectPassportTab("passport-tab-alphabet");
+}
+
+function handlePassportTabClick(event) {
+  const tab = event.target.closest("[role='tab']");
+  if (tab) {
+    selectPassportTab(tab.id);
+  }
+}
+
+// Roving-tabindex arrow navigation, the expected keyboard model for a tablist;
+// Tab still reaches the group and Enter/Space still activate the focused tab.
+function handlePassportTabKeydown(event) {
+  const keys = { ArrowLeft: -1, ArrowRight: 1, Home: 0, End: 0 };
+  if (!(event.key in keys)) {
+    return;
+  }
+
+  const tabs = [...elements.passportTabs];
+  const current = tabs.findIndex((tab) => tab.id === activePassportTabId());
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? tabs.length - 1
+        : (current + keys[event.key] + tabs.length) % tabs.length;
+
+  event.preventDefault();
+  selectPassportTab(tabs[next].id);
+  tabs[next].focus();
+}
+
+function activePassportTabId() {
+  return (
+    [...elements.passportTabs].find((tab) => tab.getAttribute("aria-selected") === "true")?.id ??
+    "passport-tab-alphabet"
+  );
+}
+
+function selectPassportTab(tabId) {
+  for (const tab of elements.passportTabs) {
+    const selected = tab.id === tabId;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    const panel = document.querySelector(`#${tab.getAttribute("aria-controls")}`);
+    if (panel) {
+      panel.hidden = !selected;
+    }
   }
 }
 
@@ -1656,6 +2049,49 @@ function renderResult() {
     .join(" · ");
   elements.resultDefinition.textContent = answer.definition;
   elements.resultExample.textContent = `“${answer.example}”`;
+  renderBesaSealPress();
+  renderResultStreak();
+}
+
+// besa-seal-press rides on the seal the result panel already reveals; it is a
+// one-shot so reopening or re-rendering a finished game shows the seal at rest.
+function renderBesaSealPress() {
+  const pressing = pendingBesaSealPress && !elements.resultBesaSeal.hidden;
+  pendingBesaSealPress = false;
+  elements.resultBesaSeal.classList.toggle("is-pressing", pressing);
+}
+
+// Tier 1. The product's only streak figure lives in the stats dialog, which is
+// closed at the moment a streak advances, so the tick is drawn here — on the
+// panel that takes focus when the game ends. See the deviation note in the
+// commit body.
+function renderResultStreak() {
+  if (!rewardsEnabled() || resultStreakDigits === null) {
+    elements.resultStreak.hidden = true;
+    return;
+  }
+
+  const { previous, current } = resultStreakDigits;
+  const ticking = pendingStreakTick;
+  pendingStreakTick = false;
+
+  elements.resultStreak.hidden = false;
+  elements.resultStreakPrevious.textContent = String(previous);
+  elements.resultStreakNext.textContent = String(current);
+  elements.resultStreak.setAttribute(
+    "aria-label",
+    `Seria: ${current} ${current === 1 ? "ditë" : "ditë"}`,
+  );
+  elements.resultStreak.classList.toggle("is-ticking", ticking);
+  applyHotUnderline(elements.resultStreak, current);
+}
+
+// hot-underline: 2px honey rule at streak 3, 3px at 7, --primary-deep at 30.
+// No flame, no glow — honey already means "earned" in this system (plan §4.4).
+function applyHotUnderline(element, streak) {
+  element.classList.toggle("is-hot", streak >= 3);
+  element.classList.toggle("is-hotter", streak >= 7);
+  element.classList.toggle("is-hottest", streak >= 30);
 }
 
 // Render the post-game word rating row. Interactive chips appear only for a game
@@ -1738,6 +2174,11 @@ function renderStats() {
   // Sot (Daily) — the player's identity: streak first, then the daily record
   // sourced strictly from modeStats (starts at zero for returning players).
   elements.statStreak.textContent = String(profile.currentStreak);
+  // The canonical streak figure also carries the hot rule, so a player who
+  // opens the stats dialog later still sees how hot the streak is.
+  if (rewardsEnabled()) {
+    applyHotUnderline(elements.statStreak, profile.currentStreak);
+  }
   elements.statBest.textContent = String(profile.bestStreak);
   elements.statDailyPlayed.textContent = String(daily.played);
   elements.statDailyWon.textContent = String(daily.won);
