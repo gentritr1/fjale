@@ -14,12 +14,12 @@ import {
   getDailyAnswerIndex,
   getTiranaDateKey,
   mergePhysicalCharacterAt,
+  normalizeStreakForDate,
   normalizeWord,
   removeGuessTokenAt,
   removeLastToken,
   replaceGuessToken,
-  sanitizeDailyResults,
-  sanitizeModeStats,
+  sanitizeProfile,
   sanitizeReportedWords,
   sanitizeWordRatings,
   secondsUntilNextTiranaDay,
@@ -231,6 +231,12 @@ let justCompletedPuzzleId = null;
 // one SH token after replacing a tile in a full row.
 let selectedCurrentIndex = null;
 let pendingEditedDigraphIndex = null;
+// What the last recorded completion earned — new letters, newly crossed
+// milestones, and how the streak moved. Written only by recordCompletedGame and
+// read once through consumeCompletionEvents, so the celebration layer never has
+// to re-derive a diff and a replayed puzzle never re-fires anything. The full
+// contract is documented with applyCompletedGameToProfile in game.js.
+let lastCompletionEvents = null;
 
 if (ANSWERS.length < DAILY_POOL_SIZE) {
   throw new Error(`Daily pool requires at least ${DAILY_POOL_SIZE} answers.`);
@@ -2025,20 +2031,31 @@ function recordCompletedGame() {
     COMPLETED_PUZZLES_CAP,
   );
   state.recorded = true;
+  lastCompletionEvents = result.recorded ? result.events : null;
   if (result.recorded) {
     profile = result.profile;
     saveProfile();
   }
+
+  return lastCompletionEvents;
 }
 
-function normalizeExpiredStreak() {
-  if (!profile.lastDailyWin) {
-    return;
-  }
+// One-shot handoff to the celebration layer: read it once, and the next
+// completion is the only thing that can set it again. The shape is documented
+// with applyCompletedGameToProfile in game.js.
+function consumeCompletionEvents() {
+  const events = lastCompletionEvents;
+  lastCompletionEvents = null;
+  return events;
+}
 
-  const difference = dateKeyOrdinal(getTiranaDateKey()) - dateKeyOrdinal(profile.lastDailyWin);
-  if (difference > 1 && profile.currentStreak !== 0) {
-    profile.currentStreak = 0;
+// A missed day is forgiven automatically once per rolling 30 days, so a streak
+// stays alive across a two-day gap while the grace day is still available. The
+// grace itself is spent only when the day is completed, in the game layer.
+function normalizeExpiredStreak() {
+  const result = normalizeStreakForDate(profile, getTiranaDateKey());
+  if (result.changed) {
+    profile = result.profile;
     saveProfile();
   }
 }
@@ -2308,40 +2325,10 @@ function updateThemeColor() {
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#1b1a18" : "#ffffff");
 }
 
+// The persisted shape and its per-field defaults live in the game layer, so a
+// legacy save is migrated by exactly the code the profile tests exercise.
 function loadProfile() {
-  const saved = readStorage(PROFILE_KEY);
-  const distribution = Array.isArray(saved?.distribution)
-    ? Array.from({ length: ROW_COUNT }, (_, index) => safeNonNegativeInteger(saved.distribution[index]))
-    : Array(ROW_COUNT).fill(0);
-  const collection = Array.isArray(saved?.collection)
-    ? [...new Set(saved.collection.map(normalizeWord).filter((letter) => ALPHABET_SET.has(letter)))]
-    : [];
-  const completedPuzzles = Array.isArray(saved?.completedPuzzles)
-    ? saved.completedPuzzles
-        .filter((id) => typeof id === "string")
-        .slice(-COMPLETED_PUZZLES_CAP)
-    : [];
-
-  return {
-    played: safeNonNegativeInteger(saved?.played),
-    won: safeNonNegativeInteger(saved?.won),
-    currentStreak: safeNonNegativeInteger(saved?.currentStreak),
-    bestStreak: safeNonNegativeInteger(saved?.bestStreak),
-    lastDailyWin: /^\d{4}-\d{2}-\d{2}$/.test(saved?.lastDailyWin) ? saved.lastDailyWin : null,
-    lastWinGuesses: Number.isInteger(saved?.lastWinGuesses) ? saved.lastWinGuesses : null,
-    besaWins: safeNonNegativeInteger(saved?.besaWins),
-    distribution,
-    collection,
-    completedPuzzles,
-    // Additive field: old profiles simply produce an empty map, no data loss.
-    dailyResults: sanitizeDailyResults(saved?.dailyResults, ROW_COUNT),
-    // Additive per-mode statistics. A legacy profile with no modeStats yields an
-    // all-zero record; the legacy top-level fields above remain the "Overall".
-    modeStats: sanitizeModeStats(saved?.modeStats, ROW_COUNT),
-    // Additive trust fields; both default to empty for legacy profiles.
-    wordRatings: sanitizeWordRatings(saved?.wordRatings),
-    reportedWords: sanitizeReportedWords(saved?.reportedWords),
-  };
+  return sanitizeProfile(readStorage(PROFILE_KEY), ROW_COUNT, COMPLETED_PUZZLES_CAP);
 }
 
 function saveProfile() {
@@ -2371,15 +2358,6 @@ function tokensEqual(left, right) {
 
 function isSafeTimestamp(value) {
   return Number.isFinite(value) && value > 0 && value <= Date.now() + 60_000;
-}
-
-function safeNonNegativeInteger(value) {
-  return Number.isInteger(value) && value >= 0 ? value : 0;
-}
-
-function dateKeyOrdinal(key) {
-  const [year, month, day] = key.split("-").map(Number);
-  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
 }
 
 function formatDailyDate(key) {
