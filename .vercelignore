@@ -1,3 +1,7 @@
+# M0 of PLAN-RRETHI-2026-08.md is storage only: nothing under api/ deploys yet.
+# The _lib underscore prefix already stops Vercel creating functions from these
+# files; this line is belt and braces. Remove it in M1, with the endpoints.
+api/
 third_party/
 tests/
 scripts/
