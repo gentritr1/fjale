@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { buildHealthResponse, handleHealthRequest } from "../api/health.js";
 
 const VALID_PEPPER = "a".repeat(64);
+const VALID_DEEP_TOKEN = "b".repeat(64);
 const CONFIGURED_DATABASE = "postgresql://configured.invalid/fjale";
 
 function responseProbe() {
@@ -72,25 +73,38 @@ test("deep health verifies Neon schema readiness", async () => {
 
 test("health failures never expose driver errors or secrets", async () => {
   const secret = "postgresql://user:password@example.invalid/database";
-  const result = await buildHealthResponse(
-    {
-      RRETHI_STORE: "neon",
-      RRETHI_SERVER_PEPPER: VALID_PEPPER,
-      NEON_DATABASE_URL: secret,
-    },
-    {
-      deep: true,
-      checkDatabase: async () => {
-        throw new Error(secret);
+  const originalConsoleError = console.error;
+  const logged = [];
+  console.error = (...parts) => logged.push(parts);
+  try {
+    const result = await buildHealthResponse(
+      {
+        RRETHI_STORE: "neon",
+        RRETHI_SERVER_PEPPER: VALID_PEPPER,
+        NEON_DATABASE_URL: secret,
       },
-    },
-  );
-  const serialized = JSON.stringify(result.body);
+      {
+        deep: true,
+        checkDatabase: async () => {
+          const error = new Error(secret);
+          error.code = "08006";
+          throw error;
+        },
+      },
+    );
+    const serialized = JSON.stringify(result.body);
+    const serializedLog = JSON.stringify(logged);
 
-  assert.equal(result.statusCode, 503);
-  assert.equal(result.body.checks.database, "unavailable");
-  assert.ok(!serialized.includes("password"));
-  assert.ok(!serialized.includes("example.invalid"));
+    assert.equal(result.statusCode, 503);
+    assert.equal(result.body.checks.database, "unavailable");
+    assert.ok(!serialized.includes("password"));
+    assert.ok(!serialized.includes("example.invalid"));
+    assert.ok(!serializedLog.includes("password"));
+    assert.ok(!serializedLog.includes("example.invalid"));
+    assert.match(serializedLog, /08006/u);
+  } finally {
+    console.error = originalConsoleError;
+  }
 });
 
 test("health reports disabled and invalid configurations explicitly", async () => {
@@ -122,34 +136,106 @@ test("health reports disabled and invalid configurations explicitly", async () =
   assert.equal(badPepper.body.checks.identity, "misconfigured");
 });
 
-test("deep health requires the token when HEALTH_DEEP_TOKEN is set", async () => {
-  // With a token configured, an anonymous ?deep=1 silently gets the shallow
-  // response (still 200 on a configured store) instead of a database probe.
+test("Neon deep health fails closed when its token is missing or weak", async () => {
+  const baseEnv = {
+    RRETHI_STORE: "neon",
+    RRETHI_SERVER_PEPPER: VALID_PEPPER,
+    NEON_DATABASE_URL: CONFIGURED_DATABASE,
+  };
+
+  for (const healthToken of [undefined, "too-short", ` ${VALID_DEEP_TOKEN} `]) {
+    let calls = 0;
+    const response = responseProbe();
+    await handleHealthRequest(
+      { method: "GET", url: "/api/health?deep=1", headers: {} },
+      response,
+      { ...baseEnv, HEALTH_DEEP_TOKEN: healthToken },
+      {
+        checkDatabase: async () => {
+          calls += 1;
+          return { schemaReady: true };
+        },
+      },
+    );
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(JSON.parse(response.body).checks.deep, "misconfigured");
+    assert.equal(calls, 0);
+  }
+});
+
+test("Neon deep health requires one exact token and probes only after authorization", async () => {
   const env = {
     RRETHI_STORE: "neon",
     RRETHI_SERVER_PEPPER: VALID_PEPPER,
     NEON_DATABASE_URL: CONFIGURED_DATABASE,
-    HEALTH_DEEP_TOKEN: "sekret",
+    HEALTH_DEEP_TOKEN: VALID_DEEP_TOKEN,
   };
 
-  const anonymous = responseProbe();
+  const rejectedHeaders = [
+    {},
+    { "x-health-token": "wrong" },
+    { "x-health-token": VALID_DEEP_TOKEN.toUpperCase() },
+    { "x-health-token": ` ${VALID_DEEP_TOKEN} ` },
+    { "x-health-token": [VALID_DEEP_TOKEN, VALID_DEEP_TOKEN] },
+  ];
+  let calls = 0;
+  const checkDatabase = async () => {
+    calls += 1;
+    return { schemaReady: true };
+  };
+
+  for (const headers of rejectedHeaders) {
+    const response = responseProbe();
+    await handleHealthRequest(
+      { method: "GET", url: "/api/health?deep=1", headers },
+      response,
+      env,
+      { checkDatabase },
+    );
+    assert.equal(response.statusCode, 401);
+    assert.equal(JSON.parse(response.body).checks.deep, "unauthorized");
+  }
+  assert.equal(calls, 0);
+
+  const authorized = responseProbe();
+  await handleHealthRequest(
+    {
+      method: "GET",
+      url: "/api/health?deep=1",
+      headers: { "x-health-token": VALID_DEEP_TOKEN },
+    },
+    authorized,
+    env,
+    { checkDatabase },
+  );
+  assert.equal(authorized.statusCode, 200);
+  assert.equal(JSON.parse(authorized.body).checks.database, "ok");
+  assert.equal(calls, 1);
+});
+
+test("shallow and memory health never require the deep token", async () => {
+  const shallow = responseProbe();
+  await handleHealthRequest(
+    { method: "GET", url: "/api/health", headers: {} },
+    shallow,
+    {
+      RRETHI_STORE: "neon",
+      RRETHI_SERVER_PEPPER: VALID_PEPPER,
+      NEON_DATABASE_URL: CONFIGURED_DATABASE,
+    },
+  );
+  assert.equal(shallow.statusCode, 200);
+  assert.equal(JSON.parse(shallow.body).checks.database, "configured");
+
+  const memory = responseProbe();
   await handleHealthRequest(
     { method: "GET", url: "/api/health?deep=1", headers: {} },
-    anonymous,
-    env,
+    memory,
+    { RRETHI_STORE: "memory" },
   );
-  const anonymousBody = JSON.parse(anonymous.body);
-  assert.equal(anonymous.statusCode, 200);
-  // Shallow shape: "configured", never a probed "ok"/"schema_missing".
-  assert.equal(anonymousBody.checks.database, "configured");
-
-  const wrongToken = responseProbe();
-  await handleHealthRequest(
-    { method: "GET", url: "/api/health?deep=1", headers: { "x-health-token": "gabim" } },
-    wrongToken,
-    env,
-  );
-  assert.equal(JSON.parse(wrongToken.body).checks.database, "configured");
+  assert.equal(memory.statusCode, 200);
+  assert.equal(JSON.parse(memory.body).checks.database, "disabled");
 });
 
 test("HTTP health handler supports HEAD and rejects writes without caching", async () => {

@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 const JSON_HEADERS = Object.freeze({
   "Cache-Control": "private, no-store, max-age=0",
@@ -8,6 +8,7 @@ const JSON_HEADERS = Object.freeze({
 });
 
 const PEPPER_PATTERN = /^[0-9a-f]{64}$/iu;
+const DEEP_TOKEN_PATTERN = /^[a-z0-9_-]{32,256}$/iu;
 const DATABASE_URL_KEYS = Object.freeze([
   "NEON_DATABASE_URL",
   "DATABASE_URL",
@@ -36,17 +37,23 @@ async function probeDatabaseStatus(env, checkDatabase) {
     database = result?.schemaReady ? "ok" : "schema_missing";
   } catch (error) {
     // Public health responses never include driver errors, hostnames, schemas,
-    // credentials, or other operational detail. Function logs are private, so
-    // the cause is recorded there — otherwise a DNS failure and a permissions
-    // error are indistinguishable "unavailable"s.
-    console.error("health: deep database check failed", error);
+    // credentials, or other operational detail. Logs follow the same rule: a
+    // driver message or stack can embed the connection URL, so retain only a
+    // bounded error class and SQLSTATE-style code.
+    const errorName = /^[a-z][a-z0-9_.-]{0,63}$/iu.test(String(error?.name ?? ""))
+      ? String(error.name)
+      : "Error";
+    const errorCode = /^[a-z0-9_.-]{1,32}$/iu.test(String(error?.code ?? ""))
+      ? String(error.code)
+      : "unknown";
+    console.error("health: deep database check failed", { name: errorName, code: errorCode });
   }
   return database;
 }
 
-// One deep database probe per warm instance per minute, whatever the request
-// rate: without this, anyone polling ?deep=1 at <5-minute intervals would keep
-// Neon's autosuspend from ever firing and drain the free compute allowance.
+// One authorized deep database probe per warm instance per minute, whatever the
+// monitor request rate: without this, frequent legitimate checks could keep
+// Neon's autosuspend from firing and drain the free compute allowance.
 // Only the real probe is memoized — injected `checkDatabase` test doubles skip
 // it (see buildHealthResponse), so tests stay isolated.
 const DEEP_MEMO_TTL_MS = 60_000;
@@ -144,28 +151,31 @@ export async function buildHealthResponse(env = process.env, options = {}) {
   };
 }
 
-/** Constant-time token comparison; a plain `!==` leaks match length by timing. */
+// Hash both inputs first so timingSafeEqual always compares the same number of
+// bytes. This avoids an early length branch while still requiring an exact,
+// case-sensitive header match.
 function tokensMatch(presented, expected) {
-  const a = Buffer.from(presented);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) {
-    return false;
-  }
+  const a = createHash("sha256").update(presented).digest();
+  const b = createHash("sha256").update(expected).digest();
   return timingSafeEqual(a, b);
 }
 
-export async function handleHealthRequest(request, response, env = process.env) {
+function sendJson(response, method, statusCode, body) {
+  const payload = `${JSON.stringify(body)}\n`;
+  response.setHeader("Content-Length", Buffer.byteLength(payload));
+  response.statusCode = statusCode;
+  response.end(method === "HEAD" ? undefined : payload);
+}
+
+export async function handleHealthRequest(request, response, env = process.env, options = {}) {
   const method = String(request.method ?? "GET").toUpperCase();
   for (const [name, value] of Object.entries(JSON_HEADERS)) {
     response.setHeader(name, value);
   }
 
   if (method !== "GET" && method !== "HEAD") {
-    const payload = `${JSON.stringify({ status: "error", error: "method_not_allowed" })}\n`;
     response.setHeader("Allow", "GET, HEAD");
-    response.setHeader("Content-Length", Buffer.byteLength(payload));
-    response.statusCode = 405;
-    response.end(payload);
+    sendJson(response, method, 405, { status: "error", error: "method_not_allowed" });
     return;
   }
 
@@ -176,23 +186,47 @@ export async function handleHealthRequest(request, response, env = process.env) 
     // A malformed URL receives the shallow response; it never earns a DB query.
   }
 
-  // When HEALTH_DEEP_TOKEN is set, deep checks require the matching header and
-  // anonymous callers silently get the shallow response — the deep path costs
-  // database compute, so it is not left open to the public internet. Unset
-  // (local dev, or pre-Rrethi where the store is memory) leaves deep open.
-  const deepToken = String(env?.HEALTH_DEEP_TOKEN ?? "").trim();
-  if (deep && deepToken !== "") {
+  // A Neon deep check spends database compute. It must never become public just
+  // because HEALTH_DEEP_TOKEN was forgotten or malformed. Memory-mode deep
+  // checks remain open because they do not touch a database.
+  const store = String(env?.RRETHI_STORE ?? "memory").trim().toLowerCase() || "memory";
+  if (deep && store === "neon") {
+    const deepToken = String(env?.HEALTH_DEEP_TOKEN ?? "");
+    if (!DEEP_TOKEN_PATTERN.test(deepToken)) {
+      sendJson(response, method, 503, {
+        status: "degraded",
+        service: "fjale",
+        checks: {
+          app: "ok",
+          database: "not_checked",
+          identity: "not_checked",
+          deep: "misconfigured",
+        },
+      });
+      return;
+    }
+
     const presented = String(request.headers?.["x-health-token"] ?? "");
     if (!tokensMatch(presented, deepToken)) {
-      deep = false;
+      sendJson(response, method, 401, {
+        status: "unauthorized",
+        service: "fjale",
+        checks: {
+          app: "ok",
+          database: "not_checked",
+          identity: "not_checked",
+          deep: "unauthorized",
+        },
+      });
+      return;
     }
   }
 
-  const { statusCode, body } = await buildHealthResponse(env, { deep });
-  const payload = `${JSON.stringify(body)}\n`;
-  response.setHeader("Content-Length", Buffer.byteLength(payload));
-  response.statusCode = statusCode;
-  response.end(method === "HEAD" ? undefined : payload);
+  const healthOptions = options.checkDatabase
+    ? { deep, checkDatabase: options.checkDatabase }
+    : { deep };
+  const { statusCode, body } = await buildHealthResponse(env, healthOptions);
+  sendJson(response, method, statusCode, body);
 }
 
 export default handleHealthRequest;

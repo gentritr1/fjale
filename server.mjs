@@ -33,6 +33,8 @@ const publicPaths = new Set([
   "/help-hero-v1.svg",
   "/screenshot-narrow-v2.png",
   "/screenshot-wide-v2.png",
+  "/screenshot-narrow-v3.png",
+  "/screenshot-wide-v3.png",
   "/src/app.js",
   "/src/avatars.js",
   "/src/config.js",

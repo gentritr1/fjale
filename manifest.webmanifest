@@ -39,18 +39,18 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshot-narrow-v2.png",
+      "src": "/screenshot-narrow-v3.png",
       "sizes": "780x1688",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Tabela e lojës me tastierën QWERTZ dhe mbështetjen e alfabetit shqip"
+      "label": "Sfidë me një mik, dyshkronjësha në një kuti dhe tastierë QWERTZ shqip"
     },
     {
-      "src": "/screenshot-wide-v2.png",
+      "src": "/screenshot-wide-v3.png",
       "sizes": "1280x800",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Pamja e plotë me gjurmën, Besën dhe Pasaportën e alfabetit"
+      "label": "Shenja të personalizueshme në Pasaportë, me personazhe falas dhe kafshë që hapen me vula"
     }
   ]
 }

@@ -54,10 +54,14 @@ npm run check
 `GET /api/health` kontrollon aplikacionin dhe konfigurimin pa kontaktuar Neon-in,
 prandaj është rruga e duhur për një monitor të shpeshtë dhe nuk e mban compute-in
 e tier-it falas zgjuar. `GET /api/health?deep=1` bën një kontroll real, vetëm për
-lexim, të lidhjes dhe pesë tabelave të Rrethit. Kontrolli i thellë kthen `503`
-nëse Neon-i është i çaktivizuar, i paarritshëm ose skema nuk është aplikuar.
-Asnjëra përgjigje nuk nxjerr URL, kredenciale, emrin e skemës ose gabime të
-driver-it; të dyja përgjigjet janë `no-store`.
+lexim, të lidhjes dhe pesë tabelave të Rrethit. Me `RRETHI_STORE=neon`, kjo rrugë
+kërkon `HEALTH_DEEP_TOKEN` të vlefshëm në header-in `x-health-token`; token-i i
+munguar ose i dobët kthen `503`, kurse token-i i gabuar kthen `401`, pa prekur
+bazën. Një kontroll i autorizuar memoizohet për 60 sekonda dhe kthen `503` nëse
+Neon-i është i paarritshëm ose skema nuk është aplikuar. Me store-in `memory`,
+kontrolli i thellë kthen `200` me `database: "disabled"`. Asnjë përgjigje ose log
+nuk nxjerr URL, kredenciale, emrin e skemës apo mesazhin e driver-it; përgjigjet
+janë `no-store`.
 
 ## Redaksia lokale
 
