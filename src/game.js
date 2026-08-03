@@ -1,3 +1,9 @@
+import {
+  DEFAULT_AVATAR_ID,
+  DEFAULT_LETTER_SEAL,
+  isAvatarId,
+} from "./avatars.js";
+
 export const ALBANIAN_DIGRAPHS = Object.freeze([
   "dh",
   "gj",
@@ -79,6 +85,7 @@ const DAILY_STEP_BASE = 37;
 const DAILY_OFFSET = 911;
 const CHALLENGE_PREFIX = "SQ";
 const CHALLENGE_MULTIPLIER = 37;
+const CHALLENGE_CODE_MAX_LENGTH = 16;
 export const COMPLETED_PUZZLES_CAP = 4_000;
 const CHALLENGE_OFFSET = 911;
 
@@ -241,6 +248,19 @@ export function removeLastToken(tokens) {
   }
 
   return tokens.slice(0, -1);
+}
+
+export function hasSubmittedGuess(guesses, candidateTokens) {
+  if (!Array.isArray(guesses) || !Array.isArray(candidateTokens)) {
+    return false;
+  }
+
+  return guesses.some(
+    (guess) =>
+      Array.isArray(guess) &&
+      guess.length === candidateTokens.length &&
+      guess.every((token, index) => token === candidateTokens[index]),
+  );
 }
 
 export function evaluateGuess(answerTokens, guessTokens) {
@@ -469,10 +489,10 @@ function greatestCommonDivisor(left, right) {
   return a;
 }
 
-// Validate a stored daily-results map: "YYYY-MM-DD" -> 1..maxGuesses (win in
-// that many guesses) or "X" (loss). Invalid keys/values are dropped; any
-// non-object input yields an empty map. Format validation only — the map is
-// deliberately uncapped (one ~20-byte entry per played day).
+// Validate a stored daily-results map: real "YYYY-MM-DD" calendar date ->
+// 1..maxGuesses (win in that many guesses) or "X" (loss). Invalid keys/values
+// are dropped; any non-object input yields an empty map. The map is deliberately
+// uncapped (one ~20-byte entry per played day).
 export function sanitizeDailyResults(raw, maxGuesses = 6) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
@@ -481,7 +501,7 @@ export function sanitizeDailyResults(raw, maxGuesses = 6) {
   return Object.fromEntries(
     Object.entries(raw).filter(
       ([key, value]) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+        isDateKey(key) &&
         (value === "X" ||
           (Number.isInteger(value) && value >= 1 && value <= maxGuesses)),
     ),
@@ -530,10 +550,10 @@ export const BADGE_IDS = Object.freeze([
   "streak-7",
   "streak-30",
   "daily-played-100",
-  "archive-won-25",
+  "daily-win-25",
   "digraphs-9",
   "letters-36",
-  "besa-3",
+  "daily-besa-3",
 ]);
 
 // Stable identifiers for the post-game word ratings. The human-facing Albanian
@@ -549,7 +569,7 @@ export const WORD_RATING_VALUES = Object.freeze([
 const WORD_RATING_SET = new Set(WORD_RATING_VALUES);
 
 function safeCount(value) {
-  return Number.isInteger(value) && value >= 0 ? value : 0;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 function emptyModeBucket(distributionLength) {
@@ -702,9 +722,10 @@ export function sanitizeProfile(
     : [];
   const completedPuzzles = Array.isArray(source.completedPuzzles)
     ? source.completedPuzzles
-        .filter((id) => typeof id === "string")
+        .filter((id) => typeof id === "string" && id.length > 0 && id.length <= 100)
         .slice(-completedPuzzlesCap)
     : [];
+  const letterSeal = normalizeWord(source.letterSeal);
 
   return {
     played: safeCount(source.played),
@@ -722,6 +743,11 @@ export function sanitizeProfile(
     lastGraceDate: isDateKey(source.lastGraceDate) ? source.lastGraceDate : null,
     // Additive: once-ever milestone ids, append-only.
     milestones: sanitizeMilestones(source.milestones),
+    // Additive local identity for the future Rrethi UI. Both values are drawn
+    // from closed catalogs, so storage can never inject an arbitrary image URL
+    // or an unsupported seal into the DOM.
+    avatarId: isAvatarId(source.avatarId) ? source.avatarId : DEFAULT_AVATAR_ID,
+    letterSeal: ALBANIAN_LETTERS.has(letterSeal) ? letterSeal : DEFAULT_LETTER_SEAL,
     distribution,
     collection,
     completedPuzzles,
@@ -763,22 +789,51 @@ function completionDateKey(mode, puzzleId) {
 }
 
 function isDateKey(value) {
-  return typeof value === "string" && DATE_KEY_PATTERN.test(value);
+  if (typeof value !== "string" || !DATE_KEY_PATTERN.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1 || year > 9999) {
+    return false;
+  }
+  const candidate = new Date(0);
+  candidate.setUTCHours(0, 0, 0, 0);
+  candidate.setUTCFullYear(year, month - 1, day);
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day
+  );
 }
 
 // Calendar-day arithmetic on "YYYY-MM-DD" keys. The keys themselves always come
 // from getTiranaDateKey, so the zone is already resolved and these two are pure
 // UTC-ordinal conversions — never a second time-zone implementation.
 export function dateKeyOrdinal(key) {
+  if (!isDateKey(key)) {
+    throw new RangeError("key must be a real YYYY-MM-DD calendar date");
+  }
   const [year, month, day] = key.split("-").map(Number);
-  return Math.floor(Date.UTC(year, month - 1, day) / DAY_IN_MILLISECONDS);
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  return Math.floor(date.getTime() / DAY_IN_MILLISECONDS);
 }
 
 export function dateKeyFromOrdinal(ordinal) {
+  if (!Number.isSafeInteger(ordinal)) {
+    throw new RangeError("ordinal must be a safe integer");
+  }
   const date = new Date(ordinal * DAY_IN_MILLISECONDS);
+  const year = date.getUTCFullYear();
+  if (!Number.isFinite(date.getTime()) || year < 1 || year > 9999) {
+    throw new RangeError("ordinal must resolve to a four-digit calendar year");
+  }
+  const paddedYear = String(year).padStart(4, "0");
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${month}-${day}`;
+  return `${paddedYear}-${month}-${day}`;
 }
 
 // The rolling grace window: a grace day is available when none was consumed in
@@ -803,13 +858,18 @@ export function isStreakGraceAvailable(
 // available (it is spent when the day is actually completed), and anything
 // larger is over. Returns a new profile when the streak expired, mirroring the
 // no-mutation contract of applyCompletedGameToProfile.
-export function normalizeStreakForDate(profile, dateKey) {
+export function normalizeStreakForDate(profile, dateKey, options = {}) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
     throw new TypeError("profile must be an object");
   }
   if (!isDateKey(dateKey)) {
     throw new RangeError("dateKey must be a YYYY-MM-DD key");
   }
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("options must be an object");
+  }
+
+  const streakGraceEnabled = Boolean(options.streakGraceEnabled);
 
   if (!isDateKey(profile.lastDailyWin) || safeCount(profile.currentStreak) === 0) {
     return { profile, changed: false };
@@ -817,7 +877,8 @@ export function normalizeStreakForDate(profile, dateKey) {
 
   const difference = dateKeyOrdinal(dateKey) - dateKeyOrdinal(profile.lastDailyWin);
   const survives =
-    difference <= 1 || (difference === 2 && isStreakGraceAvailable(profile, dateKey));
+    difference <= 1 ||
+    (streakGraceEnabled && difference === 2 && isStreakGraceAvailable(profile, dateKey));
   if (survives) {
     return { profile, changed: false };
   }
@@ -850,41 +911,41 @@ function modeBucketOf(profile, mode) {
 // Every daily count reads modeStats.daily, never dailyResults: an archive play
 // for date D writes dailyResults[D] too (see completionDateKey), so dailyResults
 // is not mode-isolated and would inflate daily badges (plan §4.5).
-function badgeConditions(profile) {
+function badgeProgress(profile) {
   const daily = modeBucketOf(profile, "daily");
-  const archive = modeBucketOf(profile, "archive");
   const inThreeOrFewer = daily.distribution
     .slice(0, 3)
     .reduce((total, count) => total + count, 0);
-  // Legacy profiles earned besaWins across every mode; new ones also count the
-  // stricter besaDailyWins. Taking the larger tightens the rule going forward
-  // without ever taking an earned badge away.
-  const besaWins = Math.max(
-    safeCount(profile?.besaWins),
-    safeCount(profile?.besaDailyWins),
-  );
 
   return {
-    "daily-win-1": daily.won >= 1,
-    "daily-attempt-1": (daily.distribution[0] ?? 0) >= 1,
-    "daily-attempt-6": (daily.distribution[5] ?? 0) >= 1,
-    "daily-fast-10": inThreeOrFewer >= 10,
-    "streak-7": safeCount(profile?.bestStreak) >= 7,
-    "streak-30": safeCount(profile?.bestStreak) >= 30,
-    "daily-played-100": daily.played >= 100,
-    "archive-won-25": archive.won >= 25,
-    "digraphs-9": countCollected(profile, ALBANIAN_DIGRAPHS) === ALBANIAN_DIGRAPHS.length,
-    "letters-36": countCollected(profile, ALBANIAN_ALPHABET) === ALBANIAN_ALPHABET.length,
-    "besa-3": besaWins >= 3,
+    "daily-win-1": { current: daily.won, target: 1 },
+    "daily-attempt-1": { current: daily.distribution[0] ?? 0, target: 1 },
+    "daily-attempt-6": { current: daily.distribution[5] ?? 0, target: 1 },
+    "daily-fast-10": { current: inThreeOrFewer, target: 10 },
+    "streak-7": { current: safeCount(profile?.bestStreak), target: 7 },
+    "streak-30": { current: safeCount(profile?.bestStreak), target: 30 },
+    "daily-played-100": { current: daily.played, target: 100 },
+    "daily-win-25": { current: daily.won, target: 25 },
+    "digraphs-9": {
+      current: countCollected(profile, ALBANIAN_DIGRAPHS),
+      target: ALBANIAN_DIGRAPHS.length,
+    },
+    "letters-36": {
+      current: countCollected(profile, ALBANIAN_ALPHABET),
+      target: ALBANIAN_ALPHABET.length,
+    },
+    "daily-besa-3": { current: safeCount(profile?.besaDailyWins), target: 3 },
   };
 }
 
-// Pure badge evaluation over a profile. Returns all eleven local badges in a
-// stable order with their earned state, so the UI can render unearned ones as
-// visible goals without recomputing any condition.
+// Pure badge evaluation over a profile. Progress is returned with the earned
+// state so the UI can show a concrete next step without re-deriving thresholds.
 export function computeEarnedBadges(profile) {
-  const conditions = badgeConditions(profile);
-  return BADGE_IDS.map((id) => ({ id, earned: Boolean(conditions[id]) }));
+  const progress = badgeProgress(profile);
+  return BADGE_IDS.map((id) => {
+    const { current, target } = progress[id];
+    return { id, current, target, earned: current >= target };
+  });
 }
 
 // A milestone's condition is the same kind of monotonic read as a badge, so a
@@ -981,6 +1042,7 @@ export function applyCompletedGameToProfile(
   profile,
   completion,
   completedPuzzlesCap = COMPLETED_PUZZLES_CAP,
+  options = {},
 ) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
     throw new TypeError("profile must be an object");
@@ -988,8 +1050,12 @@ export function applyCompletedGameToProfile(
   if (!completion || typeof completion !== "object" || Array.isArray(completion)) {
     throw new TypeError("completion must be an object");
   }
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("options must be an object");
+  }
 
   const { puzzleId, mode, status, attemptCount, answerTokens, besa, usedHint } = completion;
+  const streakGraceEnabled = Boolean(options.streakGraceEnabled);
   if (typeof puzzleId !== "string" || puzzleId.length === 0 || puzzleId.length > 100) {
     throw new RangeError("completion puzzleId must be a non-empty string");
   }
@@ -1043,9 +1109,14 @@ export function applyCompletedGameToProfile(
     next.lastWinGuesses = attemptCount;
     modeBucket.won += 1;
     modeBucket.distribution[attemptCount - 1] += 1;
-    next.collection = [
-      ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
-    ].filter((letter) => ALBANIAN_LETTERS.has(letter));
+    // The alphabet passport is a daily ritual, not a grindable collection.
+    // Archive, Practice, and Challenge still keep their own honest statistics,
+    // but only a win on today's Daily word may add letter stamps.
+    if (mode === "daily") {
+      next.collection = [
+        ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
+      ].filter((letter) => ALBANIAN_LETTERS.has(letter));
+    }
 
     if (besa && !usedHint) {
       next.besaWins = safeCount(next.besaWins) + 1;
@@ -1084,6 +1155,7 @@ export function applyCompletedGameToProfile(
         // set currentStreak to 0, so this branch cannot fire for it: grace
         // forgives absence, never a loss, and is never spent on one.
         dayDifference === 2 &&
+        streakGraceEnabled &&
         previousStreak > 0 &&
         isStreakGraceAvailable(next, trackedDate)
       ) {
@@ -1179,7 +1251,12 @@ export function decodeChallengeCode(code, count) {
     return null;
   }
 
-  const match = code.trim().match(/^SQ-([0-9A-Z]+)$/i);
+  const normalized = code.trim();
+  if (normalized.length === 0 || normalized.length > CHALLENGE_CODE_MAX_LENGTH) {
+    return null;
+  }
+
+  const match = normalized.match(/^SQ-([0-9A-Z]+)$/i);
   if (!match) {
     return null;
   }

@@ -24,6 +24,7 @@ import { readFile } from "node:fs/promises";
 
 import {
   assertDateKey,
+  assertDateRange,
   assertKey,
   assertPositiveInteger,
   foreignKeyError,
@@ -83,7 +84,7 @@ export function resolveSchema(env) {
  *
  * @param {Record<string, string|undefined>} env
  */
-async function connect(env) {
+async function connect(env, options = undefined) {
   const connectionString = resolveConnectionString(env);
   let neon;
   try {
@@ -94,11 +95,44 @@ async function connect(env) {
       cause,
     );
   }
-  const sql = neon(connectionString);
+  const sql = neon(connectionString, options);
   if (typeof sql.query !== "function") {
     throw storeError("@neondatabase/serverless is too old: sql.query() is missing");
   }
   return sql;
+}
+
+/**
+ * Read-only readiness probe used only by the explicit deep health check.
+ * It verifies both connectivity and the five Rrethi tables without returning
+ * the schema name or any database metadata to the public endpoint.
+ *
+ * @param {Record<string, string|undefined>} env
+ * @param {number} [timeoutMs]
+ * @returns {Promise<{schemaReady: boolean}>}
+ */
+export async function checkNeonHealth(env, timeoutMs = 5_000) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000) {
+    throw storeError("invalid Neon health timeout");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const schema = resolveSchema(env);
+    const sql = await connect(env, { fetchOptions: { signal: controller.signal } });
+    const rows = await run(
+      sql,
+      `SELECT count(*)::integer AS table_count
+         FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_name IN ('member', 'circle', 'membership', 'result', 'rate_bucket')`,
+      [schema],
+    );
+    return { schemaReady: Number(rows[0]?.table_count) === SCHEMA_OBJECTS.length };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /** @param {unknown} error */
@@ -421,14 +455,13 @@ export async function createNeonStore(env) {
 
     async listResultRange(code, from, to) {
       assertKey(code, "circleCode");
-      assertDateKey(from, "from");
-      assertDateKey(to, "to");
+      const range = assertDateRange(from, to);
       const rows = await run(
         sql,
         `SELECT ${RESULT_COLUMNS} FROM ${t("result")}
           WHERE circle_code = $1 AND play_date BETWEEN $2::date AND $3::date
           ORDER BY play_date ASC, member_key ASC`,
-        [code, from, to],
+        [code, range.from, range.to],
       );
       return rows.map(toResult);
     },

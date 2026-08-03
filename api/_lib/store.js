@@ -24,7 +24,7 @@
 // mutates stored state in any adapter.
 
 /**
- * A player. `memberKey` is `sha256(secret || server_pepper)` (plan §2.2); the
+ * A player. `memberKey` is `HMAC-SHA-256(server_pepper, secret)` (plan §2.2); the
  * raw secret is never stored and never reaches this layer.
  *
  * @typedef {object} Member
@@ -137,6 +137,15 @@ export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 export const ATTEMPTS_MIN = 1;
 export const ATTEMPTS_MAX = 6;
 
+/** Postgres `INTEGER` upper bound; keeps memory and Neon behavior identical. */
+export const SECONDS_MAX = 2_147_483_647;
+
+// Storage accepts already-normalized domain strings from the future HTTP
+// handlers, but it still rejects inputs that can collide in the memory
+// adapter's NUL-delimited composite keys or consume unbounded memory.
+const STORAGE_TEXT_MAX_LENGTH = 256;
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
+
 /**
  * Every error an adapter throws is a plain `Error` from this helper, so no
  * driver error class ever escapes. Driver detail rides along as `cause`.
@@ -170,8 +179,15 @@ export function foreignKeyError(cause) {
  * @returns {string}
  */
 export function assertKey(value, label) {
-  if (typeof value !== "string" || value === "") {
-    throw storeError(`${label} must be a non-empty string`);
+  if (
+    typeof value !== "string" ||
+    value.trim() === "" ||
+    value.length > STORAGE_TEXT_MAX_LENGTH ||
+    CONTROL_CHARACTER_PATTERN.test(value)
+  ) {
+    throw storeError(
+      `${label} must be a non-empty string up to ${STORAGE_TEXT_MAX_LENGTH} characters without control characters`,
+    );
   }
   return value;
 }
@@ -183,9 +199,40 @@ export function assertKey(value, label) {
  */
 export function assertDateKey(value, label) {
   if (typeof value !== "string" || !DATE_PATTERN.test(value)) {
-    throw storeError(`${label} must be a YYYY-MM-DD string, not a Date`);
+    throw storeError(`${label} must be a real YYYY-MM-DD calendar date, not a Date`);
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1 || year > 9999) {
+    throw storeError(`${label} must be a real YYYY-MM-DD calendar date, not a Date`);
+  }
+  const candidate = new Date(0);
+  candidate.setUTCHours(0, 0, 0, 0);
+  candidate.setUTCFullYear(year, month - 1, day);
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    throw storeError(`${label} must be a real YYYY-MM-DD calendar date, not a Date`);
   }
   return value;
+}
+
+/**
+ * Validates an inclusive calendar range once for both storage adapters.
+ *
+ * @param {unknown} from
+ * @param {unknown} to
+ * @returns {{from:string, to:string}}
+ */
+export function assertDateRange(from, to) {
+  const normalizedFrom = assertDateKey(from, "from");
+  const normalizedTo = assertDateKey(to, "to");
+  if (normalizedFrom > normalizedTo) {
+    throw storeError("from must be on or before to");
+  }
+  return { from: normalizedFrom, to: normalizedTo };
 }
 
 /**
@@ -194,8 +241,8 @@ export function assertDateKey(value, label) {
  * @returns {number}
  */
 export function assertPositiveInteger(value, label) {
-  if (!Number.isInteger(value) || value < 1) {
-    throw storeError(`${label} must be an integer >= 1`);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw storeError(`${label} must be a safe integer >= 1`);
   }
   return value;
 }
@@ -218,8 +265,11 @@ export function normalizeResultInput(input) {
   if (attempts !== null && (attempts < ATTEMPTS_MIN || attempts > ATTEMPTS_MAX)) {
     throw storeError("attempts must be an integer 1..6 or null for a loss");
   }
-  if (seconds !== null && (!Number.isInteger(seconds) || seconds < 0)) {
-    throw storeError("seconds must be a non-negative integer or null");
+  if (
+    seconds !== null &&
+    (!Number.isSafeInteger(seconds) || seconds < 0 || seconds > SECONDS_MAX)
+  ) {
+    throw storeError(`seconds must be an integer 0..${SECONDS_MAX} or null`);
   }
   if (typeof input.besa !== "boolean" || typeof input.hint !== "boolean") {
     throw storeError("besa and hint must be booleans");

@@ -17,6 +17,7 @@
 
 import {
   assertDateKey,
+  assertDateRange,
   assertKey,
   assertPositiveInteger,
   foreignKeyError,
@@ -249,11 +250,13 @@ export function createMemoryStore() {
 
     async listResultRange(code, from, to) {
       assertKey(code, "circleCode");
-      assertDateKey(from, "from");
-      assertDateKey(to, "to");
+      const range = assertDateRange(from, to);
       return [...results.values()]
         .filter(
-          (row) => row.circleCode === code && row.playDate >= from && row.playDate <= to,
+          (row) =>
+            row.circleCode === code &&
+            row.playDate >= range.from &&
+            row.playDate <= range.to,
         )
         .sort(
           (a, b) =>

@@ -9,7 +9,12 @@ import {
   readAppShellFiles,
   readCacheVersion,
 } from "../scripts/check-cache-version-bump.mjs";
-import { ALBANIAN_ALPHABET, BADGE_IDS, MILESTONE_IDS } from "../src/game.js";
+import {
+  ALBANIAN_ALPHABET,
+  ALBANIAN_DIGRAPHS,
+  BADGE_IDS,
+  MILESTONE_IDS,
+} from "../src/game.js";
 import { REWARDS_ENABLED } from "../src/config.js";
 
 const CANONICAL_ORIGIN = "https://www.xn--fjal-opa.com/";
@@ -17,10 +22,11 @@ const OG_IMAGE_FILENAME = "og-fjale-v3.png";
 const OG_IMAGE_URL = `${CANONICAL_ORIGIN}${OG_IMAGE_FILENAME}`;
 
 test("keeps canonical, social, structured-data, and CSP metadata coherent", async () => {
-  const [html, serverSource, vercelSource] = await Promise.all([
+  const [html, serverSource, vercelSource, rrethiPlan] = await Promise.all([
     readFile("index.html", "utf8"),
     readFile("server.mjs", "utf8"),
     readFile("vercel.json", "utf8"),
+    readFile("PLAN-RRETHI-2026-08.md", "utf8"),
   ]);
   const vercel = JSON.parse(vercelSource);
   const structuredDataMatch = html.match(
@@ -47,6 +53,12 @@ test("keeps canonical, social, structured-data, and CSP metadata coherent", asyn
   assert.ok(productionCsp?.includes(`'${structuredDataHash}'`));
   assert.ok(serverSource.includes(`"script-src 'self' '${structuredDataHash}'"`));
   assert.ok(serverSource.includes(`"/${OG_IMAGE_FILENAME}"`));
+  assert.ok(html.includes("5 kuti · 36 shkronja · 1 fjalë"));
+  assert.ok(
+    rrethiPlan.includes(`${CANONICAL_ORIGIN}?rrethi=`),
+    "future invite examples must use the canonical IDNA origin",
+  );
+  assert.doesNotMatch(rrethiPlan, /xn--fjal-9ra\.com/u);
 });
 
 test("keeps the versioned social card at the declared dimensions", async () => {
@@ -144,6 +156,9 @@ test("keeps the service worker update prompt wired end to end", async () => {
   assert.ok(app.includes('postMessage({ type: "SKIP_WAITING" })'));
   assert.ok(app.includes('addEventListener("controllerchange"'));
   assert.ok(app.includes("updateReloadArmed"), "reloads must require an accepted prompt");
+  assert.ok(app.includes("keepUpdatePromptOffKeyboard"));
+  assert.ok(app.includes("keyboardRect.bottom - bannerRect.top"));
+  assert.ok(app.includes('behavior: REDUCED_MOTION.matches ? "auto" : "smooth"'));
   assert.ok(html.includes('id="update-banner"'));
   assert.ok(html.includes('id="update-refresh"'));
   assert.ok(html.includes('id="update-dismiss"'));
@@ -286,7 +301,7 @@ test("keeps focus treatment branded and non-interactive destinations quiet", asy
   assert.doesNotMatch(styles, /\.board-stage:focus-visible/u);
 });
 
-test("keeps the mobile keyboard in Albanian QWERTZ order with edge controls", async () => {
+test("keeps the mobile keyboard in Albanian QWERTZ order with familiar controls", async () => {
   const app = await readFile("src/app.js", "utf8");
   const keyboardBlock = app.match(
     /const KEYBOARD_ROWS = Object\.freeze\(\[([\s\S]*?)\]\);/u,
@@ -297,17 +312,24 @@ test("keeps the mobile keyboard in Albanian QWERTZ order with edge controls", as
     [...row.matchAll(/"([^"]+)"/gu)].map(([, key]) => key),
   );
   assert.deepEqual(rows, [
-    ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç"],
-    ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë"],
-    ["y", "x", "c", "v", "b", "n", "m", "backspace"],
-    ["dh", "gj", "ll", "nj", "rr", "sh", "th", "xh", "zh", "enter"],
+    ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç", "backspace"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë", "enter"],
+    ["y", "x", "c", "v", "b", "n", "m"],
   ]);
 
   const letters = rows.flat().filter((key) => !["backspace", "enter"].includes(key));
-  assert.equal(new Set(letters).size, ALBANIAN_ALPHABET.length);
-  assert.deepEqual([...letters].sort(), [...ALBANIAN_ALPHABET].sort());
-  assert.equal(rows[2].at(-1), "backspace");
-  assert.equal(rows[3].at(-1), "enter");
+  const ordinaryLetters = ALBANIAN_ALPHABET.filter((letter) => !ALBANIAN_DIGRAPHS.includes(letter));
+  assert.equal(new Set(letters).size, ordinaryLetters.length);
+  assert.deepEqual([...letters].sort(), [...ordinaryLetters].sort());
+  assert.equal(rows[0].at(-1), "backspace");
+  assert.equal(rows[1].at(-1), "enter");
+  assert.equal(rows[2].length, 7);
+  assert.doesNotMatch(app, /\["dh",\s*"gj",\s*"ll",/u);
+  assert.match(
+    await readFile("styles.css", "utf8"),
+    /@media \(max-width: 340px\)[\s\S]*?\.brand\s*\{[\s\S]*?left:\s*calc\(50% - 24px\)/u,
+    "the brand mark must clear the Passport target at the 320px support floor",
+  );
 });
 
 test("keeps current guess tiles selectable and replaceable without a saved cursor", async () => {
@@ -327,6 +349,13 @@ test("keeps current guess tiles selectable and replaceable without a saved curso
   assert.match(app, /fromPhysicalKeyboard\s*&&\s*Number\.isInteger\(pendingEditedDigraphIndex\)/u);
   assert.ok(app.includes("elements.boardStage.focus({ preventScroll: true })"));
   assert.match(styles, /\.tile\.is-editable\.is-selected\s*\{/u);
+});
+
+test("rejects a repeated guess before it can consume another attempt", async () => {
+  const app = await readFile("src/app.js", "utf8");
+
+  assert.ok(app.includes("hasSubmittedGuess(state.guesses, state.current)"));
+  assert.ok(app.includes("E ke provuar tashmë këtë fjalë."));
 });
 
 test("publishes crawl directives for the canonical origin", async () => {
@@ -392,6 +421,7 @@ test("keeps internal documents out of the deployment", async () => {
     "PRODUCT.md",
     "README.md",
     "EDITORIAL.md",
+    "design-concepts/",
     "editor/",
     "tests/",
     "scripts/",
@@ -400,6 +430,26 @@ test("keeps internal documents out of the deployment", async () => {
   ]) {
     assert.ok(ignored.has(entry), `.vercelignore must exclude ${entry}`);
   }
+});
+
+test("deploys the health endpoint with no-cache guards on every serving layer", async () => {
+  const [serverSource, serviceWorker, vercelSource, vercelIgnore] = await Promise.all([
+    readFile("server.mjs", "utf8"),
+    readFile("service-worker.js", "utf8"),
+    readFile("vercel.json", "utf8"),
+    readFile(".vercelignore", "utf8"),
+  ]);
+  const vercel = JSON.parse(vercelSource);
+  const apiRule = vercel.headers.find((rule) => rule.source === "/api/(.*)");
+
+  assert.ok(serverSource.includes('pathname === "/api/health"'));
+  assert.ok(serverSource.includes("handleHealthRequest(request, response)"));
+  assert.ok(serviceWorker.includes('url.pathname.startsWith("/api/")'));
+  assert.equal(
+    apiRule?.headers.find((header) => header.key === "Cache-Control")?.value,
+    "private, no-store, max-age=0",
+  );
+  assert.doesNotMatch(vercelIgnore, /^api\/?$/gmu, "Vercel must not ignore /api/health");
 });
 
 test("keeps the report address in exactly one configurable place", async () => {
@@ -434,6 +484,17 @@ test("ships the reward layer dark and gates every rule behind one class", async 
   // Every new stylesheet rule hangs off the body class, so "flag off" means no
   // reward selector can match rather than "the rules happen not to apply".
   assert.match(app, /classList\.toggle\("rewards-on", rewardsEnabled\(\)\)/u);
+  assert.match(
+    app,
+    /LOCAL_FLAG_HOSTS = new Set\(\["localhost", "127\.0\.0\.1", "\[::1\]"\]\)/u,
+    "the rewards query override must be restricted to loopback hosts",
+  );
+  assert.match(app, /if \(!LOCAL_FLAG_HOSTS\.has\(window\.location\.hostname\)\)/u);
+  assert.match(
+    app,
+    /streakGraceEnabled: rewardsEnabled\(\)/u,
+    "the dark reward flag must preserve the existing streak rules",
+  );
   // The section runs from its banner to the end of the components layer, so the
   // token audit below cannot drift into unrelated rules.
   const rewardStart = styles.indexOf("Lëvizje & shpërblime (plan §4)");
@@ -489,6 +550,9 @@ test("ships the reward layer dark and gates every rule behind one class", async 
     ".streak-figure.is-ticking .streak-digit",
     "#stat-streak.is-hot::after",
     ".result-besa-seal.is-pressing",
+    ".badge-seal-coin",
+    ".avatar-current-visual.is-changing img",
+    ".avatar-option.is-unlocking img",
     ".milestone-band.is-running",
   ]) {
     assert.ok(
@@ -500,7 +564,7 @@ test("ships the reward layer dark and gates every rule behind one class", async 
   // No new colour token: the layer paints only with tokens both themes declare.
   const rewardColours = [...rewardBlock.matchAll(/var\((--[a-z-]+)\)/gu)].map(([, token]) => token);
   const allowed = new Set([
-    "--primary", "--primary-deep", "--primary-pale", "--correct", "--ink", "--ink-soft",
+    "--bg", "--primary", "--primary-deep", "--primary-pale", "--correct", "--ink", "--ink-soft",
     "--muted", "--faint", "--surface", "--surface-hover", "--line-strong", "--on-primary",
     "--ease-out", "--ease-standard", "--radius-sm", "--radius-md", "--stamp-delay",
   ]);
@@ -515,7 +579,13 @@ test("ships the reward layer dark and gates every rule behind one class", async 
     html.indexOf('id="stats-dialog"'),
   );
   assert.ok(passportDialog.includes('id="passport-tablist"'));
+  assert.ok(passportDialog.includes('id="badge-dialog-count"'));
   assert.ok(passportDialog.includes('id="badge-grid"'));
+  assert.ok(passportDialog.includes('id="passport-tab-avatar"'));
+  assert.ok(passportDialog.includes('id="passport-panel-avatar"'));
+  assert.ok(passportDialog.includes('id="avatar-free-grid"'));
+  assert.ok(passportDialog.includes('id="avatar-earned-grid"'));
+  assert.ok(passportDialog.includes('id="avatar-letter-select"'));
 
   // The alphabet section is on screen whether or not the flag is set, so its
   // tabpanel semantics must be attached at runtime. Authored in the markup they
@@ -535,6 +605,28 @@ test("ships the reward layer dark and gates every rule behind one class", async 
   for (const id of [...BADGE_IDS, ...MILESTONE_IDS]) {
     assert.ok(app.includes(`"${id}"`), `app.js must carry Albanian copy for ${id}`);
   }
+
+  // The badge backs form one quiet, ordered easter egg. Interaction is a real
+  // button with pressed state, not a hover-only decoration, and the coin uses a
+  // bounded 3D transform that becomes instant under reduced motion.
+  const badgeCopyBlock = app.slice(
+    app.indexOf("const BADGE_COPY"),
+    app.indexOf("const MILESTONE_COPY"),
+  );
+  const badgeSecrets = [...badgeCopyBlock.matchAll(/secret: "([^"]+)"/gu)].map(
+    ([, secret]) => secret,
+  );
+  assert.equal(badgeSecrets.length, BADGE_IDS.length);
+  assert.equal(badgeSecrets.join(""), "FJALËMEBESË");
+  assert.match(app, /seal\.type = "button"/u);
+  assert.match(app, /seal\.setAttribute\("aria-pressed", "false"\)/u);
+  assert.match(app, /classList\.toggle\("is-flipped"\)/u);
+  assert.match(rewardBlock, /transform-style: preserve-3d/u);
+  assert.match(rewardBlock, /backface-visibility: hidden/u);
+  assert.match(rewardBlock, /transition: transform 360ms var\(--ease-out\)/u);
+  const badgeSealRule = rewardBlock.match(/\.badge-seal \{([^}]+)\}/u)?.[1] ?? "";
+  assert.match(badgeSealRule, /width: 44px/u);
+  assert.match(badgeSealRule, /height: 44px/u);
   // New Albanian copy stays flagged for a native pass.
   assert.ok(app.includes("UNVERIFIED sq copy"));
   assert.ok(html.includes("UNVERIFIED sq copy"));
@@ -549,9 +641,10 @@ test("surfaces invalid challenge links instead of silently opening the daily", a
 });
 
 test("keeps the service-worker shell, server allowlist, and corpus policy synchronized", async () => {
-  const [serviceWorker, serverSource] = await Promise.all([
+  const [serviceWorker, serverSource, vercelSource] = await Promise.all([
     readFile("service-worker.js", "utf8"),
     readFile("server.mjs", "utf8"),
+    readFile("vercel.json", "utf8"),
   ]);
 
   const extractPaths = (source, marker) => {
@@ -581,15 +674,26 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
   const corpus = await readFile("src/accepted-words.js", "utf8");
   assert.match(corpus, /Corpus version: \S+/u, "corpus must declare its version");
   assert.match(serviceWorker, /const CACHE_NAME = "fjale-shell-v\d+"/u);
+
+  // A later authenticated API must never inherit the shell's Cache API policy.
+  const apiGuard = serviceWorker.indexOf('url.pathname === "/api"');
+  const networkFirstDispatch = serviceWorker.indexOf("event.respondWith(networkFirst");
+  assert.ok(apiGuard >= 0 && apiGuard < networkFirstDispatch, "API bypass must run before caching");
+  const vercel = JSON.parse(vercelSource);
+  const apiRule = vercel.headers.find((rule) => rule.source === "/api/(.*)");
+  assert.equal(
+    apiRule?.headers.find((header) => header.key === "Cache-Control")?.value,
+    "private, no-store, max-age=0",
+  );
 });
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v16", "fjale-shell-v15");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v25", "fjale-shell-v24");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 16);
+  assert.equal(readCacheVersion(serviceWorker), 25);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -614,10 +718,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v15/u,
+    /did not advance beyond fjale-shell-v24/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 15, currentVersion: 16 },
+    { previousVersion: 24, currentVersion: 25 },
   );
 });

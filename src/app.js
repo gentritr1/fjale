@@ -15,6 +15,7 @@ import {
   getAttemptCount,
   getDailyAnswerIndex,
   getTiranaDateKey,
+  hasSubmittedGuess,
   mergePhysicalCharacterAt,
   MILESTONE_IDS,
   normalizeStreakForDate,
@@ -29,6 +30,12 @@ import {
   tokenizeAlbanian,
   WORD_RATING_VALUES,
 } from "./game.js";
+import {
+  EARNED_AVATARS,
+  FREE_AVATARS,
+  getAvatarById,
+  isAvatarUnlocked,
+} from "./avatars.js";
 import { ACCEPTED_GUESSES, ANSWERS, getAnswerById } from "./words.js";
 import { REPORT_EMAIL, REWARDS_ENABLED } from "./config.js";
 
@@ -80,9 +87,16 @@ const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 // confetti on every win, no Vulat tab, none of the new motion.
 // ---------------------------------------------------------------------------
 const REWARDS_FLAG_KEY = "fjale:flag:shperblime";
+const LOCAL_FLAG_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const REWARDS_ON = resolveRewardsFlag();
 
 function resolveRewardsFlag() {
+  // Query-string flags are a developer convenience, never a public preview
+  // surface. A production link must only obey the reviewed config constant.
+  if (!LOCAL_FLAG_HOSTS.has(window.location.hostname)) {
+    return REWARDS_ENABLED;
+  }
+
   const override = new URLSearchParams(window.location.search).get("shperblime");
   try {
     if (override === "1") {
@@ -102,33 +116,77 @@ function rewardsEnabled() {
   return REWARDS_ON;
 }
 
-/* UNVERIFIED sq copy — every Albanian string in the three maps below (badge
-   names, badge earn conditions, milestone names) is generated, not written by a
-   native speaker. It is the single grep-able marker for this round's new copy;
-   nothing else in this commit introduces player-facing Albanian text. Ids come
-   from BADGE_IDS / MILESTONE_IDS in game.js and are asserted complete below, so
-   a new id fails loudly instead of rendering an empty chip. */
+/* UNVERIFIED sq copy — badge names, earn conditions, milestone names, and the
+   nearby seal accessibility labels are generated, not written by a native
+   speaker. Ids come from BADGE_IDS / MILESTONE_IDS in game.js and are asserted
+   complete below, so a new id fails loudly instead of rendering an empty chip. */
 const BADGE_COPY = Object.freeze({
-  "daily-win-1": { name: "Vula e parë", goal: "Fito fjalën e ditës një herë." },
+  "daily-win-1": {
+    name: "Vula e parë",
+    goal: "Fito fjalën e ditës një herë.",
+    mark: "01",
+    secret: "F",
+  },
   "daily-attempt-1": {
     name: "Goditje e parë",
     goal: "Gjeje fjalën e ditës me provën e parë.",
+    mark: "1",
+    secret: "J",
   },
   "daily-attempt-6": {
     name: "Këmbëngulja",
     goal: "Gjeje fjalën e ditës me provën e gjashtë.",
+    mark: "6",
+    secret: "A",
   },
   "daily-fast-10": {
     name: "Dora e sigurt",
     goal: "10 fitore ditore me tri prova ose më pak.",
+    mark: "10",
+    secret: "L",
   },
-  "streak-7": { name: "Java e plotë", goal: "Seri prej 7 ditësh radhazi." },
-  "streak-30": { name: "Muaji i plotë", goal: "Seri prej 30 ditësh radhazi." },
-  "daily-played-100": { name: "Njëqind ditë", goal: "Luaj 100 fjalë të ditës." },
-  "archive-won-25": { name: "Arkivari", goal: "25 fitore nga arkiva." },
-  "digraphs-9": { name: "Nëntë vulat", goal: "Mblidh të nëntë dyshkronjëshat." },
-  "letters-36": { name: "Pasaporta e plotë", goal: "Mblidh të 36 shkronjat." },
-  "besa-3": { name: "Besa e trefishtë", goal: "Fito 3 herë me Besë." },
+  "streak-7": {
+    name: "Java e plotë",
+    goal: "Seri prej 7 ditësh radhazi.",
+    mark: "7",
+    secret: "Ë",
+  },
+  "streak-30": {
+    name: "Muaji i plotë",
+    goal: "Seri prej 30 ditësh radhazi.",
+    mark: "30",
+    secret: "M",
+  },
+  "daily-played-100": {
+    name: "Njëqind ditë",
+    goal: "Luaj 100 fjalë të ditës.",
+    mark: "100",
+    secret: "E",
+  },
+  "daily-win-25": {
+    name: "Njëzet e pesë",
+    goal: "Fito fjalën e ditës 25 herë.",
+    mark: "25",
+    secret: "B",
+  },
+  "digraphs-9": {
+    name: "Nëntë vulat",
+    goal: "Mblidh të nëntë dyshkronjëshat.",
+    mark: "9",
+    secret: "E",
+  },
+  "letters-36": {
+    name: "Pasaporta e plotë",
+    goal: "Mblidh të 36 shkronjat.",
+    mark: "36",
+    secret: "S",
+  },
+  "daily-besa-3": {
+    name: "Besa e trefishtë",
+    goal: "Fito fjalën e ditës 3 herë me Besë.",
+    mark: "B",
+    secret: "Ë",
+  },
 });
 
 /* UNVERIFIED sq copy — milestone band labels. */
@@ -156,12 +214,12 @@ for (const id of MILESTONE_IDS) {
 
 // Keep the ordinary keys in the familiar Albanian QWERTZ order. W and
 // punctuation are omitted because guesses use exactly the 36 letters of the
-// Albanian alphabet; the nine atomic digraphs have their own final row.
+// Albanian alphabet. Digraphs stay supported by the physical keyboard and the
+// adjacent-letter merge logic, but are not promoted to special visible keys.
 const KEYBOARD_ROWS = Object.freeze([
-  ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç"],
-  ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë"],
-  ["y", "x", "c", "v", "b", "n", "m", "backspace"],
-  ["dh", "gj", "ll", "nj", "rr", "sh", "th", "xh", "zh", "enter"],
+  ["q", "e", "r", "t", "z", "u", "i", "o", "p", "ç", "backspace"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ë", "enter"],
+  ["y", "x", "c", "v", "b", "n", "m"],
 ]);
 
 const ALBANIAN_MONTHS_SHORT = Object.freeze([
@@ -217,6 +275,17 @@ const ALBANIAN_WEEKDAYS_LONG = Object.freeze([
 
 const elements = {
   alphabetGrid: document.querySelector("#alphabet-grid"),
+  avatarCurrentImage: document.querySelector("#avatar-current-image"),
+  avatarCurrentName: document.querySelector("#avatar-current-name"),
+  avatarCurrentVisual: document.querySelector("#avatar-current-visual"),
+  avatarEarned: document.querySelector("#avatar-earned"),
+  avatarEarnedCount: document.querySelector("#avatar-earned-count"),
+  avatarEarnedGrid: document.querySelector("#avatar-earned-grid"),
+  avatarFreeGrid: document.querySelector("#avatar-free-grid"),
+  avatarLetterPreview: document.querySelector("#avatar-letter-preview"),
+  avatarLetterSelect: document.querySelector("#avatar-letter-select"),
+  avatarPickerNote: document.querySelector("#avatar-picker-note"),
+  badgeDialogCount: document.querySelector("#badge-dialog-count"),
   badgeGrid: document.querySelector("#badge-grid"),
   besaButton: document.querySelector("#besa-button"),
   besaCard: document.querySelector("#besa-card"),
@@ -254,6 +323,7 @@ const elements = {
   passportCount: document.querySelector("#passport-count"),
   passportDialogCount: document.querySelector("#passport-dialog-count"),
   passportPanelAlphabet: document.querySelector("#passport-panel-alphabet"),
+  passportPanelAvatar: document.querySelector("#passport-panel-avatar"),
   passportPanelBadges: document.querySelector("#passport-panel-badges"),
   passportRing: document.querySelector("#passport-ring"),
   passportTablist: document.querySelector("#passport-tablist"),
@@ -346,6 +416,7 @@ let justMergedDigraphIndex = null;
 let pendingStampLetters = [];
 let pendingStreakTick = false;
 let pendingBesaSealPress = false;
+let pendingAvatarUnlockIds = [];
 // Which streak figure to draw in the result panel, held separately from the
 // profile so the digit that ticks away is the pre-win one.
 let resultStreakDigits = null;
@@ -519,6 +590,7 @@ function hydrateGame(raw, expectedDescriptor = null) {
     getAnswerById(answerIndex) === undefined ||
     !["daily", "practice", "challenge", "archive"].includes(mode) ||
     typeof puzzleId !== "string" ||
+    puzzleId.length === 0 ||
     puzzleId.length > 100
   ) {
     return null;
@@ -632,6 +704,9 @@ function wireInteractions() {
   if (rewardsEnabled()) {
     elements.passportTablist.addEventListener("click", handlePassportTabClick);
     elements.passportTablist.addEventListener("keydown", handlePassportTabKeydown);
+    elements.avatarFreeGrid.addEventListener("click", handleAvatarOptionClick);
+    elements.avatarEarnedGrid.addEventListener("click", handleAvatarOptionClick);
+    elements.avatarLetterSelect.addEventListener("change", handleAvatarLetterChange);
   }
 
   document.querySelectorAll("[data-open-dialog]").forEach((button) => {
@@ -1125,6 +1200,11 @@ function submitGuess() {
   }
 
   const guessWord = state.current.join("");
+  if (hasSubmittedGuess(state.guesses, state.current)) {
+    showInvalid("E ke provuar tashmë këtë fjalë.");
+    return;
+  }
+
   if (!ACCEPTED_GUESSES.has(guessWord) && !ANSWER_SET.has(guessWord)) {
     showInvalid("Kjo fjalë nuk është ende në listën tonë.");
     showReportLink(guessWord);
@@ -1782,7 +1862,7 @@ function renderKeyboard() {
   for (const keys of KEYBOARD_ROWS) {
     const row = document.createElement("div");
     row.className = "keyboard-row";
-    row.classList.toggle("is-short-row", keys.includes("backspace"));
+    row.classList.toggle("is-short-row", keys.length < 11);
 
     for (const value of keys) {
       const key = document.createElement("button");
@@ -1848,8 +1928,8 @@ function renderPassport() {
     count === ALBANIAN_ALPHABET.length
       ? "Alfabeti u plotësua. Të 36 shkronjat kanë vulën tënde!"
       : missingDigraph
-        ? `Në kërkim të ${missingDigraph.toLocaleUpperCase("sq-AL")} — zgjidh fjalë të reja për ta gjetur.`
-        : "Dyshkronjëshat u mblodhën. Tani plotëso pjesën tjetër të alfabetit.";
+        ? `Në kërkim të ${missingDigraph.toLocaleUpperCase("sq-AL")} — vetëm fjalët e ditës mund ta vulosin.`
+        : "Dyshkronjëshat u mblodhën. Fjalët e ditës do të plotësojnë pjesën tjetër.";
 
   // stamp-land is a one-shot: the letters this win added are consumed by the
   // first render after the win, so re-rendering the passport for any other
@@ -1891,6 +1971,197 @@ function renderPassport() {
   renderBadges();
 }
 
+// Shenja is deliberately local-first. It reads the same monotonic badge
+// results as Vulat, saves only a closed-catalog avatar id plus one Albanian
+// letter, and makes no network request. Rrethi can reuse these two values later.
+function renderAvatarPicker() {
+  if (!rewardsEnabled() || !elements.avatarFreeGrid) {
+    return;
+  }
+
+  const badges = computeEarnedBadges(profile);
+  const badgeById = new Map(badges.map((badge) => [badge.id, badge]));
+  const earnedBadgeIds = new Set(
+    badges.filter((badge) => badge.earned).map((badge) => badge.id),
+  );
+  const storedAvatar = getAvatarById(profile.avatarId) ?? FREE_AVATARS[0];
+  const selectedAvatar = isAvatarUnlocked(storedAvatar, earnedBadgeIds)
+    ? storedAvatar
+    : FREE_AVATARS[0];
+  const unlocking = new Set(pendingAvatarUnlockIds);
+  pendingAvatarUnlockIds = [];
+
+  elements.avatarCurrentImage.src = selectedAvatar.asset;
+  elements.avatarCurrentName.textContent = selectedAvatar.name;
+  elements.avatarLetterPreview.textContent = profile.letterSeal.toLocaleUpperCase("sq-AL");
+
+  if (elements.avatarLetterSelect.options.length !== ALBANIAN_ALPHABET.length) {
+    elements.avatarLetterSelect.replaceChildren();
+    for (const letter of ALBANIAN_ALPHABET) {
+      const option = document.createElement("option");
+      option.value = letter;
+      option.textContent = letter.toLocaleUpperCase("sq-AL");
+      elements.avatarLetterSelect.append(option);
+    }
+  }
+  elements.avatarLetterSelect.value = profile.letterSeal;
+
+  renderAvatarOptions(
+    elements.avatarFreeGrid,
+    FREE_AVATARS,
+    selectedAvatar.id,
+    earnedBadgeIds,
+    badgeById,
+    unlocking,
+  );
+  renderAvatarOptions(
+    elements.avatarEarnedGrid,
+    EARNED_AVATARS,
+    selectedAvatar.id,
+    earnedBadgeIds,
+    badgeById,
+    unlocking,
+  );
+
+  const earnedAvatarCount = EARNED_AVATARS.filter((avatar) =>
+    isAvatarUnlocked(avatar, earnedBadgeIds),
+  ).length;
+  elements.avatarEarnedCount.textContent = `${earnedAvatarCount} / ${EARNED_AVATARS.length}`;
+
+  if (selectedAvatar.badgeId || unlocking.size > 0) {
+    elements.avatarEarned.open = true;
+  }
+
+  if (unlocking.size > 0) {
+    const names = EARNED_AVATARS.filter((avatar) => unlocking.has(avatar.id)).map(
+      (avatar) => avatar.name,
+    );
+    elements.avatarPickerNote.textContent = `U hap ${names.join(", ")}. Shenja mbetet e jotja.`;
+  } else {
+    elements.avatarPickerNote.textContent = "Zgjidh një shenjë; mund ta ndryshosh kur të duash.";
+  }
+}
+
+function renderAvatarOptions(
+  container,
+  avatars,
+  selectedAvatarId,
+  earnedBadgeIds,
+  badgeById,
+  unlocking,
+) {
+  container.replaceChildren();
+
+  for (const avatar of avatars) {
+    const unlocked = isAvatarUnlocked(avatar, earnedBadgeIds);
+    const selected = unlocked && avatar.id === selectedAvatarId;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "avatar-option";
+    button.dataset.avatarId = avatar.id;
+    button.classList.toggle("is-selected", selected);
+    button.classList.toggle("is-locked", !unlocked);
+    button.classList.toggle("is-unlocking", unlocking.has(avatar.id));
+    button.setAttribute("aria-pressed", String(selected));
+
+    const badge = avatar.badgeId ? badgeById.get(avatar.badgeId) : null;
+    const unlockCopy = unlocked ? "" : avatarUnlockCopy(avatar, badge);
+    button.setAttribute(
+      "aria-label",
+      selected
+        ? `${avatar.name}, shenja e zgjedhur.`
+        : unlocked
+          ? `Zgjidh shenjën ${avatar.name}.`
+          : `${avatar.name}, e kyçur. ${unlockCopy}`,
+    );
+    const image = document.createElement("img");
+    image.src = avatar.asset;
+    image.alt = "";
+    image.width = 160;
+    image.height = 160;
+    image.decoding = "async";
+    image.draggable = false;
+    if (avatar.badgeId) {
+      image.loading = "lazy";
+    }
+    button.append(image);
+
+    if (!unlocked) {
+      const lock = document.createElement("span");
+      lock.className = "avatar-option-lock";
+      lock.setAttribute("aria-hidden", "true");
+      lock.innerHTML =
+        '<svg viewBox="0 0 24 24"><rect x="6.5" y="10" width="11" height="9" rx="2"></rect><path d="M9 10V7.5a3 3 0 0 1 6 0V10"></path></svg>';
+      button.append(lock);
+    }
+
+    container.append(button);
+  }
+}
+
+function avatarUnlockCopy(avatar, badge) {
+  if (avatar.badgeId === "rrethi-days-7") {
+    return "Hapet më vonë me Vulën e rrethit.";
+  }
+  const copy = BADGE_COPY[avatar.badgeId];
+  return `${copy.name}: ${Math.min(badge.current, badge.target)} / ${badge.target}.`;
+}
+
+function handleAvatarOptionClick(event) {
+  const button = event.target.closest("button[data-avatar-id]");
+  if (!button) {
+    return;
+  }
+
+  const avatar = getAvatarById(button.dataset.avatarId);
+  if (!avatar) {
+    return;
+  }
+
+  const badges = computeEarnedBadges(profile);
+  const earnedBadgeIds = new Set(
+    badges.filter((badge) => badge.earned).map((badge) => badge.id),
+  );
+  if (!isAvatarUnlocked(avatar, earnedBadgeIds)) {
+    const badge = badges.find((entry) => entry.id === avatar.badgeId);
+    const message = avatarUnlockCopy(avatar, badge);
+    elements.avatarPickerNote.textContent = message;
+    announce(message);
+    return;
+  }
+
+  profile = { ...profile, avatarId: avatar.id };
+  saveProfile();
+  renderAvatarPicker();
+  animateCurrentAvatar();
+  elements.avatarPickerNote.textContent = `${avatar.name} është shenja jote.`;
+  announce(`${avatar.name} u zgjodh si shenja jote.`);
+}
+
+function handleAvatarLetterChange() {
+  const letter = normalizeWord(elements.avatarLetterSelect.value);
+  if (!ALPHABET_SET.has(letter)) {
+    elements.avatarLetterSelect.value = profile.letterSeal;
+    return;
+  }
+
+  profile = { ...profile, letterSeal: letter };
+  saveProfile();
+  elements.avatarLetterPreview.textContent = letter.toLocaleUpperCase("sq-AL");
+  animateCurrentAvatar();
+  elements.avatarPickerNote.textContent = `Vula tani mban shkronjën ${letter.toLocaleUpperCase("sq-AL")}.`;
+  announce(elements.avatarPickerNote.textContent);
+}
+
+function animateCurrentAvatar() {
+  if (REDUCED_MOTION.matches) {
+    return;
+  }
+  elements.avatarCurrentVisual.classList.remove("is-changing");
+  void elements.avatarCurrentVisual.offsetWidth;
+  elements.avatarCurrentVisual.classList.add("is-changing");
+}
+
 // 40ms stagger per newly collected letter (plan §4.3). The delay is a custom
 // property rather than an inline animation so the reduced-motion rule can drop
 // the whole thing to a static final state without fighting a specificity war.
@@ -1902,39 +2173,87 @@ function applyStampLanding(stamp, order) {
   stamp.style.setProperty("--stamp-delay", `${order * 40}ms`);
 }
 
-// The eleven local badges (plan §4.5). Earned chips reuse the .alphabet-stamp
-// visual language; unearned ones stay visible as dimmed outlines carrying the
-// earn condition, because a stated goal is the retention mechanism.
+// UNVERIFIED sq accessibility copy — the visual easter egg is also announced
+// after the user turns a seal, so the discovery is not sight-only.
+function badgeSealLabel(copy, flipped) {
+  return flipped
+    ? `Ana e fshehtë e vulës ${copy.name}: ${copy.secret}.`
+    : `Rrotullo vulën ${copy.name}.`;
+}
+
+// The eleven local badges (plan §4.5). Each code-native seal has two faces: the
+// goal mark on the front and one letter of FJALË ME BESË on the back. Rotation
+// is user-controlled, so the detail rewards curiosity without moving at rest.
 function renderBadges() {
   if (!rewardsEnabled() || !elements.badgeGrid) {
     return;
   }
 
+  const badges = computeEarnedBadges(profile);
+  const earnedCount = badges.filter((badge) => badge.earned).length;
+  elements.badgeDialogCount.textContent = `${earnedCount} / ${badges.length}`;
   elements.badgeGrid.replaceChildren();
-  for (const { id, earned } of computeEarnedBadges(profile)) {
+  for (const { id, earned, current, target } of badges) {
     const copy = BADGE_COPY[id];
     const chip = document.createElement("li");
     chip.className = "badge-chip";
     chip.classList.toggle("is-earned", earned);
     chip.setAttribute(
       "aria-label",
-      `${copy.name}: ${earned ? "e fituar" : `ende pa u fituar. ${copy.goal}`}`,
+      `${copy.name}: ${earned ? "e fituar" : `ende pa u fituar, ${Math.min(current, target)} nga ${target}. ${copy.goal}`}`,
     );
 
-    const seal = document.createElement("span");
+    const seal = document.createElement("button");
+    seal.type = "button";
     seal.className = "badge-seal";
-    seal.setAttribute("aria-hidden", "true");
-    seal.textContent = earned ? "✓" : "·";
+    seal.setAttribute("aria-label", badgeSealLabel(copy, false));
+    seal.setAttribute("aria-pressed", "false");
+
+    const coin = document.createElement("span");
+    coin.className = "badge-seal-coin";
+    coin.setAttribute("aria-hidden", "true");
+
+    const front = document.createElement("span");
+    front.className = "badge-seal-face badge-seal-front";
+    front.classList.toggle("has-wide-mark", copy.mark.length > 2);
+    front.textContent = copy.mark;
+
+    const back = document.createElement("span");
+    back.className = "badge-seal-face badge-seal-back";
+    back.textContent = copy.secret;
+
+    if (earned) {
+      const earnedMark = document.createElement("span");
+      earnedMark.className = "badge-earned-mark";
+      earnedMark.textContent = "✓";
+      front.append(earnedMark);
+    }
+    coin.append(front, back);
+    seal.append(coin);
+    seal.addEventListener("click", () => {
+      const flipped = seal.classList.toggle("is-flipped");
+      seal.setAttribute("aria-pressed", String(flipped));
+      seal.setAttribute("aria-label", badgeSealLabel(copy, flipped));
+    });
 
     const name = document.createElement("strong");
     name.className = "badge-name";
     name.textContent = copy.name;
 
+    const progress = document.createElement("span");
+    progress.className = "badge-progress";
+    progress.setAttribute("aria-hidden", "true");
+    progress.textContent = `${Math.min(current, target)} / ${target}`;
+
+    const heading = document.createElement("span");
+    heading.className = "badge-heading";
+    heading.append(name, progress);
+
     const goal = document.createElement("span");
     goal.className = "badge-goal";
     goal.textContent = copy.goal;
 
-    chip.append(seal, name, goal);
+    chip.append(seal, heading, goal);
     elements.badgeGrid.append(chip);
   }
 }
@@ -2458,6 +2777,13 @@ function recordCompletedGame() {
 
   // Pull in progress written by another open tab before applying this result.
   profile = loadProfile();
+  const earnedBadgesBefore = rewardsEnabled()
+    ? new Set(
+        computeEarnedBadges(profile)
+          .filter((badge) => badge.earned)
+          .map((badge) => badge.id),
+      )
+    : new Set();
   const result = applyCompletedGameToProfile(
     profile,
     {
@@ -2470,11 +2796,25 @@ function recordCompletedGame() {
       usedHint: state.usedHint,
     },
     COMPLETED_PUZZLES_CAP,
+    { streakGraceEnabled: rewardsEnabled() },
   );
   state.recorded = true;
   lastCompletionEvents = result.recorded ? result.events : null;
   if (result.recorded) {
     profile = result.profile;
+    if (rewardsEnabled()) {
+      const earnedBadgesAfter = new Set(
+        computeEarnedBadges(profile)
+          .filter((badge) => badge.earned)
+          .map((badge) => badge.id),
+      );
+      pendingAvatarUnlockIds = EARNED_AVATARS.filter(
+        (avatar) =>
+          avatar.badgeId !== "rrethi-days-7" &&
+          !earnedBadgesBefore.has(avatar.badgeId) &&
+          earnedBadgesAfter.has(avatar.badgeId),
+      ).map((avatar) => avatar.id);
+    }
     saveProfile();
   }
 
@@ -2490,11 +2830,12 @@ function consumeCompletionEvents() {
   return events;
 }
 
-// A missed day is forgiven automatically once per rolling 30 days, so a streak
-// stays alive across a two-day gap while the grace day is still available. The
-// grace itself is spent only when the day is completed, in the game layer.
+// Grace is part of the reviewed reward experiment. Keeping the option behind
+// the same flag means a dark reward layer cannot silently change a live streak.
 function normalizeExpiredStreak() {
-  const result = normalizeStreakForDate(profile, getTiranaDateKey());
+  const result = normalizeStreakForDate(profile, getTiranaDateKey(), {
+    streakGraceEnabled: rewardsEnabled(),
+  });
   if (result.changed) {
     profile = result.profile;
     saveProfile();
@@ -2600,6 +2941,7 @@ function openDialog(id) {
 
   if (id === "passport-dialog") {
     renderPassport();
+    renderAvatarPicker();
   } else if (id === "stats-dialog") {
     renderStats();
   }
@@ -2951,7 +3293,24 @@ function showUpdatePrompt() {
     return;
   }
   elements.updateBanner.hidden = false;
+  window.requestAnimationFrame(keepUpdatePromptOffKeyboard);
   announce("Një version i ri i lojës është gati. Shtyp Rifresko për ta hapur.");
+}
+
+function keepUpdatePromptOffKeyboard() {
+  const bannerRect = elements.updateBanner.getBoundingClientRect();
+  const keyboardRect = elements.keyboard.getBoundingClientRect();
+  const keyboardIsVisible = keyboardRect.bottom > 0 && keyboardRect.top < window.innerHeight;
+  const overlap = keyboardRect.bottom - bannerRect.top;
+
+  if (!keyboardIsVisible || overlap <= 0) {
+    return;
+  }
+
+  window.scrollBy({
+    top: overlap + 8,
+    behavior: REDUCED_MOTION.matches ? "auto" : "smooth",
+  });
 }
 
 function acceptUpdate() {

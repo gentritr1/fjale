@@ -1,18 +1,44 @@
 # PLAN — Rrethi, Sfida, Lëvizje (2026-08)
 
 Plan for the next FJALË round: private circles, three Albanian-specific
-challenges, a motion/badge layer. Written against commit `a7a6bc1`; every number
-is read from source or computed from the live catalog, with the source named at
-the claim.
+challenges, a motion/badge layer. The original audit was written against commit
+`a7a6bc1`; the implementation status below was refreshed on 2026-08-03 from the
+retention branch.
 
 **Copy warning:** every Albanian string here is **UNVERIFIED — pending native
 review**. None of it is final feature copy.
 
-**Doc hygiene, act on this first:** `.vercelignore` is an explicit exclusion list
-and `tests/launch.test.js:382` asserts only a fixed set of filenames, so this
-file is **not excluded** and would deploy to `www.fjalë.com/PLAN-RRETHI-2026-08.md`.
-Add it to `.vercelignore` before the next deploy. (I was scoped to write only
-this file, so the edit is not made.)
+## 0. Gjendja pas rishikimit
+
+| Area | State on this branch | Ship decision |
+|---|---|---|
+| Reward logic, badge thresholds, migrations | implemented + tested | keep behind `REWARDS_ENABLED` until native copy/device review |
+| Vulat UI, restrained win choreography, digraph motion | implemented + 320/375/390px, landscape, desktop reviewed | keep; use one-column badge rows on phones |
+| Shenja local avatar picker | implemented + 24 optimized assets, badge unlocks, 36 seals, 320/390px and desktop reviewed | keep behind `REWARDS_ENABLED`; reuse for Rrethi join |
+| Streak grace | implemented + explicitly flag-gated | recommended ON with the reward experiment, never silently before it |
+| Rrethi storage M0 | memory + Neon adapters implemented; memory suite passes | keep dormant; tune the free provider later |
+| Rrethi data endpoints, identity, 10-seat circle UI | not built; local avatar identity is ready | after stable launch only; `/api/health` is operational only and stores no user data |
+| Missing-letter practice, Nëntë Vulat, narrow mode | planned, not built | build in that order; all reuse reviewed words |
+
+**The retention cut:** ship fewer loops, each with a clear job. Vulat makes wins
+feel cumulative; `Vula që të mungon` turns the passport into the best next
+action; `Nëntë Vulat` creates a weekly Albanian-specific appointment; Rrethi
+adds private social accountability after launch. Do not add a public global
+leaderboard, coins, shops, notification pressure, or a generic collection of
+timed modes.
+
+**Market check (2026-08-03):** Fjalëza already offers an archive, definitions,
+and correct digraph counting ([fjaleza.com](https://fjaleza.com/)); Fjalth has
+dedicated Albanian digraph keys ([fjalth.com](https://www.fjalth.com/)); and a
+newer Albanian word app already markets a global leaderboard
+([Google Play](https://play.google.com/store/apps/details?id=com.blocify.lojefjalesh)),
+while [fjalez.al](https://fjalez.al/) already covers generic 5/6/7-letter modes.
+The defensible claim is therefore not “we support digraphs.” It is **progress
+built around the 36-letter alphabet and nine digraphs, plus spoiler-safe private
+circles**.
+
+**Doc hygiene:** resolved. The plan and `design-concepts/` are excluded by
+`.vercelignore` and guarded by the launch tests.
 
 ---
 
@@ -46,24 +72,25 @@ here.
 for Rrethi including adapter, one concrete DB, and the privacy rewrite. Zero
 editorial. Target €0/month infrastructure. The real price is trust: Rrethi is the
 first time player data leaves the device, changing the story from "nothing is
-transmitted" to "these four fields are". The privacy page must change **in the
-same release** (`ROADMAP.md:224`).
+transmitted" to "this minimal circle profile and result summary are". The
+privacy page must change **in the same release** (`ROADMAP.md:224`).
 
-**What this needs from the user.** Six decisions (§5.3). The two that block work
-are **streak forgiveness (yes/no)** and **whether Rrethi beta precedes public
-launch** (recommendation: no).
+**Decisions used for this branch.** §5.3 records the recommended defaults rather
+than leaving the implementation ambiguous. Rewards and grace stay behind the
+same OFF-by-default flag; Rrethi stays post-launch; Neon is only a provisional
+free-tier adapter. Native Albanian copy review and a physical-device feel pass
+are the remaining activation gates.
 
-**Two defects found while grounding this plan.**
+**Two defects found and resolved on this branch.**
 
 1. **Confetti fires on every win.** `finishGame()` calls `showCelebration()`
    unconditionally for any win in any mode (`src/app.js:1046-1047`). The
    anti-casino stance and DESIGN.md's "celebration that appears only after earned
    actions" describe a no-recurring-confetti rule the shipped code does not
-   implement. §4.4 gates it to milestones.
-2. **`besaWins` counts every mode.** `applyCompletedGameToProfile` increments it
-   whenever `besa && !usedHint`, with no mode check (`src/game.js:741-743`), while
-   the engraved seal is daily-only (`src/app.js:1641`). Any Besa badge built on
-   `besaWins` counts practice wins. §4.5 handles it without invalidating profiles.
+   implement. §4.4 now gates it to milestones while rewards are enabled.
+2. **`besaWins` counts every mode.** That legacy overall statistic remains intact,
+   but Passport progress now reads the isolated `besaDailyWins` counter. Practice,
+   Archive, and Challenge therefore cannot earn the Besa Passport badge.
 
 ---
 
@@ -72,8 +99,8 @@ launch** (recommendation: no).
 ### 2.1 UX flow
 
 **Krijo rreth** (stats sheet → new "Rrethi" section; display name 2–20 chars +
-circle name, no email, no password) → **Ftesa**: the app builds
-`https://www.xn--fjal-9ra.com/?rrethi=RR-XXXXXX` and hands it to
+circle name + one circle-seal avatar, no email, no password) → **Ftesa**: the app builds
+`https://www.xn--fjal-opa.com/?rrethi=RR-XXXX-XXXX-XXXXX` and hands it to
 `navigator.share` (already implemented as `shareOrCopy`, `src/app.js:2103`) so
 WhatsApp/Viber get a native sheet, with copy fallback on desktop → **Bashkohu**:
 the link shows a join card (circle name, member count, name field) and, on
@@ -89,18 +116,103 @@ FJALË. E njëjta fjalë çdo ditë.` · pre-finish rows `Ka mbaruar` / `Ende po
 · post-finish `{name} · {n} prova` · recovery `Ky është kodi yt i rikthimit. Pa
 të, rrethi humbet nëse ndërron telefon.`
 
+#### 2.1.1 Dhjetë vende + Shenjat e Rrethit
+
+One circle has **at most 10 members**. The join card previews the occupied seats
+in a 2×5 lobby, then asks for a display name and avatar. Ten is intentionally
+smaller than a generic community leaderboard: every person remains recognisable,
+the complete group fits on one phone screen, and the cap is a hard free-tier and
+abuse boundary rather than a setting.
+
+Avatars are **Shenjat e Rrethit**, not profile photos or flag/folklore stickers.
+The selected free join cast is the 12-character sheet at
+`design-concepts/rrethi-avatar-flash-variety-v6.png`: racing-car driver,
+rebellious asymmetric hair, two-tone dyed hair, skater, tinkerer, music fan,
+wheelchair user, older player, reader, runner, creator, and hoodie character.
+All 12 pass the 48px recognition check and are available immediately; a new
+member is never forced into a generic silhouette or a reward grind just to look
+distinct. Their stable catalog ids, in sheet order, are `stick-racer`,
+`stick-rebel`, `stick-dyed`, `stick-skater`, `stick-tinkerer`, `stick-music`,
+`stick-wheelchair`, `stick-elder`, `stick-reader`, `stick-runner`,
+`stick-creator`, and `stick-hoodie`; art can improve later without changing a
+member's stored identity.
+
+At join, the player combines one free character with any of the 36 Albanian
+letter seals. Every letter is free. That gives 432 day-one combinations while
+keeping the runtime local, fast, consistent, and free of prompt abuse. The
+local selection is now implemented in the existing passport dialog's `Shenja`
+tab and persisted as validated `profile.avatarId` + `profile.letterSeal` values.
+The 24 reviewed 160px WebP assets total about 180 KB under `/avatars/`; the fixed
+catalog and unlock mapping live in `src/avatars.js`. M1 sends the same two values
+as `avatar_id` and `letter_seal`; the dormant M0 server storage stays unchanged
+until Rrethi is activated.
+
+The bold cel-animation animal sheet at
+`design-concepts/rrethi-avatar-cel-v4.png` is the selected earned set. Its 12
+animals unlock one-for-one through the existing 11 local badges plus the future
+server-derived Rrethi badge:
+
+| Earned avatar | Stable `avatar_id` | Unlock condition | Badge id |
+|---|---|---|---|
+| Owl | `animal-owl` | first daily win | `daily-win-1` |
+| Fox | `animal-fox` | daily win on the first attempt | `daily-attempt-1` |
+| Hare | `animal-hare` | daily win on the sixth attempt | `daily-attempt-6` |
+| Bear | `animal-bear` | 10 daily wins in three attempts or fewer | `daily-fast-10` |
+| Mountain goat | `animal-goat` | a 7-day daily streak | `streak-7` |
+| Cat | `animal-cat` | a 30-day daily streak | `streak-30` |
+| Tortoise | `animal-tortoise` | 100 daily puzzles played | `daily-played-100` |
+| Songbird | `animal-songbird` | 25 daily wins | `daily-win-25` |
+| Hedgehog | `animal-hedgehog` | all 9 digraphs collected | `digraphs-9` |
+| Moth | `animal-moth` | all 36 letters collected | `letters-36` |
+| Frog | `animal-frog` | 3 daily Besa wins | `daily-besa-3` |
+| Badger | `animal-badger` | finish the daily on 7 days as a circle member | `rrethi-days-7` *(future)* |
+
+This is a visible, deterministic unlock path: no coins, random boxes, expiry,
+paywall, or duplicate prizes. A locked animal shows its exact badge name and
+progress; earning the badge reveals it once, after which it stays available
+forever. The other studies remain references rather than selectable styles:
+animal seal `v1`, animated clay `v2`, layered cut-paper `v3`, and the first
+stick-character pass `v5`. Keeping only `v6` and `v4` in the picker avoids a
+mixed-style gallery.
+
+The unlock is cosmetic and based on progress already stored by the game. The
+client sends only a stable catalog id, never badge history or an arbitrary image
+URL; the future Rrethi server validates the id against the catalog. It does not
+need to police a locally altered cosmetic unlock, which avoids transmitting more
+personal play history for no security benefit.
+
+Do **not** generate an avatar live during the join flow. OpenAI's current image
+guide notes that complex generations can take up to two minutes and recurring
+character consistency can vary; a network wait here would damage the first
+social moment. A later opt-in creator may use only pre-approved visual chips,
+server-side generation, default moderation, and a cached asset. It may not accept
+selfies or free-form public prompts without a separate privacy and abuse review.
+
+Motion answers state: choosing a character gives it one 180ms tilt-and-settle;
+an empty seat receives the chosen seal with the same restrained press-and-settle;
+a newly unlocked animal turns once in 240ms; a completed player gains a quiet
+progress ring; and the last player completing closes the group ring. No avatar
+loops while the player is reading or solving. Reduced motion renders the same
+final states immediately. Two earned easter eggs are allowed: all nine digraph
+letter seals in one circle unlock `Nëntë Shenjat`, and all 10 members finishing
+on the same day unlock one shared `Rrethi u mbyll` seal. Neither runs as an idle
+loop.
+
 ### 2.2 Identity — one secret, three faces
 
 No accounts. On first Rrethi use the client generates a 128-bit secret with
 `crypto.getRandomValues`, stored at `fjale:identity:v1`, used as: a localStorage
 token; the bearer credential (`Authorization: Bearer <secret>`); and the
-**recovery code**, Crockford base32 in 4 groups of 4 — `RKTH-4M2Q-8XVB-J7PD`
-(the prefix makes it recognisable in a chat log). The server stores **only**
-`sha256(secret || server_pepper)` as `member_key`, so a lost secret is
+**recovery code**. The code must preserve all 128 random bits: 26 Crockford
+base32 characters plus one checksum character, grouped for copying as
+`RKTH-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX-C`. The fixed prefix is only a label and
+adds no entropy. The server stores **only**
+`HMAC-SHA-256(server_pepper, secret)` as `member_key`, so a lost secret is
 unrecoverable by us — the point being that we cannot enumerate, re-identify, or
-restore anyone. Recovery is pasting the code on a new device; a checksum
-character is validated locally so a typo costs no round-trip. The display name is
-per-player, circle-visible, editable, and not part of identity.
+restore anyone. Recovery is pasting the code on a new device; the checksum is
+validated locally so a typo costs no round-trip. The raw secret never appears in
+a URL, log line, analytics event, or error. The display name is per-player,
+circle-visible, editable, and not part of identity.
 
 ### 2.3 What the board ranks, and why
 
@@ -119,8 +231,9 @@ toggle the creator can enable; never the primary sort.
 6/5/4/3/2/1; loss or unplayed = 0; **+1** for a Besa win with no hint. Max 7/day,
 49/week. It is exactly the attempt distribution the game already renders, it
 makes the Besa meta — our signature, which no competitor has — worth one real
-point, and it never goes negative, so a bad day cannot feel punitive. **Needs
-owner sign-off (§5.3):** whether Besa is worth a point is a taste call.
+point, and it never goes negative, so a bad day cannot feel punitive. This is the
+recommended formula selected for the later Rrethi beta; it can be tuned after
+observing one family circle rather than exposing a setting now.
 
 **Streaks are shown, never ranked.** Each row shows the member's own streak as a
 quiet honey number. Ranking by streak makes a single missed day socially visible
@@ -157,9 +270,9 @@ detection theatre.
   backfilling a perfect history. **Shape:** `attempts ∈ 1..6 | "X"`, booleans are
   booleans, no free text except the display name.
 - **Rate limits:** 60 req/min per member key, 10 circle creations/day, 20
-  joins/day; IP is an ephemeral bucket key only, never stored. **Caps:** 30
-  members/circle, 10 circles/member — family-scale, and also the free-tier cost
-  control. **Invite codes:** 8 chars Crockford base32 from a CSPRNG (~40 bits),
+  joins/day; IP is an ephemeral bucket key only, never stored. **Caps:** 10
+  members/circle, 10 circles/member — small enough to stay personal, and also
+  the free-tier cost control. **Invite codes:** 13 chars Crockford base32 from a CSPRNG (~65 bits),
   revocable by the creator; revocation issues a new code and keeps members.
 - **Display names:** trimmed, NFC, ≤20 chars, no control characters, ≤2 emoji. No
   automated profanity filter — circles are self-selecting and the creator can
@@ -180,18 +293,23 @@ has three states — `synced`, `në pritje`, `pa lidhje` — none of which is a 
 or dialog, since the toast channel stays reserved for gameplay. With the backend
 fully down the app is byte-identical to today's plus one greyed card. The service
 worker already serves the shell offline (`service-worker.js:1-35`); `/api/*` is
-**never** precached and must be explicitly excluded from the SW fetch handler.
+**never** precached and is explicitly bypassed by the SW fetch handler before
+any cache strategy runs.
 
 ### 2.7 API surface
 
 Same-origin Vercel functions under `/api/`. This matters: `vercel.json:9` sets
 `connect-src 'self'`, so same-origin calls need **no CSP change**. Any
 third-party BaaS SDK phoning home to its own domain would require a CSP edit and
-is rejected on that ground alone.
+is rejected on that ground alone. CORS stays disabled: state-changing requests
+with a browser `Origin` other than the canonical origin return `403`. Bearer
+credentials live only in the `Authorization` header, which request/error logs
+must redact. Every `/api/*` response is `Cache-Control: no-store`; the Vercel
+header rule and service-worker bypass enforce that independently of a handler.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/api/rrethi/members` | `{displayName}` | `{memberId, recoveryCode}` |
+| POST | `/api/rrethi/members` | `{displayName, avatarId, letterSeal}` | `{memberId, recoveryCode}` |
 | POST | `/api/rrethi/circles` | `{name}` | `{code, name, memberCount}` |
 | GET | `/api/rrethi/circles/:code` | – | `{name, memberCount, joined}` |
 | POST | `/api/rrethi/circles/:code/join` | `{displayName?}` | `{name, memberCount}` |
@@ -207,8 +325,9 @@ Nine endpoints, bearer auth on all but `POST /members`, all JSON with
 ### 2.8 Data model
 
 ```sql
-member      (member_key TEXT PK,            -- sha256(secret||pepper)
+member      (member_key TEXT PK,            -- HMAC-SHA-256(pepper, secret)
              display_name TEXT NOT NULL,
+             avatar_id TEXT NOT NULL, letter_seal TEXT NOT NULL,
              created_at TIMESTAMPTZ NOT NULL, last_seen_at TIMESTAMPTZ NOT NULL)
 circle      (code TEXT PK, name TEXT NOT NULL,
              owner_key TEXT NOT NULL REFERENCES member,
@@ -237,6 +356,8 @@ query. **Free-tier size math:** a `result` row is ~60 bytes, so 1,000 players ×
 realistic scale — compute-hours and cold starts are** (§6.2). **Never stored
 server-side:** the answer, the guesses, the board pattern, IP addresses, user
 agents, email, location, or the raw secret. The share grid stays client-side.
+Expired rate buckets are deleted after 48 hours; otherwise rotating anonymous
+buckets become an unbounded table even though each individual row is tiny.
 
 ### 2.9 Storage adapter
 
@@ -265,13 +386,13 @@ in the handlers. `api/_lib/store.js`:
 Rules that make the swap real rather than aspirational: **`putResult` returns a
 discriminated result, never throws a driver error** (insert-if-absent is the
 adapter's job; the handler never sees a Postgres code); **no driver types cross
-the boundary** (dates are `YYYY-MM-DD` strings, not `Date`); **three
-implementations from day one** — `store-memory.js` (tests, zero deps),
-`store-neon.js`, and one of `store-turso.js` / `store-supabase.js`, selected by
-env var `RRETHI_STORE`, because one real driver plus a memory stub does *not*
-prove swappability (the stub never round-trips SQL types); and **one conformance
-suite** (`tests/rrethi-store.test.js`) running the identical ~30 assertions
-against every configured adapter — passing it is the definition of shippable.
+the boundary** (dates are `YYYY-MM-DD` strings, not `Date`); and **two concrete
+implementations at M0** — `store-memory.js` (tests, zero deps) and
+`store-neon.js`, selected by `RRETHI_STORE`. One conformance suite
+(`tests/rrethi-store.test.js`) runs the identical assertions against every
+configured adapter. Add Turso only if the M4 free-tier and cold-start evidence
+shows a real need; a speculative third driver would add maintenance without
+improving the product today.
 
 Recommendation when the decision is taken: **Neon** — it is Postgres, so the
 schema above is portable to a paid tier or self-host; its HTTP driver suits
@@ -286,9 +407,9 @@ The current claim is absolute — "localStorage only, nothing is transmitted"
 page ships in the **same deploy** and must state: Rrethi is opt-in, and a player
 who never joins a circle transmits nothing while the app makes zero network
 requests beyond loading itself; **what leaves the device** is a random identifier
-(never your name, email, or device details), your chosen display name, the circle
-code, and per day — attempts used, hint used, Besa declared, plus elapsed time
-only if your circle enabled it; **what never leaves** is your guesses, the words
+(never your name, email, or device details), your chosen display name, avatar ID,
+letter seal, the circle code, and per day — attempts used, hint used, Besa
+declared, plus elapsed time only if your circle enabled it; **what never leaves** is your guesses, the words
 you tried, your ratings, reports, archive history, passport, and badges;
 **retention** is 400 days for results and for circles with no activity;
 **deletion** is `DELETE /api/rrethi/me` with the recovery code, erasing the member
@@ -306,17 +427,19 @@ Rrethi UI is **constructed** (not hidden — not constructed), no `fetch` to
 `npm run check` passes with the flag in both positions. A test asserts that with
 the flag false no `/api/` string is reachable from the app entry path — a flag
 that only hides a button is not a flag. Rollout: ON for the owner's own device
-first (a localStorage override set by URL param, not a rebuild), then one real
-family circle for two weeks, then default ON.
+first through a protected preview deployment with an explicit build-time flag
+(never a public URL/localStorage override), then one real family circle for two
+weeks, then default ON.
 
 ### 2.12 Milestones and acceptance criteria
 
-**M0 — adapter + schema, no UI (1 wk).** `store-memory` and `store-neon` both pass
-the identical conformance suite; `npm test` shows it running twice under
-different adapter names. Schema in a checked-in `api/_lib/schema.sql`; re-running
-it is a no-op. *Acceptance:* `putResult` called twice with the same key returns
-`'created'` then `'conflict'` on **both** adapters, and the stored row is the
-first one.
+**M0 — adapter + schema, no UI (implemented, dormant).** `store-memory` passes
+the full conformance suite. `store-neon` uses the same suite and is conditionally
+skipped until a temporary `NEON_DATABASE_URL` is supplied; choosing and tuning a
+free instance is intentionally deferred. Schema lives in
+`api/_lib/schema.sql` and is idempotent. *Exit acceptance:* on a disposable Neon
+branch, `putResult` called twice with the same key returns `'created'` then
+`'conflict'`, and the stored row remains the first one.
 
 **M1 — endpoints, no UI (1 wk).** All nine respond correctly locally.
 *Spoiler:* a scripted two-member run where B fetches the board before finishing
@@ -325,7 +448,11 @@ the **raw response text**, not a parsed object. *Boundary:* with a fake clock at
 23:59:30 Europe/Tirane a POST files under date D; at 00:00:30 the next files under
 D+1 and the D board is fully unmasked; repeat on a DST-transition date, using the
 clock-shim technique already proven for archive verification. *Limits:* 61
-requests in a minute produce exactly one `429`.
+requests in a minute produce exactly one `429`. *Security:* an invalid calendar
+date, reversed date range, control character, oversized body, wrong content type,
+or cross-origin mutation is rejected before storage; raw bearer values never
+appear in logs; every response is `no-store`; and a service-worker-controlled
+browser has zero `/api/*` entries in Cache Storage after the full scripted run.
 
 **M2 — UI behind the flag (1.5 wk).** Create → share → join → play → board on a
 real phone over WhatsApp. *320px:* the board renders with no horizontal overflow
@@ -397,19 +524,20 @@ weekly-active players completing one in weeks 2–4. **Phase fit:** build now be
 a flag, ship after stable launch with badges; it reuses the daily board wholesale,
 so it is presentation, not a mode collection.
 
-### 3.2 RECOMMENDED — "Vula që të mungon" *(UNVERIFIED)*
+### 3.2 REJECTED — "Vula që të mungon" *(UNVERIFIED)*
 
-**Mechanic.** A one-tap practice puzzle whose answer is guaranteed to contain a
-letter the player has **not** yet collected in the passport, offered from the
-passport dialog as `Provo një fjalë me shkronjë të re`. When nothing is missing,
-the button becomes the completion state.
+**Decision.** Do not build a repeatable practice shortcut that fills the
+passport. Passport letters now come only from a completed win on today's Daily
+word; Archive, Practice, and Challenge can never add a stamp. This keeps the
+passport as evidence of returning over time instead of something a player can
+finish by grinding in one sitting.
 
 **Why no competitor has it.** None of the five competitors has any
 personalisation or progression object at all — fjalth, fjaleza, fjalez.al and
 metinferati serve the identical puzzle to everyone, and Luaj Live is an ad farm.
-Personalisation requires a per-player collection model, which requires treating
-the alphabet as content; we already store it as `profile.collection`
-(`src/app.js:2316`), updated on every win in every mode (`src/game.js:737-739`).
+Personalisation still uses `profile.collection`, but that collection is now
+daily-only. A targeted practice puzzle could remain an optional learning tool,
+but it must never update the passport or unlock its collection milestones.
 
 **Editorial cost: zero** — a filter over `ANSWERS` intersected with
 `profile.collection`, contained to `randomAnswerIndex` (`src/app.js:2245`), which
@@ -529,7 +657,7 @@ animation anywhere.
 |---|---|---:|---|---|---|
 | `digraph-snap` | two typed characters merge into a digraph (`appendPhysicalCharacter` / `mergePhysicalCharacterAt` return one) | 140ms | `--ease-out` | `scaleX(0.90)→1` on `.tile-letter`; `scale(1.04)→1` on the tile | none; tile renders in its final `.is-digraph` state |
 | `key-press` | keyboard key `:active` | 90ms | `--ease-out` | `scale(0.96)` | none; the existing background change still confirms the tap |
-| `stamp-land` | a letter newly enters `profile.collection` on a win | 260ms | `--ease-out` | `scale(0.72)→1`, `opacity 0→1`, 40ms stagger if several | stamp in final state; a 900ms honey `outline` marks which are new |
+| `stamp-land` | a letter newly enters `profile.collection` on a Daily win | 260ms | `--ease-out` | `scale(0.72)→1`, `opacity 0→1`, 40ms stagger if several | stamp in final state; a 900ms honey `outline` marks which are new |
 | `streak-tick` | `currentStreak` increases | 220ms | `--ease-out` | two stacked digits, `translateY(-100%)`, `opacity` | number swaps instantly; honey underline still applies |
 | `besa-seal-press` | daily win with Besa declared and no hint | 320ms | `--ease-out` | `scale(0.86)→1`, `opacity 0→1` | seal in final state |
 | `milestone-band` | a milestone badge is earned (§4.4) | 700ms, once | `--ease-out` | `scaleX(0)→1` from centre, then `opacity→0` | static full-width band for 2.4s, then opacity fade only |
@@ -594,19 +722,15 @@ beyond the milestone list.
 | 5 | `Java e plotë` | a 7-day daily streak | `bestStreak >= 7` |
 | 6 | `Muaji i plotë` | a 30-day daily streak | `bestStreak >= 30` |
 | 7 | `Njëqind ditë` | 100 daily puzzles played | `modeStats.daily.played >= 100` |
-| 8 | `Arkivari` | 25 archive wins | `modeStats.archive.won >= 25` |
+| 8 | `Njëzet e pesë` | 25 daily wins | `modeStats.daily.won >= 25` |
 | 9 | `Nëntë vulat` | all 9 digraphs collected | `collection ∩ DIGRAPHS === 9` |
 | 10 | `Pasaporta e plotë` | all 36 letters collected | `collection.length === 36` |
-| 11 | `Besa e trefishtë` | 3 Besa wins | `besaWins >= 3` — see caveat |
-| 12 | `Vula e rrethit` | finish the daily on 7 days as a circle member | server-derived, Rrethi-gated |
+| 11 | `Besa e trefishtë` | 3 daily Besa wins | `besaDailyWins >= 3` |
+| 12 | `Vula e rrethit` | finish the daily on 7 days as a circle member | `rrethi-days-7`, server-derived and Rrethi-gated |
 
-**Caveat on #11.** `besaWins` increments for **any** mode (`src/game.js:741-743`)
-while the seal is daily-only (`src/app.js:1641`). Either accept the looser meaning
-and name the badge for it, or add an additive `besaDailyWins` counter going
-forward. **Recommendation: the latter, granting the badge on
-`max(besaWins, besaDailyWins) >= 3`** — legacy profiles keep the badge they have
-effectively earned while new profiles earn the stricter one, which is the only way
-to tighten a rule without ever taking a badge away.
+**Meaning of #11.** `besaWins` remains an overall legacy statistic, but it does
+not unlock Passport progress. The badge, milestone, and engraved result seal all
+read the strict daily counter so the Passport cannot be completed by grinding.
 
 **Do not use `dailyResults` for daily-only counts.** `completionDateKey`
 (`src/game.js:636-644`) writes both `daily-` and `archive-` completions into the
@@ -614,17 +738,23 @@ same date-keyed map, so an archive play for date D creates `dailyResults[D]`.
 Every daily badge above therefore reads `modeStats.daily.*`, which is genuinely
 mode-isolated.
 
-**Migration — this touches persisted schema.** `profile.milestones` and
-`besaDailyWins` are additive, and `loadProfile` already defaults missing keys
-(`sanitizeModeStats` returns an all-zero record for a legacy profile), so old
-saves migrate silently with no wipe risk. **Required test:** load a profile JSON
-captured from the current production build, assert every legacy total and
-preference survives, and assert the new fields default rather than throw.
+**Migration — implemented and tested.** `profile.milestones`, `besaDailyWins`,
+and `lastGraceDate` are additive. A captured pre-rewards production profile is
+loaded by the test suite; every legacy total and preference is asserted intact,
+and the new fields default without a wipe or exception.
 
 **Display.** A `Vulat` tab inside the existing passport dialog — not a new dialog,
-not a new nav item. Unearned badges show as a dimmed outline with the condition in
-plain Albanian, because a visible goal is the retention mechanism and a hidden
-badge is a surprise, not a target. Both themes, tokens only, 320px verified.
+not a new nav item. Each row has a code-native double-ring passport seal, its
+plain-Albanian goal, and concrete progress (`5 / 10`), because a visible next step
+is the retention mechanism. The list is one column on phones and two only when
+space supports it; earned state uses the existing honey token and a small check.
+Following the user-controlled principle of Apple Fitness awards, each seal tilts
+only on precise hover and turns only on tap, click, or keyboard activation; none
+auto-spin. The backs quietly spell `FJALË ME BESË` in badge order. Reduced-motion
+keeps the same two faces but swaps instantly, so the discovery remains available.
+The ImageGen exploration is preserved at
+`design-concepts/vulat-imagegen-v1.png`; production seals remain HTML/CSS so they
+stay crisp, accessible, theme-aware, and lightweight.
 
 ---
 
@@ -654,35 +784,29 @@ rewrite), any epoch or pool change of any kind, and the §3.4 backlog.
 
 **Hard dependencies.** Rrethi M3 (privacy page) **must** be in the same deploy as
 the first live `/api` route — not the release before, not after. Any change to a
-precached runtime file must bump `CACHE_NAME` (currently `fjale-shell-v15`,
+precached runtime file must bump `CACHE_NAME` (now `fjale-shell-v25`,
 `service-worker.js:1`), enforced in CI by `scripts/check-cache-version-bump.mjs`;
 every item in §4 touches `styles.css` and `src/app.js`, so every one needs a bump.
-`/api/*` must be explicitly excluded from the service-worker fetch handler before
-M1, or a cached board response will serve stale or cross-day data. Badges depend
+`/api/*` is already excluded from the service-worker fetch handler and protected
+by a production `no-store` rule; M1 tests must keep both guards. Badges depend
 on the §4.5 migration test passing against a **real captured production profile**,
 not a synthetic one.
 
-### 5.3 Requires user decision
+### 5.3 Recommended decisions used for this preview
 
-1. **Streak forgiveness — yes or no?** *(Blocks badge work: badges 5–6 read
-   `bestStreak`, and a grace rule changes what a streak means.)* **Recommendation:
-   yes — one automatic grace day per rolling 30 days**, free, non-purchasable, and
-   never announced in advance so it cannot create the urgency the product bans.
-   `ROADMAP.md:266` already names exactly this as the first experiment, and market
-   research names streak-loss anxiety as the #1 churn driver. Honest
-   counter-argument: it makes the streak number a weaker claim.
-2. **Weekly points formula** — recommendation in §2.3 (6-5-4-3-2-1, +1 Besa, no
-   negatives). The open part is whether Besa deserves a point.
-3. **Does Rrethi beta precede public launch?** **Recommendation: no.** The blocker
-   is editorial; a backend beta adds a second unrelated failure surface to the
-   launch window, and the roadmap places circles after a stable launch. Build M0
-   now, ship M1+ after.
-4. **DB vendor** — recommendation Neon, Turso as fallback; decide at M0 exit, when
-   the conformance suite exists and the swap is genuinely cheap.
-5. **Is the current every-win confetti intended?** §4.4 assumes not; if it is, say
-   so and tier 3 changes.
-6. **Display-name moderation** — recommendation: no automated filter, creator can
-   remove members, names visible only inside a private circle. Confirm before M2.
+1. **Streak forgiveness:** one automatic grace day per rolling 30 days, free and
+   never announced in advance. It is enabled only with `REWARDS_ENABLED`; the
+   default-OFF build keeps today's streak semantics exactly.
+2. **Weekly points:** 6-5-4-3-2-1, +1 Besa, no negative points.
+3. **Rrethi timing:** M0 may remain in the repository, but endpoints and UI wait
+   until after a stable launch.
+4. **Database:** Neon is the provisional free Postgres option. Tune or replace it
+   only after a real beta exposes a constraint; no paid commitment now.
+5. **Celebration:** confetti is milestone-only with rewards enabled. Ordinary wins
+   retain the board pulse and result transition.
+6. **Private-circle names:** no automated filter in the first beta; circle owners
+   can remove members, and names are never public. Recheck this before M2 because
+   it affects moderation policy, not the current preview.
 
 ---
 
@@ -699,7 +823,7 @@ a DST date, using the archive clock-shim technique.
 compute-hours and connection time, not storage, and the §2.8 math shows 22 MB/year
 at 1,000 players — so **the risk is request volume and cold starts, not rows**.
 *Mitigation:* board fetch at most once per app foreground, never on an interval;
-the week query reuses the board's index; caps of 30 members/circle and 10
+the week query reuses the board's index; caps of 10 members/circle and 10
 circles/member; and a hard tripwire — if projected monthly compute exceeds 60% of
 free quota at M4, the flag goes back OFF and we re-scope rather than upgrade
 silently. Paying for infrastructure is a product decision, not an ops reflex.

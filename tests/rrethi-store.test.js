@@ -119,6 +119,13 @@ async function runConformance(t, store) {
     await store.deleteMember("m1-alba");
   });
 
+  await t.test("shared boundary rejects ambiguous or unbounded text", async () => {
+    await assert.rejects(() => store.createMember("m-safe\u0000collision", "Emër"), /control/u);
+    await assert.rejects(() => store.createMember("m-safe-newline", "Emër\nTjetër"), /control/u);
+    await assert.rejects(() => store.createMember("   ", "Emër"), /non-empty/u);
+    await assert.rejects(() => store.createMember("m-safe-long", "x".repeat(257)), /256/u);
+  });
+
   await t.test("circle: create and get", async () => {
     assert.equal(await store.getCircle("RR-C2ABSENT"), null);
 
@@ -264,6 +271,21 @@ async function runConformance(t, store) {
       () => store.putResult(result("RR-C5ATT", "m5-1", new Date("2026-08-06"), 3)),
       /YYYY-MM-DD/u,
     );
+    await assert.rejects(
+      () => store.putResult(result("RR-C5ATT", "m5-1", "2026-02-29", 3)),
+      /calendar date/u,
+    );
+    await assert.rejects(
+      () => store.putResult(result("RR-C5ATT", "m5-1", "0000-01-01", 3)),
+      /calendar date/u,
+    );
+    await assert.rejects(
+      () =>
+        store.putResult(
+          result("RR-C5ATT", "m5-1", "2026-08-06", 3, { seconds: 2_147_483_648 }),
+        ),
+      /seconds/u,
+    );
     assert.deepEqual(await store.listResults("RR-C5ATT", "2026-08-06"), []);
   });
 
@@ -302,6 +324,10 @@ async function runConformance(t, store) {
       (await store.listResultRange("RR-C6WEEK", "2026-08-09", "2026-08-09")).length,
       2,
     );
+    await assert.rejects(
+      () => store.listResultRange("RR-C6WEEK", "2026-08-09", "2026-08-03"),
+      /on or before/u,
+    );
   });
 
   await t.test("takeToken: allows `limit` calls per window, then refuses", async () => {
@@ -314,6 +340,10 @@ async function runConformance(t, store) {
 
     // Buckets are independent.
     assert.equal(await store.takeToken(`${bucket}-other`, 1, 60_000), true);
+    await assert.rejects(
+      () => store.takeToken(`${bucket}-unsafe`, Number.MAX_SAFE_INTEGER + 1, 60_000),
+      /safe integer/u,
+    );
 
     // The window rolls over: refused, then allowed again once it has elapsed.
     const rolling = `b7-roll-${randomBytes(4).toString("hex")}`;

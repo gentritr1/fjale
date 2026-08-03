@@ -20,7 +20,7 @@
 -- board pattern, IP addresses, user agents, email, location, or the raw secret.
 
 CREATE TABLE IF NOT EXISTS public.member (
-  member_key   TEXT PRIMARY KEY,             -- sha256(secret || server_pepper)
+  member_key   TEXT PRIMARY KEY,             -- HMAC-SHA-256(server_pepper, secret)
   display_name TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()

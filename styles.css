@@ -802,7 +802,7 @@
   }
 
   .keyboard-row.is-short-row {
-    width: 82%;
+    width: 70%;
     align-self: center;
   }
 
@@ -2328,7 +2328,7 @@
   .passport-tab {
     flex: 1 1 0;
     min-width: 0;
-    min-height: 38px;
+    min-height: 44px;
     border: 0;
     border-radius: var(--radius-sm);
     padding: 8px 10px;
@@ -2372,67 +2372,165 @@
     color: var(--primary-deep);
   }
 
-  .badge-intro {
-    margin-top: 0;
-    margin-bottom: 14px;
-    text-align: left;
+  .badge-summary {
+    margin-bottom: 10px;
   }
 
-  /* One column at 320px, two once there is room. Chips are content-sized in
-     both directions so a long Albanian earn condition wraps instead of
-     overflowing the dialog. */
+  /* One readable list on phones, two columns only once the dialog has room.
+     The rows use dividers instead of eleven boxed cards, which keeps the page
+     from turning into a reward dashboard. */
   .badge-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    column-gap: 16px;
     padding: 0;
     list-style: none;
   }
 
-  @media (min-width: 380px) {
+  @media (min-width: 480px) {
     .badge-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  /* Unearned: a dimmed outline carrying the goal, because a stated target is
-     the retention mechanism and a hidden badge is a surprise, not a goal. */
+  /* Unearned goals remain visible, with live progress. The seal family comes
+     from the ImageGen direction sheet but stays code-native: a double-ring
+     front, a hidden letter on the back, and no motion until the user asks. */
   .badge-chip {
     display: grid;
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr);
     grid-template-rows: auto auto;
-    column-gap: 9px;
+    column-gap: 8px;
     align-items: center;
     min-width: 0;
-    padding: 10px 11px;
-    border: 1px dashed var(--line-strong);
-    border-radius: var(--radius-sm);
+    min-height: 68px;
+    padding: 10px 2px;
+    border-bottom: 1px solid var(--line-strong);
     background: transparent;
   }
 
-  /* Earned: the passport's own stamp language — the honey plate and the tick
-     already used by a collected letter. */
-  .badge-chip.is-earned {
-    border: 1px solid transparent;
-    background: var(--primary-pale);
-  }
-
   .badge-seal {
+    position: relative;
     grid-row: 1 / span 2;
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--faint);
-    font-size: 0.8rem;
-    font-weight: 840;
+    width: 44px;
+    height: 44px;
+    padding: 5px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    perspective: 160px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 100ms var(--ease-out);
   }
 
-  .badge-chip.is-earned .badge-seal {
+  .badge-seal:active {
+    transform: scale(0.96);
+  }
+
+  .badge-seal:focus-visible {
+    outline: 2px solid var(--primary-deep);
+    outline-offset: 1px;
+  }
+
+  .badge-seal-coin {
+    position: relative;
+    display: block;
+    width: 34px;
+    height: 34px;
+    transform: rotateY(0deg);
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transition: transform 360ms var(--ease-out);
+  }
+
+  .badge-seal.is-flipped .badge-seal-coin {
+    transform: rotateY(180deg);
+  }
+
+  @media (hover: hover) {
+    .badge-seal:not(.is-flipped):hover .badge-seal-coin {
+      transform: rotateX(5deg) rotateY(-24deg);
+    }
+
+    .badge-seal.is-flipped:hover .badge-seal-coin {
+      transform: rotateX(5deg) rotateY(204deg);
+    }
+  }
+
+  .badge-seal-face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--faint);
+    font-size: 0.72rem;
+    font-weight: 860;
+    line-height: 1;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .badge-seal-face::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.55;
+  }
+
+  .badge-seal-front.has-wide-mark {
+    font-size: 0.58rem;
+  }
+
+  .badge-seal-back {
+    background: var(--bg);
+    color: var(--primary-deep);
+    transform: rotateY(180deg);
+  }
+
+  .badge-chip.is-earned .badge-seal-front {
+    border-color: var(--primary-deep);
     background: var(--primary);
     color: var(--on-primary);
+  }
+
+  .badge-chip.is-earned .badge-seal-back {
+    border-color: var(--primary-deep);
+    background: var(--primary-pale);
+  }
+
+  .badge-earned-mark {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--primary-deep);
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 0.52rem;
+    line-height: 1;
+  }
+
+  .badge-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
   }
 
   .badge-name {
@@ -2447,7 +2545,20 @@
     color: var(--ink);
   }
 
+  .badge-progress {
+    flex: 0 0 auto;
+    color: var(--faint);
+    font-size: 0.66rem;
+    font-weight: 780;
+    white-space: nowrap;
+  }
+
+  .badge-chip.is-earned .badge-progress {
+    color: var(--primary-deep);
+  }
+
   .badge-goal {
+    grid-column: 2;
     min-width: 0;
     margin-top: 2px;
     color: var(--faint);
@@ -2456,10 +2567,272 @@
     overflow-wrap: anywhere;
   }
 
-  /* An earned badge no longer needs to state its goal; keeping the row present
-     but quiet holds the chip heights even across a two-column grid. */
   .badge-chip.is-earned .badge-goal {
     color: var(--ink-soft);
+  }
+
+  /* ---- Shenja: local avatar identity inside the passport ---------------- */
+
+  .rewards-on .avatar-current {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 12px 14px;
+    align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .rewards-on .avatar-current-visual {
+    position: relative;
+    width: 82px;
+    height: 82px;
+    perspective: 220px;
+  }
+
+  .rewards-on .avatar-current-visual img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--primary-deep);
+    border-radius: 50%;
+    background: var(--bg);
+    object-fit: cover;
+  }
+
+  .rewards-on .avatar-letter-seal {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 0.78rem;
+    font-weight: 880;
+    line-height: 1;
+  }
+
+  .rewards-on .avatar-current-copy {
+    min-width: 0;
+  }
+
+  .rewards-on .avatar-current-copy > span {
+    display: block;
+    color: var(--primary-deep);
+    font-size: 0.7rem;
+    font-weight: 820;
+  }
+
+  .rewards-on .avatar-current-copy strong {
+    display: block;
+    margin-top: 1px;
+    color: var(--ink);
+    font-size: 1rem;
+  }
+
+  .rewards-on .avatar-current-copy p {
+    max-width: 38ch;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  .rewards-on .avatar-letter-field {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--ink-soft);
+    font-size: 0.76rem;
+    font-weight: 760;
+  }
+
+  .rewards-on .avatar-letter-field select {
+    min-width: 92px;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 30px 8px 12px;
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 820;
+  }
+
+  .rewards-on .avatar-picker-group {
+    margin-top: 18px;
+  }
+
+  .rewards-on .avatar-picker-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .rewards-on .avatar-picker-heading h3 {
+    color: var(--ink);
+    font-size: 0.84rem;
+    text-wrap: balance;
+  }
+
+  .rewards-on .avatar-picker-heading span {
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 760;
+  }
+
+  .rewards-on .avatar-option-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  @media (min-width: 480px) {
+    .rewards-on .avatar-option-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  .rewards-on .avatar-option {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 50%;
+    padding: 2px;
+    background: transparent;
+    transition: transform 150ms var(--ease-out);
+  }
+
+  .rewards-on .avatar-option img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    object-fit: cover;
+    transition: filter 150ms var(--ease-standard), opacity 150ms var(--ease-standard);
+  }
+
+  .rewards-on .avatar-option.is-selected img {
+    border: 3px solid var(--primary-deep);
+    outline: 3px solid var(--primary-pale);
+    outline-offset: -6px;
+  }
+
+  .rewards-on .avatar-option.is-locked img {
+    filter: grayscale(1);
+    opacity: 0.42;
+  }
+
+  @media (hover: hover) {
+    .rewards-on .avatar-option:hover:not(.is-locked) {
+      transform: translateY(-2px);
+    }
+
+    .rewards-on .avatar-option.is-locked:hover img {
+      opacity: 0.56;
+    }
+  }
+
+  .rewards-on .avatar-option:active {
+    transform: scale(0.96);
+  }
+
+  .rewards-on .avatar-option-lock {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--ink-soft);
+  }
+
+  .rewards-on .avatar-option-lock svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2;
+  }
+
+  .rewards-on .avatar-earned {
+    margin-top: 18px;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .rewards-on .avatar-earned summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 820;
+    cursor: pointer;
+  }
+
+  .rewards-on .avatar-earned summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .rewards-on .avatar-earned summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    color: var(--primary-deep);
+    font-size: 1rem;
+  }
+
+  .rewards-on .avatar-earned[open] summary::after {
+    content: "−";
+  }
+
+  .rewards-on .avatar-earned summary strong {
+    margin-left: auto;
+    color: var(--primary-deep);
+    font-size: 0.7rem;
+  }
+
+  .rewards-on .avatar-earned-intro {
+    max-width: 58ch;
+    margin: -3px 0 12px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.45;
+  }
+
+  .rewards-on .avatar-earned .avatar-option-grid {
+    padding-bottom: 14px;
+  }
+
+  .rewards-on .avatar-picker-note {
+    min-height: 2.8em;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .rewards-on .avatar-current-visual.is-changing img {
+    animation: avatar-settle 180ms var(--ease-out) both;
+  }
+
+  .rewards-on .avatar-option.is-unlocking img {
+    animation: avatar-unlock 240ms var(--ease-out) both;
   }
 }
 
@@ -2606,6 +2979,16 @@
   100% { opacity: 0; }
 }
 
+@keyframes avatar-settle {
+  0% { opacity: 0.76; transform: rotateY(-18deg) scale(0.96); }
+  100% { opacity: 1; transform: rotateY(0) scale(1); }
+}
+
+@keyframes avatar-unlock {
+  0% { opacity: 0.35; transform: rotateY(-82deg) scale(0.9); }
+  100% { opacity: 1; transform: rotateY(0) scale(1); }
+}
+
 @media (max-width: 880px) {
   .game-shell {
     width: min(calc(100% - 24px), 620px);
@@ -2741,6 +3124,28 @@
   .key svg {
     width: 16px;
     height: 16px;
+  }
+
+  /* At the 320px support floor, let the keyboard borrow four pixels from each
+     side of the game column and tighten only the inter-key gutters. This keeps
+     ordinary letters above the WCAG 2.2 24px target minimum without changing
+     the familiar three-row shape on regular phones. */
+  @media (max-width: 340px) {
+    .brand {
+      /* Four 44px header controls plus the brand cannot remain perfectly
+         centred at the 320px support floor. Shift only the small Ë mark into
+         the quiet gap so it never enters the Passport target or focus ring. */
+      left: calc(50% - 24px);
+    }
+
+    .keyboard-section {
+      width: calc(100% + 8px);
+      margin-inline: -4px;
+    }
+
+    .keyboard-row {
+      gap: 2px;
+    }
   }
 
   .board-message {
@@ -2914,6 +3319,32 @@
     animation: none !important;
     opacity: 1;
     transform: rotate(-8deg) scale(1);
+  }
+
+  /* Two-sided Vulat — preserve the chosen face, but remove the turn and hover
+     tilt. The easter egg remains fully available by tap and keyboard. */
+  .rewards-on .badge-seal {
+    transform: none !important;
+  }
+
+  .rewards-on .badge-seal-coin {
+    transition: none !important;
+  }
+
+  .rewards-on .badge-seal:not(.is-flipped) .badge-seal-coin {
+    transform: none !important;
+  }
+
+  .rewards-on .badge-seal.is-flipped .badge-seal-coin {
+    transform: rotateY(180deg) !important;
+  }
+
+  /* Shenja — selection and unlock state appear immediately, without a turn. */
+  .rewards-on .avatar-current-visual.is-changing img,
+  .rewards-on .avatar-option.is-unlocking img {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
 
   /* milestone-band — a static full-width band for 2.4s, then opacity only. */

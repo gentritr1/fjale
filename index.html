@@ -338,7 +338,7 @@
             </div>
           </section>
 
-          <p class="side-footnote">5 shkronja · 36 mundësi · 1 fjalë</p>
+          <p class="side-footnote">5 kuti · 36 shkronja · 1 fjalë</p>
         </aside>
       </main>
 
@@ -400,10 +400,10 @@
           </button>
         </header>
         <div class="dialog-content">
-          <!-- UNVERIFIED sq copy — the tablist label, the two tab names, and the
-               badge-page intro line below are generated Albanian awaiting a
-               native pass. The badge names and earn conditions live in
-               BADGE_COPY in src/app.js under the same marker. -->
+          <!-- UNVERIFIED sq copy — the tablist label, the three tab names, the
+               badge-page intro, and avatar-picker copy below are generated
+               Albanian awaiting a native pass. Badge names and earn conditions
+               live in BADGE_COPY in src/app.js under the same marker. -->
           <div class="passport-tablist" id="passport-tablist" role="tablist" aria-label="Faqet e pasaportës" hidden>
             <button
               class="passport-tab"
@@ -426,6 +426,17 @@
             >
               Vulat
             </button>
+            <button
+              class="passport-tab"
+              id="passport-tab-avatar"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="passport-panel-avatar"
+              tabindex="-1"
+            >
+              Shenja
+            </button>
           </div>
 
           <!-- The tabpanel role, label and tab stop are attached by
@@ -435,15 +446,57 @@
           <div id="passport-panel-alphabet">
             <div class="passport-dialog-summary">
               <strong id="passport-dialog-count">0 / 36</strong>
-              <p>Çdo fjalë e zgjidhur vulos shkronjat që përmban. Mblidhi të gjitha, edhe të rrallat.</p>
+              <p>Vetëm fjala e sotme vulos shkronjat që përmban. Një ditë, një hap në pasaportë.</p>
             </div>
             <div class="alphabet-grid" id="alphabet-grid" aria-label="Alfabeti shqip"></div>
             <p class="passport-tip" id="passport-tip">Fillo me fjalën e sotme për të marrë vulën e parë.</p>
           </div>
 
           <div id="passport-panel-badges" hidden>
-            <p class="passport-tip badge-intro">Vulat fitohen një herë dhe nuk humbin kurrë.</p>
+            <div class="passport-dialog-summary badge-summary">
+              <strong id="badge-dialog-count">0 / 11</strong>
+              <p>Vulat fitohen një herë dhe nuk humbin kurrë.</p>
+            </div>
             <ul class="badge-grid" id="badge-grid"></ul>
+          </div>
+
+          <div id="passport-panel-avatar" hidden>
+            <div class="avatar-current">
+              <div class="avatar-current-visual" id="avatar-current-visual" aria-hidden="true">
+                <img id="avatar-current-image" src="/avatars/stick-racer-v1.webp" alt="" width="160" height="160" />
+                <span class="avatar-letter-seal" id="avatar-letter-preview">Ë</span>
+              </div>
+              <div class="avatar-current-copy">
+                <span>Shenja jote</span>
+                <strong id="avatar-current-name">Turbo</strong>
+                <p>Ruhet vetëm në këtë pajisje derisa të hapet Rrethi.</p>
+              </div>
+              <label class="avatar-letter-field" for="avatar-letter-select">
+                <span>Shkronja e vulës</span>
+                <select id="avatar-letter-select"></select>
+              </label>
+            </div>
+
+            <section class="avatar-picker-group" aria-labelledby="avatar-free-title">
+              <div class="avatar-picker-heading">
+                <h3 id="avatar-free-title">Personazhet</h3>
+                <span>12 falas</span>
+              </div>
+              <div class="avatar-option-grid" id="avatar-free-grid"></div>
+            </section>
+
+            <details class="avatar-earned" id="avatar-earned">
+              <summary>
+                <span>Kafshët e fituara</span>
+                <strong id="avatar-earned-count">0 / 12</strong>
+              </summary>
+              <p class="avatar-earned-intro">Secila hapet me një vulë që tashmë ekziston në pasaportë.</p>
+              <div class="avatar-option-grid" id="avatar-earned-grid"></div>
+            </details>
+
+            <p class="avatar-picker-note" id="avatar-picker-note" aria-live="polite">
+              Zgjidh një shenjë; mund ta ndryshosh kur të duash.
+            </p>
           </div>
         </div>
       </div>

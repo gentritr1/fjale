@@ -17,6 +17,7 @@ import {
   sanitizeProfile,
   STREAK_GRACE_WINDOW_DAYS,
 } from "../src/game.js";
+import { DEFAULT_AVATAR_ID, DEFAULT_LETTER_SEAL } from "../src/avatars.js";
 import { weeklyPoints } from "../src/points.js";
 
 // Profiles are built through the real load path, so every test starts from the
@@ -47,16 +48,25 @@ function profile(overrides = {}) {
 }
 
 function complete(source, dateKey, overrides = {}) {
-  return applyCompletedGameToProfile(source, {
-    puzzleId: `daily-${dateKey}`,
-    mode: "daily",
-    status: "won",
-    attemptCount: 3,
-    answerTokens: ["a", "n", "i", "j", "e"],
-    besa: false,
-    usedHint: false,
-    ...overrides,
-  });
+  return applyCompletedGameToProfile(
+    source,
+    {
+      puzzleId: `daily-${dateKey}`,
+      mode: "daily",
+      status: "won",
+      attemptCount: 3,
+      answerTokens: ["a", "n", "i", "j", "e"],
+      besa: false,
+      usedHint: false,
+      ...overrides,
+    },
+    undefined,
+    { streakGraceEnabled: true },
+  );
+}
+
+function normalizeWithGrace(source, dateKey) {
+  return normalizeStreakForDate(source, dateKey, { streakGraceEnabled: true });
 }
 
 function modeStatsWith(overrides = {}) {
@@ -92,6 +102,27 @@ test("a one-day gap continues the streak without spending the grace day", () => 
     { previous: result.events.streak.previous, current: result.events.streak.current },
     { previous: 5, current: 6 },
   );
+});
+
+test("streak grace is opt-in, so a dark reward flag cannot change live streaks", () => {
+  const source = profile();
+  const withoutGrace = applyCompletedGameToProfile(source, {
+    puzzleId: "daily-2026-08-03",
+    mode: "daily",
+    status: "won",
+    attemptCount: 3,
+    answerTokens: ["a", "n", "i", "j", "e"],
+    besa: false,
+    usedHint: false,
+  });
+
+  assert.equal(withoutGrace.profile.currentStreak, 1);
+  assert.equal(withoutGrace.profile.lastGraceDate, null);
+  assert.equal(withoutGrace.events.streak.graceUsed, false);
+
+  const normalized = normalizeStreakForDate(source, "2026-08-03");
+  assert.equal(normalized.changed, true);
+  assert.equal(normalized.profile.currentStreak, 0);
 });
 
 test("a two-day gap is forgiven once, recording the missed day", () => {
@@ -210,29 +241,29 @@ test("isStreakGraceAvailable reads the rolling window from the day being resolve
 test("normalizeStreakForDate keeps a two-day gap alive only while grace remains", () => {
   const running = profile();
 
-  assert.equal(normalizeStreakForDate(running, "2026-08-02").changed, false);
-  assert.equal(normalizeStreakForDate(running, "2026-08-03").changed, false);
+  assert.equal(normalizeWithGrace(running, "2026-08-02").changed, false);
+  assert.equal(normalizeWithGrace(running, "2026-08-03").changed, false);
   assert.equal(
-    normalizeStreakForDate(running, "2026-08-03").profile.currentStreak,
+    normalizeWithGrace(running, "2026-08-03").profile.currentStreak,
     5,
     "a forgivable gap must not zero the streak before the day is played",
   );
 
-  const spent = normalizeStreakForDate(profile({ lastGraceDate: "2026-07-24" }), "2026-08-03");
+  const spent = normalizeWithGrace(profile({ lastGraceDate: "2026-07-24" }), "2026-08-03");
   assert.equal(spent.changed, true);
   assert.equal(spent.profile.currentStreak, 0);
 
-  const twoMissed = normalizeStreakForDate(running, "2026-08-04");
+  const twoMissed = normalizeWithGrace(running, "2026-08-04");
   assert.equal(twoMissed.changed, true);
   assert.equal(twoMissed.profile.currentStreak, 0);
   assert.equal(running.currentStreak, 5, "the input profile is never mutated");
 
-  assert.equal(normalizeStreakForDate(profile({ currentStreak: 0 }), "2026-09-01").changed, false);
-  assert.equal(normalizeStreakForDate(profile({ lastDailyWin: null }), "2026-09-01").changed, false);
+  assert.equal(normalizeWithGrace(profile({ currentStreak: 0 }), "2026-09-01").changed, false);
+  assert.equal(normalizeWithGrace(profile({ lastDailyWin: null }), "2026-09-01").changed, false);
 });
 
 test("a streak kept alive by normalizeStreakForDate still spends grace when played", () => {
-  const kept = normalizeStreakForDate(profile(), "2026-08-03");
+  const kept = normalizeWithGrace(profile(), "2026-08-03");
   const result = complete(kept.profile, "2026-08-03");
 
   assert.equal(result.profile.currentStreak, 6);
@@ -240,7 +271,7 @@ test("a streak kept alive by normalizeStreakForDate still spends grace when play
 });
 
 test("a streak zeroed by normalizeStreakForDate restarts at one without spending grace", () => {
-  const zeroed = normalizeStreakForDate(profile({ lastGraceDate: "2026-07-24" }), "2026-08-03");
+  const zeroed = normalizeWithGrace(profile({ lastGraceDate: "2026-07-24" }), "2026-08-03");
   const result = complete(zeroed.profile, "2026-08-03");
 
   assert.equal(result.profile.currentStreak, 1);
@@ -271,7 +302,7 @@ test("completions at 23:59 and 00:01 Tirana land on consecutive date keys", () =
     assert.equal(crossed.profile.currentStreak, 6, `${afterKey} must continue the streak`);
     assert.equal(crossed.profile.lastGraceDate, null, "a midnight crossing is not a missed day");
     assert.equal(crossed.profile.dailyResults[after], 3);
-    assert.equal(normalizeStreakForDate(start, after).changed, false);
+    assert.equal(normalizeWithGrace(start, after).changed, false);
   }
 });
 
@@ -281,6 +312,12 @@ test("dateKeyFromOrdinal inverts dateKeyOrdinal across month and year ends", () 
   }
   assert.equal(dateKeyFromOrdinal(dateKeyOrdinal("2027-01-01") - 1), "2026-12-31");
   assert.equal(dateKeyFromOrdinal(dateKeyOrdinal("2026-03-01") - 1), "2026-02-28");
+  assert.equal(dateKeyFromOrdinal(dateKeyOrdinal("0099-01-01")), "0099-01-01");
+  assert.throws(() => dateKeyOrdinal("2026-02-29"), RangeError);
+  assert.throws(() => dateKeyOrdinal("2026-13-01"), RangeError);
+  assert.throws(() => dateKeyOrdinal("0000-01-01"), RangeError);
+  assert.throws(() => dateKeyFromOrdinal(Number.MAX_SAFE_INTEGER + 1), RangeError);
+  assert.throws(() => dateKeyFromOrdinal(Number.MAX_SAFE_INTEGER), RangeError);
 });
 
 test("a two-day gap across the year boundary is forgiven with the right missed day", () => {
@@ -329,6 +366,29 @@ test("computeEarnedBadges returns all eleven local badges in a stable order", ()
   assert.equal(new Set(BADGE_IDS).size, BADGE_IDS.length);
 });
 
+test("computeEarnedBadges returns concrete progress for every visible goal", () => {
+  const badges = new Map(computeEarnedBadges(profile()).map((badge) => [badge.id, badge]));
+
+  assert.deepEqual(
+    badges.get("daily-fast-10"),
+    { id: "daily-fast-10", current: 5, target: 10, earned: false },
+  );
+  assert.deepEqual(
+    badges.get("streak-7"),
+    { id: "streak-7", current: 5, target: 7, earned: false },
+  );
+  assert.deepEqual(
+    badges.get("daily-win-1"),
+    { id: "daily-win-1", current: 10, target: 1, earned: true },
+  );
+  assert.ok(
+    [...badges.values()].every(
+      ({ current, target }) =>
+        Number.isInteger(current) && Number.isInteger(target) && current >= 0 && target > 0,
+    ),
+  );
+});
+
 test("each badge flips exactly at its boundary value", () => {
   const cases = [
     ["daily-win-1", { modeStats: modeStatsWith({ daily: { won: 0 } }) }, { modeStats: modeStatsWith({ daily: { won: 1 } }) }],
@@ -355,9 +415,9 @@ test("each badge flips exactly at its boundary value", () => {
       { modeStats: modeStatsWith({ daily: { played: 100 } }) },
     ],
     [
-      "archive-won-25",
-      { modeStats: modeStatsWith({ archive: { won: 24 } }) },
-      { modeStats: modeStatsWith({ archive: { won: 25 } }) },
+      "daily-win-25",
+      { modeStats: modeStatsWith({ daily: { won: 24 } }) },
+      { modeStats: modeStatsWith({ daily: { won: 25 } }) },
     ],
     [
       "digraphs-9",
@@ -369,7 +429,7 @@ test("each badge flips exactly at its boundary value", () => {
       { collection: ALBANIAN_ALPHABET.slice(0, 35) },
       { collection: [...ALBANIAN_ALPHABET] },
     ],
-    ["besa-3", { besaWins: 2, besaDailyWins: 2 }, { besaDailyWins: 3 }],
+    ["daily-besa-3", { besaWins: 99, besaDailyWins: 2 }, { besaDailyWins: 3 }],
   ];
 
   for (const [id, below, atOrAbove] of cases) {
@@ -387,14 +447,12 @@ test("each badge flips exactly at its boundary value", () => {
   }
 });
 
-test("the Besa badge honours a legacy any-mode total and the strict daily one", () => {
-  const legacy = sanitizeProfile({ besaWins: 3 });
-  const strict = sanitizeProfile({ besaWins: 0, besaDailyWins: 3 });
-  const neither = sanitizeProfile({ besaWins: 2, besaDailyWins: 2 });
+test("the Besa badge counts only daily Besa wins", () => {
+  const practiceOnly = sanitizeProfile({ besaWins: 99, besaDailyWins: 0 });
+  const daily = sanitizeProfile({ besaWins: 3, besaDailyWins: 3 });
 
-  assert.ok(earned(legacy).has("besa-3"), "a legacy profile keeps the badge it earned");
-  assert.ok(earned(strict).has("besa-3"));
-  assert.ok(!earned(neither).has("besa-3"), "the two counters are not summed");
+  assert.ok(!earned(practiceOnly).has("daily-besa-3"));
+  assert.ok(earned(daily).has("daily-besa-3"));
 });
 
 test("daily badges read modeStats, never the archive-contaminated dailyResults", () => {
@@ -413,7 +471,7 @@ test("daily badges read modeStats, never the archive-contaminated dailyResults",
   assert.ok(!badges.has("daily-win-1"));
   assert.ok(!badges.has("daily-attempt-1"));
   assert.ok(!badges.has("daily-played-100"));
-  assert.ok(badges.has("archive-won-25"), "archive badges still read their own bucket");
+  assert.ok(!badges.has("daily-win-25"), "archive wins cannot fill a Passport badge");
 });
 
 test("badges survive a broken streak", () => {
@@ -477,12 +535,26 @@ test("the first daily Besa win crosses the Besa milestone", () => {
   assert.equal(result.profile.besaDailyWins, 1);
 });
 
-test("collection milestones fire from any mode and only when complete", () => {
+test("only a daily win can fill the passport and cross collection milestones", () => {
   const oneShort = profile({ collection: ALBANIAN_ALPHABET.slice(0, 35), milestones: [] });
   const missing = ALBANIAN_ALPHABET[35];
-  const result = applyCompletedGameToProfile(oneShort, {
+  const practice = applyCompletedGameToProfile(oneShort, {
     puzzleId: "practice-SQ-ABC-1",
     mode: "practice",
+    status: "won",
+    attemptCount: 2,
+    answerTokens: [missing, "a", "n", "i", "j"],
+    besa: false,
+    usedHint: false,
+  });
+
+  assert.deepEqual(practice.profile.collection, oneShort.collection);
+  assert.deepEqual(practice.events.newLetters, []);
+  assert.deepEqual(practice.events.newMilestones, []);
+
+  const result = applyCompletedGameToProfile(practice.profile, {
+    puzzleId: "daily-2026-08-02",
+    mode: "daily",
     status: "won",
     attemptCount: 2,
     answerTokens: [missing, "a", "n", "i", "j"],
@@ -495,9 +567,9 @@ test("collection milestones fire from any mode and only when complete", () => {
   assert.ok(result.events.newMilestones.includes("digraphs-9"));
   assert.deepEqual(result.events.streak, {
     previous: 5,
-    current: 5,
-    changed: false,
-    continued: false,
+    current: 6,
+    changed: true,
+    continued: true,
     graceUsed: false,
     broken: false,
   });
@@ -607,10 +679,12 @@ test("a legacy production profile loads with every total intact and new fields d
   assert.deepEqual(loaded.wordRatings, legacy.wordRatings);
   assert.deepEqual(loaded.reportedWords, legacy.reportedWords);
 
-  // The three additive fields default rather than throw.
+  // The five additive fields default rather than throw.
   assert.equal(loaded.besaDailyWins, 0);
   assert.equal(loaded.lastGraceDate, null);
   assert.deepEqual(loaded.milestones, []);
+  assert.equal(loaded.avatarId, DEFAULT_AVATAR_ID);
+  assert.equal(loaded.letterSeal, DEFAULT_LETTER_SEAL);
   assert.deepEqual(stored, legacy, "the stored JSON is never mutated");
 });
 
@@ -640,18 +714,34 @@ test("a captured real production profile loads intact and keeps its earned badge
   const loaded = sanitizeProfile(captured);
 
   assert.deepEqual(
-    { ...loaded, besaDailyWins: undefined, lastGraceDate: undefined, milestones: undefined },
-    { ...captured, besaDailyWins: undefined, lastGraceDate: undefined, milestones: undefined },
+    {
+      ...loaded,
+      besaDailyWins: undefined,
+      lastGraceDate: undefined,
+      milestones: undefined,
+      avatarId: undefined,
+      letterSeal: undefined,
+    },
+    {
+      ...captured,
+      besaDailyWins: undefined,
+      lastGraceDate: undefined,
+      milestones: undefined,
+      avatarId: undefined,
+      letterSeal: undefined,
+    },
     "every captured field survives the load path unchanged",
   );
   assert.equal(loaded.besaDailyWins, 0);
   assert.equal(loaded.lastGraceDate, null);
   assert.deepEqual(loaded.milestones, []);
+  assert.equal(loaded.avatarId, DEFAULT_AVATAR_ID);
+  assert.equal(loaded.letterSeal, DEFAULT_LETTER_SEAL);
 
   const badges = new Map(computeEarnedBadges(loaded).map((b) => [b.id, b.earned]));
   assert.equal(badges.get("daily-win-1"), true, "first daily win badge from the captured win");
   assert.equal(badges.get("daily-attempt-1"), true, "won in one attempt on the captured day");
-  assert.equal(badges.get("besa-3"), false, "one Besa win does not reach the badge");
+  assert.equal(badges.get("daily-besa-3"), false, "one Besa win does not reach the badge");
 });
 
 test("a corrupt or absent profile still loads a complete, zeroed shape", () => {
@@ -662,11 +752,22 @@ test("a corrupt or absent profile still loads a complete, zeroed shape", () => {
     assert.equal(loaded.besaDailyWins, 0);
     assert.equal(loaded.lastGraceDate, null);
     assert.deepEqual(loaded.milestones, []);
+    assert.equal(loaded.avatarId, DEFAULT_AVATAR_ID);
+    assert.equal(loaded.letterSeal, DEFAULT_LETTER_SEAL);
     assert.deepEqual(loaded.collection, []);
     assert.equal(loaded.distribution.length, 6);
     assert.equal(Object.keys(loaded.modeStats).length, 4);
   }
 
   assert.equal(sanitizeProfile({ lastGraceDate: "2026-8-2" }).lastGraceDate, null);
+  assert.equal(sanitizeProfile({ lastGraceDate: "2026-02-29" }).lastGraceDate, null);
+  assert.equal(sanitizeProfile({ lastGraceDate: "0000-01-01" }).lastGraceDate, null);
+  assert.equal(sanitizeProfile({ lastDailyWin: "2026-04-31" }).lastDailyWin, null);
   assert.equal(sanitizeProfile({ lastGraceDate: "2026-08-02" }).lastGraceDate, "2026-08-02");
+  assert.equal(sanitizeProfile({ played: Number.MAX_SAFE_INTEGER + 1 }).played, 0);
+  assert.deepEqual(
+    sanitizeProfile({ completedPuzzles: ["", "x".repeat(101), "daily-2026-08-02"] })
+      .completedPuzzles,
+    ["daily-2026-08-02"],
+  );
 });

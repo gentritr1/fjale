@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v16";
+const CACHE_NAME = "fjale-shell-v25";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 const APP_SHELL = [
@@ -7,6 +7,7 @@ const APP_SHELL = [
   "/privatesia.html",
   "/styles.css",
   "/src/app.js",
+  "/src/avatars.js",
   "/src/config.js",
   "/src/game.js",
   "/src/page-theme.js",
@@ -19,7 +20,31 @@ const APP_SHELL = [
   "/icon-maskable-512.png",
   "/besa-seal-v1.svg",
   "/stamp-digraph-v1.svg",
-  "/help-hero-v1.svg"
+  "/help-hero-v1.svg",
+  "/avatars/stick-racer-v1.webp",
+  "/avatars/stick-rebel-v1.webp",
+  "/avatars/stick-dyed-v1.webp",
+  "/avatars/stick-skater-v1.webp",
+  "/avatars/stick-tinkerer-v1.webp",
+  "/avatars/stick-music-v1.webp",
+  "/avatars/stick-wheelchair-v1.webp",
+  "/avatars/stick-elder-v1.webp",
+  "/avatars/stick-reader-v1.webp",
+  "/avatars/stick-runner-v1.webp",
+  "/avatars/stick-creator-v1.webp",
+  "/avatars/stick-hoodie-v1.webp",
+  "/avatars/animal-owl-v1.webp",
+  "/avatars/animal-fox-v1.webp",
+  "/avatars/animal-hare-v1.webp",
+  "/avatars/animal-bear-v1.webp",
+  "/avatars/animal-goat-v1.webp",
+  "/avatars/animal-cat-v1.webp",
+  "/avatars/animal-tortoise-v1.webp",
+  "/avatars/animal-songbird-v1.webp",
+  "/avatars/animal-hedgehog-v1.webp",
+  "/avatars/animal-moth-v1.webp",
+  "/avatars/animal-frog-v1.webp",
+  "/avatars/animal-badger-v1.webp",
 ];
 
 // Icons never change without a filename/URL change, so serve them straight
@@ -32,7 +57,31 @@ const CACHE_FIRST_ASSETS = new Set([
   "/icon-maskable-512.png",
   "/besa-seal-v1.svg",
   "/stamp-digraph-v1.svg",
-  "/help-hero-v1.svg"
+  "/help-hero-v1.svg",
+  "/avatars/stick-racer-v1.webp",
+  "/avatars/stick-rebel-v1.webp",
+  "/avatars/stick-dyed-v1.webp",
+  "/avatars/stick-skater-v1.webp",
+  "/avatars/stick-tinkerer-v1.webp",
+  "/avatars/stick-music-v1.webp",
+  "/avatars/stick-wheelchair-v1.webp",
+  "/avatars/stick-elder-v1.webp",
+  "/avatars/stick-reader-v1.webp",
+  "/avatars/stick-runner-v1.webp",
+  "/avatars/stick-creator-v1.webp",
+  "/avatars/stick-hoodie-v1.webp",
+  "/avatars/animal-owl-v1.webp",
+  "/avatars/animal-fox-v1.webp",
+  "/avatars/animal-hare-v1.webp",
+  "/avatars/animal-bear-v1.webp",
+  "/avatars/animal-goat-v1.webp",
+  "/avatars/animal-cat-v1.webp",
+  "/avatars/animal-tortoise-v1.webp",
+  "/avatars/animal-songbird-v1.webp",
+  "/avatars/animal-hedgehog-v1.webp",
+  "/avatars/animal-moth-v1.webp",
+  "/avatars/animal-frog-v1.webp",
+  "/avatars/animal-badger-v1.webp",
 ]);
 
 self.addEventListener("install", (event) => {
@@ -65,6 +114,14 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Private Rrethi responses must always go straight to the network. Keeping
+  // this guard in the shell worker before any endpoint exists prevents a later
+  // API release from accidentally persisting member or leaderboard data in the
+  // Cache API. HTTP `Cache-Control: no-store` remains the server-side backstop.
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
     return;
   }
 
