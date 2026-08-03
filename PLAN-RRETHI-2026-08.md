@@ -435,7 +435,8 @@ weeks, then default ON.
 
 **M0 — adapter + schema, no UI (implemented, dormant).** `store-memory` passes
 the full conformance suite. `store-neon` uses the same suite and is conditionally
-skipped until a temporary `NEON_DATABASE_URL` is supplied; choosing and tuning a
+skipped until a temporary `RRETHI_TEST_NEON_URL` (a scratch project, never the
+production URL) is supplied; choosing and tuning a
 free instance is intentionally deferred. Schema lives in
 `api/_lib/schema.sql` and is idempotent. *Exit acceptance:* on a disposable Neon
 branch, `putResult` called twice with the same key returns `'created'` then

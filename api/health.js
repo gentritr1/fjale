@@ -25,6 +25,34 @@ async function checkDatabaseWithNeon(env) {
   return checkNeonHealth(env);
 }
 
+// One deep database probe per warm instance per minute, whatever the request
+// rate: without this, anyone polling ?deep=1 at <5-minute intervals would keep
+// Neon's autosuspend from ever firing and drain the free compute allowance.
+// Only the real probe is memoized — injected `checkDatabase` test doubles skip
+// it (see buildHealthResponse), so tests stay isolated.
+const DEEP_MEMO_TTL_MS = 60_000;
+let deepMemo = { at: 0, database: null };
+
+async function memoizedDatabaseStatus(env, checkDatabase) {
+  const now = Date.now();
+  if (deepMemo.database !== null && now - deepMemo.at < DEEP_MEMO_TTL_MS) {
+    return deepMemo.database;
+  }
+  let database = "unavailable";
+  try {
+    const result = await checkDatabase(env);
+    database = result?.schemaReady ? "ok" : "schema_missing";
+  } catch (error) {
+    // Public health responses never include driver errors, hostnames, schemas,
+    // credentials, or other operational detail. Function logs are private, so
+    // the cause is recorded there — otherwise a DNS failure and a permissions
+    // error are indistinguishable "unavailable"s.
+    console.error("health: deep database check failed", error);
+  }
+  deepMemo = { at: now, database };
+  return database;
+}
+
 /**
  * Builds a deterministic, non-sensitive health response.
  *
@@ -38,11 +66,13 @@ export async function buildHealthResponse(env = process.env, options = {}) {
   const store = String(env?.RRETHI_STORE ?? "memory").trim().toLowerCase() || "memory";
 
   if (store === "memory") {
-    const healthy = !deep;
+    // Deep on a deliberately disabled store is 200, not 503: the memory store
+    // is the intended production configuration until the Rrethi rollout, and a
+    // monitor pointed at ?deep=1 must not page for a state that is by design.
     return {
-      statusCode: healthy ? 200 : 503,
+      statusCode: 200,
       body: {
-        status: healthy ? "ok" : "degraded",
+        status: "ok",
         service: "fjale",
         checks: { app: "ok", database: "disabled", identity: "disabled" },
       },
@@ -87,13 +117,19 @@ export async function buildHealthResponse(env = process.env, options = {}) {
     };
   }
 
-  let database = "unavailable";
-  try {
-    const result = await checkDatabase(env);
-    database = result?.schemaReady ? "ok" : "schema_missing";
-  } catch {
-    // Public health responses never include driver errors, hostnames, schemas,
-    // credentials, or other operational detail.
+  // Injected checkDatabase doubles (tests) bypass the memo; the real probe is
+  // memoized for DEEP_MEMO_TTL_MS per warm instance.
+  let database;
+  if (options.checkDatabase) {
+    database = "unavailable";
+    try {
+      const result = await checkDatabase(env);
+      database = result?.schemaReady ? "ok" : "schema_missing";
+    } catch (error) {
+      console.error("health: deep database check failed", error);
+    }
+  } else {
+    database = await memoizedDatabaseStatus(env, checkDatabase);
   }
 
   const healthy = database === "ok" && identity === "ok";
@@ -127,6 +163,18 @@ export async function handleHealthRequest(request, response, env = process.env) 
     deep = new URL(request.url ?? "/api/health", "http://localhost").searchParams.get("deep") === "1";
   } catch {
     // A malformed URL receives the shallow response; it never earns a DB query.
+  }
+
+  // When HEALTH_DEEP_TOKEN is set, deep checks require the matching header and
+  // anonymous callers silently get the shallow response — the deep path costs
+  // database compute, so it is not left open to the public internet. Unset
+  // (local dev, or pre-Rrethi where the store is memory) leaves deep open.
+  const deepToken = String(env?.HEALTH_DEEP_TOKEN ?? "").trim();
+  if (deep && deepToken !== "") {
+    const presented = String(request.headers?.["x-health-token"] ?? "");
+    if (presented !== deepToken) {
+      deep = false;
+    }
   }
 
   const { statusCode, body } = await buildHealthResponse(env, { deep });

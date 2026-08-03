@@ -56,17 +56,33 @@ CREATE TABLE IF NOT EXISTS public.result (
   attempts    SMALLINT CHECK (attempts BETWEEN 1 AND 6), -- NULL = loss
   besa        BOOLEAN NOT NULL,
   hint        BOOLEAN NOT NULL,
-  seconds     INTEGER CHECK (seconds >= 0),  -- NULL unless circle.show_time
+  seconds     INTEGER CHECK (seconds >= 0),  -- storage accepts it always; the
+                                             -- M1 handler must strip it when
+                                             -- circle.show_time is FALSE
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (circle_code, member_key, play_date),
   FOREIGN KEY (circle_code, member_key)
     REFERENCES public.membership (circle_code, member_key) ON DELETE CASCADE
 );
 
--- The board reads one circle for one day; the primary key already covers the
--- weekly (circle, member, date-range) query.
+-- This index — not the primary key — serves both board reads. The PK is
+-- (circle_code, member_key, play_date), so a query filtering on circle_code
+-- and play_date only gets the circle_code prefix from it and would filter the
+-- rest; (circle_code, play_date) matches the daily board and the weekly range
+-- exactly.
 CREATE INDEX IF NOT EXISTS result_circle_date_idx
   ON public.result (circle_code, play_date);
+
+-- listCirclesFor filters membership on member_key (the second PK column, so
+-- the PK cannot serve it) and the member -> membership delete cascade walks
+-- the same path.
+CREATE INDEX IF NOT EXISTS membership_member_idx
+  ON public.membership (member_key);
+
+-- circle.owner_key is a cascading FK with no index of its own: deleteMember
+-- has to find the circles a member owns.
+CREATE INDEX IF NOT EXISTS circle_owner_idx
+  ON public.circle (owner_key);
 
 -- Fixed-window counters. The bucket key is a hash or an ephemeral IP bucket and
 -- is never joined to a member row (plan §2.5: IPs are not stored).
@@ -75,3 +91,10 @@ CREATE TABLE IF NOT EXISTS public.rate_bucket (
   count        INTEGER NOT NULL DEFAULT 0,
   window_start TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- rate_bucket rows are permanent otherwise: every distinct bucket key ever
+-- seen stays forever against the 0.5 GB free-tier budget. This index is what
+-- makes pruning cheap; the M1 daily cron (or an opportunistic delete) runs
+--   DELETE FROM rate_bucket WHERE window_start < now() - interval '1 day'.
+CREATE INDEX IF NOT EXISTS rate_bucket_window_idx
+  ON public.rate_bucket (window_start);

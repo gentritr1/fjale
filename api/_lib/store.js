@@ -77,9 +77,14 @@
  *
  * Semantics every adapter must share (the conformance suite is the referee):
  *
- * - `createMember` / `createCircle` / `addMembership` are insert-if-absent.
- *   On an existing key they are a silent no-op and never overwrite; a caller
- *   that must detect a collision reads first (M1's circle-code generator).
+ * - `createMember` / `createCircle` / `addMembership` are insert-if-absent
+ *   and never overwrite. `createCircle` and `addMembership` return
+ *   `'created' | 'conflict'` (same discriminated shape as `putResult`) so a
+ *   caller can detect a collision atomically — read-then-insert is a TOCTOU
+ *   race over the non-interactive HTTP driver and must never be the answer.
+ *   M1's circle-code generator retries on `'conflict'`. `createMember` stays
+ *   `void`: an existing member re-registering is the intended no-op, not a
+ *   collision anyone needs to observe.
  * - `renameMember` on an unknown key is a no-op, not an error.
  * - `deleteMember` cascades exactly as §2.8's SQL does: memberships, the
  *   results reachable through them, and the circles the member owns (which in
@@ -98,16 +103,21 @@
  * - `takeToken` is a fixed window: it allows `limit` calls per `windowMs`
  *   per `bucket` and returns `false` after that until the window rolls over.
  *   It is a primitive only — which buckets exist and what the limits are is
- *   M1 policy (plan §2.5).
+ *   M1 policy (plan §2.5). Honesty note for serverless: the memory adapter's
+ *   window lives in one process, so on Vercel the effective limit is
+ *   `limit × concurrent instances` and resets on every cold start — treat it
+ *   as best-effort. Only the Neon adapter's counter is global, and each check
+ *   there costs a database write, so reserve DB-backed buckets for the
+ *   operations genuinely worth a round trip (create/join), not cheap reads.
  *
  * @typedef {object} RrethiStore
  * @property {(key:string, name:string) => Promise<void>}                createMember
  * @property {(key:string) => Promise<?Member>}                          getMember
  * @property {(key:string, name:string) => Promise<void>}                renameMember
  * @property {(key:string) => Promise<void>}                             deleteMember
- * @property {(code:string, name:string, owner:string) => Promise<void>} createCircle
+ * @property {(code:string, name:string, owner:string) => Promise<'created'|'conflict'>} createCircle
  * @property {(code:string) => Promise<?Circle>}                         getCircle
- * @property {(code:string, key:string) => Promise<void>}                addMembership
+ * @property {(code:string, key:string) => Promise<'created'|'conflict'>} addMembership
  * @property {(code:string, key:string) => Promise<void>}                removeMembership
  * @property {(key:string) => Promise<Circle[]>}                         listCirclesFor
  * @property {(code:string) => Promise<Member[]>}                        listMembers
@@ -220,6 +230,23 @@ export function assertDateKey(value, label) {
 }
 
 /**
+ * Widest inclusive range `listResultRange` accepts. Every real board query is a
+ * week; a leap year is the generous ceiling. Without a cap, one crafted request
+ * ("0001-01-01".."9999-12-31") is a full-table scan billed in Neon
+ * compute-seconds on an endpoint that will face the public internet in M1.
+ */
+export const DATE_RANGE_MAX_DAYS = 366;
+
+/** @param {string} key A validated YYYY-MM-DD key. */
+function dateKeyToUtcDays(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  return Math.floor(date.getTime() / 86_400_000);
+}
+
+/**
  * Validates an inclusive calendar range once for both storage adapters.
  *
  * @param {unknown} from
@@ -231,6 +258,9 @@ export function assertDateRange(from, to) {
   const normalizedTo = assertDateKey(to, "to");
   if (normalizedFrom > normalizedTo) {
     throw storeError("from must be on or before to");
+  }
+  if (dateKeyToUtcDays(normalizedTo) - dateKeyToUtcDays(normalizedFrom) >= DATE_RANGE_MAX_DAYS) {
+    throw storeError(`range must span at most ${DATE_RANGE_MAX_DAYS} days`);
   }
   return { from: normalizedFrom, to: normalizedTo };
 }

@@ -463,7 +463,10 @@
           <div id="passport-panel-avatar" hidden>
             <div class="avatar-current">
               <div class="avatar-current-visual" id="avatar-current-visual" aria-hidden="true">
-                <img id="avatar-current-image" src="/avatars/stick-racer-v1.webp" alt="" width="160" height="160" />
+                <!-- No src here on purpose: `hidden` does not stop the fetch, so a hardcoded
+     src would download an avatar for flag-off users. renderAvatarPicker()
+     assigns it before the panel can ever be shown. -->
+<img id="avatar-current-image" alt="" width="160" height="160" />
                 <span class="avatar-letter-seal" id="avatar-letter-preview">Ë</span>
               </div>
               <div class="avatar-current-copy">

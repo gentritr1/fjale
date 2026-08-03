@@ -1,5 +1,12 @@
 # `/api/health` is the only deployed function at M0. Files under `/api/_lib`
 # are supporting modules, not standalone Vercel functions.
+#
+# When .vercelignore exists, the CLI uses it INSTEAD of .gitignore for the
+# upload set — so the local .env (Neon URL, server pepper) must be excluded
+# here explicitly or a `vercel` CLI deploy would upload it.
+.env
+.env.*
+!.env.example
 design-concepts/
 third_party/
 tests/

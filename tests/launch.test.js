@@ -689,11 +689,11 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v25", "fjale-shell-v24");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v26", "fjale-shell-v25");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 25);
+  assert.equal(readCacheVersion(serviceWorker), 26);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -718,10 +718,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v24/u,
+    /did not advance beyond fjale-shell-v25/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 24, currentVersion: 25 },
+    { previousVersion: 25, currentVersion: 26 },
   );
 });

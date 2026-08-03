@@ -344,13 +344,15 @@ export async function createNeonStore(env) {
       assertKey(code, "circleCode");
       assertKey(name, "circleName");
       assertKey(owner, "ownerKey");
-      await run(
+      const rows = await run(
         sql,
         `INSERT INTO ${t("circle")} (code, name, owner_key, show_time, created_at)
          VALUES ($1, $2, $3, FALSE, now())
-         ON CONFLICT (code) DO NOTHING`,
+         ON CONFLICT (code) DO NOTHING
+         RETURNING 1 AS inserted`,
         [code, name, owner],
       );
+      return rows.length > 0 ? "created" : "conflict";
     },
 
     async getCircle(code) {
@@ -366,13 +368,15 @@ export async function createNeonStore(env) {
     async addMembership(code, key) {
       assertKey(code, "circleCode");
       assertKey(key, "memberKey");
-      await run(
+      const rows = await run(
         sql,
         `INSERT INTO ${t("membership")} (circle_code, member_key, joined_at)
          VALUES ($1, $2, now())
-         ON CONFLICT (circle_code, member_key) DO NOTHING`,
+         ON CONFLICT (circle_code, member_key) DO NOTHING
+         RETURNING 1 AS inserted`,
         [code, key],
       );
+      return rows.length > 0 ? "created" : "conflict";
     },
 
     async removeMembership(code, key) {

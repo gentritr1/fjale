@@ -109,14 +109,47 @@ test("health reports disabled and invalid configurations explicitly", async () =
 
   assert.equal(memory.statusCode, 200);
   assert.equal(memory.body.checks.database, "disabled");
-  assert.equal(deepMemory.statusCode, 503);
-  assert.equal(deepMemory.body.status, "degraded");
+  // Deep on the memory store is 200 "ok": the disabled database is the intended
+  // pre-Rrethi production state, and a monitor must not page for it.
+  assert.equal(deepMemory.statusCode, 200);
+  assert.equal(deepMemory.body.status, "ok");
+  assert.equal(deepMemory.body.checks.database, "disabled");
   assert.equal(badStore.statusCode, 503);
   assert.equal(badStore.body.checks.database, "misconfigured");
   assert.equal(missingDatabase.statusCode, 503);
   assert.equal(missingDatabase.body.checks.database, "misconfigured");
   assert.equal(badPepper.statusCode, 503);
   assert.equal(badPepper.body.checks.identity, "misconfigured");
+});
+
+test("deep health requires the token when HEALTH_DEEP_TOKEN is set", async () => {
+  // With a token configured, an anonymous ?deep=1 silently gets the shallow
+  // response (still 200 on a configured store) instead of a database probe.
+  const env = {
+    RRETHI_STORE: "neon",
+    RRETHI_SERVER_PEPPER: VALID_PEPPER,
+    NEON_DATABASE_URL: CONFIGURED_DATABASE,
+    HEALTH_DEEP_TOKEN: "sekret",
+  };
+
+  const anonymous = responseProbe();
+  await handleHealthRequest(
+    { method: "GET", url: "/api/health?deep=1", headers: {} },
+    anonymous,
+    env,
+  );
+  const anonymousBody = JSON.parse(anonymous.body);
+  assert.equal(anonymous.statusCode, 200);
+  // Shallow shape: "configured", never a probed "ok"/"schema_missing".
+  assert.equal(anonymousBody.checks.database, "configured");
+
+  const wrongToken = responseProbe();
+  await handleHealthRequest(
+    { method: "GET", url: "/api/health?deep=1", headers: { "x-health-token": "gabim" } },
+    wrongToken,
+    env,
+  );
+  assert.equal(JSON.parse(wrongToken.body).checks.database, "configured");
 });
 
 test("HTTP health handler supports HEAD and rejects writes without caching", async () => {

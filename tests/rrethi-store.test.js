@@ -7,9 +7,16 @@
 //   npm test                                   memory only; the Neon block is
 //                                              reported as skipped, with the
 //                                              reason printed by the reporter.
-//   NEON_DATABASE_URL='postgres://user:pass@host/db?sslmode=require' npm test
+//   RRETHI_TEST_NEON_URL='postgres://user:pass@host/db?sslmode=require' npm test
 //                                              runs the identical assertions
 //                                              against Neon as well.
+//
+// The suite deliberately reads RRETHI_TEST_NEON_URL — its own variable — and
+// NOT the production NEON_DATABASE_URL. `npm run dev` auto-loads `.env`, which
+// holds the production URL; a shared name would aim this schema-creating,
+// compute-burning suite at production the first time someone adds --env-file
+// to the test script or exports the var. Point the test variable at a scratch
+// Neon project.
 //
 // The second form needs no code change and no manual migration: the suite
 // generates a throwaway Postgres schema (`rrethi_test_<random>`), applies
@@ -35,7 +42,7 @@ import { createStore } from "../api/_lib/store.js";
 const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 
-const NEON_URL = process.env.NEON_DATABASE_URL ?? "";
+const NEON_URL = process.env.RRETHI_TEST_NEON_URL ?? "";
 const TEST_SCHEMA = `rrethi_test_${randomBytes(6).toString("hex")}`;
 
 const ADAPTERS = [
@@ -51,8 +58,9 @@ const ADAPTERS = [
     name: "neon",
     skip:
       NEON_URL === ""
-        ? "NEON_DATABASE_URL is not set — run `NEON_DATABASE_URL=postgres://… npm test` " +
-          "to run this same suite against Neon (it creates and drops its own schema)"
+        ? "RRETHI_TEST_NEON_URL is not set — run `RRETHI_TEST_NEON_URL=postgres://… npm test` " +
+          "against a SCRATCH Neon project to run this same suite there " +
+          "(it creates and drops its own schema)"
         : false,
     async create() {
       const env = {
@@ -130,7 +138,9 @@ async function runConformance(t, store) {
     assert.equal(await store.getCircle("RR-C2ABSENT"), null);
 
     await store.createMember("m2-owner", "Zotëruesi");
-    await store.createCircle("RR-C2FAMILJ", "Familja", "m2-owner");
+    // Discriminated create, same shape as putResult: M1's circle-code generator
+    // retries on 'conflict' instead of racing a read-then-insert.
+    assert.equal(await store.createCircle("RR-C2FAMILJ", "Familja", "m2-owner"), "created");
     const circle = await store.getCircle("RR-C2FAMILJ");
     assert.equal(circle.code, "RR-C2FAMILJ");
     assert.equal(circle.name, "Familja");
@@ -138,12 +148,13 @@ async function runConformance(t, store) {
     assert.equal(circle.showTime, false); // plan §2.3: time is off by default
     assert.match(circle.createdAt, ISO_UTC_PATTERN);
 
-    // Insert-if-absent: an existing code is never silently renamed or re-owned.
-    await store.createCircle("RR-C2FAMILJ", "Tjetër", "m2-owner");
+    // Insert-if-absent: an existing code is never silently renamed or re-owned,
+    // and the collision is reported, not swallowed.
+    assert.equal(await store.createCircle("RR-C2FAMILJ", "Tjetër", "m2-owner"), "conflict");
     assert.equal((await store.getCircle("RR-C2FAMILJ")).name, "Familja");
     // The conflict is resolved before the owner foreign key: Postgres fires no
     // FK trigger for a row it does not insert, so this must not throw.
-    await store.createCircle("RR-C2FAMILJ", "Tjetër", "m2-nobody");
+    assert.equal(await store.createCircle("RR-C2FAMILJ", "Tjetër", "m2-nobody"), "conflict");
     assert.equal((await store.getCircle("RR-C2FAMILJ")).ownerKey, "m2-owner");
 
     await assert.rejects(
@@ -161,12 +172,13 @@ async function runConformance(t, store) {
       (await store.listMembers("RR-C3ONE")).map((row) => row.memberKey),
       ["m3-a", "m3-b"],
     );
-    // Idempotent join: re-joining does not duplicate the row.
-    await store.addMembership("RR-C3ONE", "m3-b");
+    // Idempotent join, reported as a conflict: M1's seat-cap check needs to
+    // distinguish "joined" from "was already in".
+    assert.equal(await store.addMembership("RR-C3ONE", "m3-b"), "conflict");
     assert.equal((await store.listMembers("RR-C3ONE")).length, 2);
 
     await store.createCircle("RR-C3TWO", "I dyti", "m3-a");
-    await store.addMembership("RR-C3TWO", "m3-a");
+    assert.equal(await store.addMembership("RR-C3TWO", "m3-a"), "created");
     assert.deepEqual(
       (await store.listCirclesFor("m3-a")).map((row) => row.code),
       ["RR-C3ONE", "RR-C3TWO"],
@@ -328,6 +340,19 @@ async function runConformance(t, store) {
       () => store.listResultRange("RR-C6WEEK", "2026-08-09", "2026-08-03"),
       /on or before/u,
     );
+    // Unbounded ranges are refused before they reach the database: a crafted
+    // "0001-01-01".."9999-12-31" request must never become a full-table scan
+    // billed in Neon compute-seconds. 366 days (a leap year) is the ceiling.
+    await assert.rejects(
+      () => store.listResultRange("RR-C6WEEK", "0001-01-01", "9999-12-31"),
+      /at most 366 days/u,
+    );
+    await assert.rejects(
+      () => store.listResultRange("RR-C6WEEK", "2026-01-01", "2027-01-02"),
+      /at most 366 days/u,
+    );
+    // A full leap-year span (366 days inclusive) is still allowed.
+    assert.deepEqual(await store.listResultRange("RR-C6WEEK", "2024-01-01", "2024-12-31"), []);
   });
 
   await t.test("takeToken: allows `limit` calls per window, then refuses", async () => {
@@ -425,14 +450,14 @@ test("schema.sql is fully qualified, so a test run cannot touch public", async (
   const sqlText = await readFile(new URL("../api/_lib/schema.sql", import.meta.url), "utf8");
 
   const statements = rewriteSchemaStatements(sqlText, "rrethi_test_probe");
-  assert.equal(statements.length, 6); // 5 tables + 1 index
+  assert.equal(statements.length, 9); // 5 tables + 4 indexes
   for (const statement of statements) {
     assert.doesNotMatch(statement, /public\./u);
     assert.match(statement, /IF NOT EXISTS/u); // re-running the file is a no-op
   }
   assert.equal(
     statements.filter((statement) => statement.includes(`"rrethi_test_probe".`)).length,
-    6,
+    9,
   );
   assert.match(
     statements.join(";"),

@@ -157,7 +157,7 @@ export function createMemoryStore() {
       assertKey(owner, "ownerKey");
       // Order matters: `ON CONFLICT DO NOTHING` inserts no row, so Postgres
       // never fires the owner_key foreign-key trigger on a conflicting insert.
-      if (circles.has(code)) return; // ON CONFLICT (code) DO NOTHING
+      if (circles.has(code)) return "conflict"; // ON CONFLICT (code) DO NOTHING
       if (!members.has(owner)) throw foreignKeyError();
       circles.set(code, {
         code,
@@ -166,6 +166,7 @@ export function createMemoryStore() {
         showTime: false,
         createdAt: nowIso(),
       });
+      return "created";
     },
 
     async getCircle(code) {
@@ -178,13 +179,14 @@ export function createMemoryStore() {
       assertKey(code, "circleCode");
       assertKey(key, "memberKey");
       const membershipKey = compositeKey(code, key);
-      if (memberships.has(membershipKey)) return; // ON CONFLICT DO NOTHING
+      if (memberships.has(membershipKey)) return "conflict"; // ON CONFLICT DO NOTHING
       if (!circles.has(code) || !members.has(key)) throw foreignKeyError();
       memberships.set(membershipKey, {
         circleCode: code,
         memberKey: key,
         joinedAt: nowIso(),
       });
+      return "created";
     },
 
     async removeMembership(code, key) {
