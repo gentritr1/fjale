@@ -371,9 +371,9 @@ in the handlers. `api/_lib/store.js`:
  * @property {(key:string) => Promise<?Member>}                          getMember
  * @property {(key:string, name:string) => Promise<void>}                renameMember
  * @property {(key:string) => Promise<void>}                             deleteMember
- * @property {(code:string, name:string, owner:string) => Promise<void>} createCircle
+ * @property {(code:string, name:string, owner:string) => Promise<'created'|'conflict'>} createCircle
  * @property {(code:string) => Promise<?Circle>}                         getCircle
- * @property {(code:string, key:string) => Promise<void>}                addMembership
+ * @property {(code:string, key:string) => Promise<'created'|'conflict'>} addMembership
  * @property {(code:string, key:string) => Promise<void>}                removeMembership
  * @property {(key:string) => Promise<Circle[]>}                         listCirclesFor
  * @property {(r:ResultInput) => Promise<'created'|'conflict'>}          putResult

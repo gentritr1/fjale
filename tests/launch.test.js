@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -657,12 +658,16 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
   const publicPaths = new Set(extractPaths(serverSource, "const publicPaths = new Set\\("));
 
   // Every precached shell path must actually be served by the dev server, so a
-  // rename or new file cannot ship half-wired ("/" maps to index.html).
+  // rename or new file cannot ship half-wired ("/" maps to index.html). Each
+  // must also exist on disk: precacheAppShell is all-or-nothing, so a single
+  // 404 during install aborts the whole service worker for every user.
   for (const path of appShell) {
     if (path === "/") {
       continue;
     }
     assert.ok(publicPaths.has(path), `APP_SHELL entry ${path} must be in server publicPaths`);
+    const onDisk = path === "/index.html" ? "index.html" : path.slice(1);
+    assert.ok(existsSync(onDisk), `APP_SHELL entry ${path} must exist on disk`);
   }
 
   // The generated corpus must stay network-first with a versioned header, so a
@@ -671,6 +676,30 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
   assert.ok(appShell.includes("/src/accepted-words.js"));
   const cacheFirstBlock = serviceWorker.match(/CACHE_FIRST_ASSETS = new Set\(\[([^\]]+)\]/u);
   assert.ok(cacheFirstBlock && !cacheFirstBlock[1].includes("accepted-words"));
+
+  // Cache-first assets are served immutable for a year AND sit outside the
+  // cache-bump guard (they left APP_SHELL with v26), so the ONLY way their
+  // bytes can ever change for an existing client is a filename change. Enforce
+  // the -vN naming convention that makes that possible; icons predate it and
+  // are grandfathered by exact name.
+  const versionedExceptions = new Set([
+    "/favicon.svg",
+    "/icon-192.png",
+    "/icon-512.png",
+    "/icon-maskable-512.png",
+  ]);
+  const cacheFirstPaths = [...cacheFirstBlock[1].matchAll(/"([^"]+)"/gu)].map(([, p]) => p);
+  for (const path of cacheFirstPaths) {
+    if (versionedExceptions.has(path)) {
+      continue;
+    }
+    assert.match(
+      path,
+      /-v\d+\.\w+$/u,
+      `${path} is cache-first + immutable: its filename must carry a -vN version`,
+    );
+    assert.ok(existsSync(path.slice(1)), `CACHE_FIRST_ASSETS entry ${path} must exist on disk`);
+  }
   const corpus = await readFile("src/accepted-words.js", "utf8");
   assert.match(corpus, /Corpus version: \S+/u, "corpus must declare its version");
   assert.match(serviceWorker, /const CACHE_NAME = "fjale-shell-v\d+"/u);
@@ -689,11 +718,11 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v26", "fjale-shell-v25");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v27", "fjale-shell-v26");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 26);
+  assert.equal(readCacheVersion(serviceWorker), 27);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -718,10 +747,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v25/u,
+    /did not advance beyond fjale-shell-v26/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 25, currentVersion: 26 },
+    { previousVersion: 26, currentVersion: 27 },
   );
 });

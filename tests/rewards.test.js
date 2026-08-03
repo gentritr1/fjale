@@ -513,6 +513,23 @@ test("a newly crossed milestone is surfaced once and recorded forever", () => {
   assert.deepEqual(again.profile.milestones, ["streak-7"]);
 });
 
+test("a recorded milestone whose condition no longer holds is never re-fired", () => {
+  // The recorded list alone must silence a milestone, even when the profile's
+  // current totals do NOT satisfy it (so `previouslySatisfied` cannot save the
+  // check). This kills the mutant that drops the `recordedMilestones` clause:
+  // besa-first is on record, besaDailyWins is 0, and a win that re-satisfies it
+  // must surface nothing and must not append a duplicate id.
+  const start = profile({ milestones: ["besa-first"], besaDailyWins: 0 });
+  const rewon = complete(start, "2026-08-02", { besa: true, usedHint: false });
+
+  assert.equal(rewon.events.besaDaily, true);
+  assert.deepEqual(rewon.events.newMilestones, []);
+  assert.deepEqual(
+    rewon.profile.milestones.filter((id) => id === "besa-first"),
+    ["besa-first"],
+  );
+});
+
 test("milestones already satisfied are backfilled silently, never re-celebrated", () => {
   const legacy = profile({ currentStreak: 30, bestStreak: 30, milestones: [] });
   const result = complete(legacy, "2026-08-02");
@@ -761,6 +778,15 @@ test("a corrupt or absent profile still loads a complete, zeroed shape", () => {
 
   assert.equal(sanitizeProfile({ lastGraceDate: "2026-8-2" }).lastGraceDate, null);
   assert.equal(sanitizeProfile({ lastGraceDate: "2026-02-29" }).lastGraceDate, null);
+
+  // A dirty milestones ARRAY must be routed through sanitizeMilestones, not
+  // passed through: unknown ids, duplicates, and non-strings are dropped while
+  // valid ids keep their order. (The string case above only proves the
+  // Array.isArray short-circuit.)
+  assert.deepEqual(
+    sanitizeProfile({ milestones: ["nope", "streak-7", "streak-7", 7, "letters-36"] }).milestones,
+    ["streak-7", "letters-36"],
+  );
   assert.equal(sanitizeProfile({ lastGraceDate: "0000-01-01" }).lastGraceDate, null);
   assert.equal(sanitizeProfile({ lastDailyWin: "2026-04-31" }).lastDailyWin, null);
   assert.equal(sanitizeProfile({ lastGraceDate: "2026-08-02" }).lastGraceDate, "2026-08-02");

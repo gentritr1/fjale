@@ -83,8 +83,12 @@ const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 // here so a single module-scope boolean answers every gate; nothing re-reads
 // storage or the query string later, and the flag can never change mid-session.
 //
-// OFF must behave byte-identically to the shipped app: the 760ms reveal lock,
-// confetti on every win, no Vulat tab, none of the new motion.
+// OFF preserves the shipped app's reward-layer behavior: the 760ms reveal
+// lock, confetti on every win, no Vulat tab, none of the new motion. It is NOT
+// byte-identical overall — this branch also ships two deliberate unflagged
+// changes: the alphabet passport stamps only daily wins (owner-approved
+// 2026-08-03), and the on-screen keyboard drops the digraph row (digraph entry
+// still works — appendPhysicalCharacter folds typed pairs into one tile).
 // ---------------------------------------------------------------------------
 const REWARDS_FLAG_KEY = "fjale:flag:shperblime";
 const LOCAL_FLAG_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -2075,15 +2079,17 @@ function renderAvatarOptions(
           : `${avatar.name}, e kyçur. ${unlockCopy}`,
     );
     const image = document.createElement("img");
+    // `loading` must be set BEFORE `src`, and unconditionally: the picker is
+    // rendered on every passport open while the Shenja panel sits hidden behind
+    // the alphabet tab, and `hidden` does not stop eager fetches — the same
+    // trap the index.html avatar img fix closed.
+    image.loading = "lazy";
     image.src = avatar.asset;
     image.alt = "";
     image.width = 160;
     image.height = 160;
     image.decoding = "async";
     image.draggable = false;
-    if (avatar.badgeId) {
-      image.loading = "lazy";
-    }
     button.append(image);
 
     if (!unlocked) {

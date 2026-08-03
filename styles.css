@@ -2159,7 +2159,7 @@
      window; the pair translates one digit-height so the new number rises into
      place. At rest the stack already sits on the new digit, so a re-render
      without the ticking class simply shows the current streak. */
-  .streak-figure {
+  .rewards-on .streak-figure {
     position: relative;
     display: none;
   }
@@ -2179,13 +2179,13 @@
     display: none;
   }
 
-  .streak-caption {
+  .rewards-on .streak-caption {
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
 
-  .streak-digits {
+  .rewards-on .streak-digits {
     position: relative;
     display: inline-block;
     overflow: hidden;
@@ -2196,7 +2196,7 @@
     color: var(--primary-deep);
   }
 
-  .streak-digit {
+  .rewards-on .streak-digit {
     display: block;
     height: 1.15em;
     line-height: 1.15em;
@@ -2254,7 +2254,7 @@
   /* milestone-band — 700ms, once. The rule sweeps out from the centre and the
      whole band then fades. The label is a separate node so it is never squashed
      by the bar's scaleX. Decorative: the milestone is announced separately. */
-  .milestone-band {
+  .rewards-on .milestone-band {
     display: none;
   }
 
@@ -2283,7 +2283,7 @@
     transform: scaleX(0);
   }
 
-  .milestone-band-label {
+  .rewards-on .milestone-band-label {
     position: relative;
     padding: 0 10px;
     color: var(--primary-deep);
@@ -2304,7 +2304,7 @@
 
   /* ---- Vulat: the badge page of the passport dialog (plan §4.5) ---------- */
 
-  .passport-tablist {
+  .rewards-on .passport-tablist {
     display: none;
   }
 
@@ -2325,7 +2325,7 @@
      redeclare every token used here, and no state is produced by mixing amber
      with a near-white surface — that drift is what made an earlier
      pressed-plus-disabled pairing unreadable. */
-  .passport-tab {
+  .rewards-on .passport-tab {
     flex: 1 1 0;
     min-width: 0;
     min-height: 44px;
@@ -2341,25 +2341,25 @@
   }
 
   @media (hover: hover) {
-    .passport-tab:hover:not(:disabled, [aria-selected="true"]) {
+    .rewards-on .passport-tab:hover:not(:disabled, [aria-selected="true"]) {
       background: var(--surface-hover);
       color: var(--ink);
     }
   }
 
-  .passport-tab[aria-selected="true"] {
+  .rewards-on .passport-tab[aria-selected="true"] {
     background: var(--primary);
     color: var(--on-primary);
   }
 
   @media (hover: hover) {
-    .passport-tab[aria-selected="true"]:hover:not(:disabled) {
+    .rewards-on .passport-tab[aria-selected="true"]:hover:not(:disabled) {
       background: var(--primary);
       color: var(--on-primary);
     }
   }
 
-  .passport-tab:disabled {
+  .rewards-on .passport-tab:disabled {
     background: transparent;
     color: var(--faint);
     cursor: default;
@@ -2367,19 +2367,19 @@
 
   /* The readable disabled-and-selected pairing: keep the pale honey plate and
      the full-strength ink instead of fading the label into the plate. */
-  .passport-tab[aria-selected="true"]:disabled {
+  .rewards-on .passport-tab[aria-selected="true"]:disabled {
     background: var(--primary-pale);
     color: var(--primary-deep);
   }
 
-  .badge-summary {
+  .rewards-on .badge-summary {
     margin-bottom: 10px;
   }
 
   /* One readable list on phones, two columns only once the dialog has room.
      The rows use dividers instead of eleven boxed cards, which keeps the page
      from turning into a reward dashboard. */
-  .badge-grid {
+  .rewards-on .badge-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     column-gap: 16px;
@@ -2388,7 +2388,7 @@
   }
 
   @media (min-width: 480px) {
-    .badge-grid {
+    .rewards-on .badge-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
@@ -2396,7 +2396,7 @@
   /* Unearned goals remain visible, with live progress. The seal family comes
      from the ImageGen direction sheet but stays code-native: a double-ring
      front, a hidden letter on the back, and no motion until the user asks. */
-  .badge-chip {
+  .rewards-on .badge-chip {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr);
     grid-template-rows: auto auto;
@@ -2409,7 +2409,7 @@
     background: transparent;
   }
 
-  .badge-seal {
+  .rewards-on .badge-seal {
     position: relative;
     grid-row: 1 / span 2;
     display: grid;
@@ -2429,16 +2429,16 @@
     transition: transform 100ms var(--ease-out);
   }
 
-  .badge-seal:active {
+  .rewards-on .badge-seal:active {
     transform: scale(0.96);
   }
 
-  .badge-seal:focus-visible {
+  .rewards-on .badge-seal:focus-visible {
     outline: 2px solid var(--primary-deep);
     outline-offset: 1px;
   }
 
-  .badge-seal-coin {
+  .rewards-on .badge-seal-coin {
     position: relative;
     display: block;
     width: 34px;
@@ -2449,21 +2449,21 @@
     transition: transform 360ms var(--ease-out);
   }
 
-  .badge-seal.is-flipped .badge-seal-coin {
+  .rewards-on .badge-seal.is-flipped .badge-seal-coin {
     transform: rotateY(180deg);
   }
 
   @media (hover: hover) {
-    .badge-seal:not(.is-flipped):hover .badge-seal-coin {
+    .rewards-on .badge-seal:not(.is-flipped):hover .badge-seal-coin {
       transform: rotateX(5deg) rotateY(-24deg);
     }
 
-    .badge-seal.is-flipped:hover .badge-seal-coin {
+    .rewards-on .badge-seal.is-flipped:hover .badge-seal-coin {
       transform: rotateX(5deg) rotateY(204deg);
     }
   }
 
-  .badge-seal-face {
+  .rewards-on .badge-seal-face {
     position: absolute;
     inset: 0;
     display: grid;
@@ -2479,7 +2479,7 @@
     -webkit-backface-visibility: hidden;
   }
 
-  .badge-seal-face::before {
+  .rewards-on .badge-seal-face::before {
     content: "";
     position: absolute;
     inset: 3px;
@@ -2488,28 +2488,28 @@
     opacity: 0.55;
   }
 
-  .badge-seal-front.has-wide-mark {
+  .rewards-on .badge-seal-front.has-wide-mark {
     font-size: 0.58rem;
   }
 
-  .badge-seal-back {
+  .rewards-on .badge-seal-back {
     background: var(--bg);
     color: var(--primary-deep);
     transform: rotateY(180deg);
   }
 
-  .badge-chip.is-earned .badge-seal-front {
+  .rewards-on .badge-chip.is-earned .badge-seal-front {
     border-color: var(--primary-deep);
     background: var(--primary);
     color: var(--on-primary);
   }
 
-  .badge-chip.is-earned .badge-seal-back {
+  .rewards-on .badge-chip.is-earned .badge-seal-back {
     border-color: var(--primary-deep);
     background: var(--primary-pale);
   }
 
-  .badge-earned-mark {
+  .rewards-on .badge-earned-mark {
     position: absolute;
     right: -2px;
     bottom: -2px;
@@ -2525,7 +2525,7 @@
     line-height: 1;
   }
 
-  .badge-heading {
+  .rewards-on .badge-heading {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -2533,7 +2533,7 @@
     min-width: 0;
   }
 
-  .badge-name {
+  .rewards-on .badge-name {
     min-width: 0;
     color: var(--muted);
     font-size: 0.79rem;
@@ -2541,11 +2541,11 @@
     overflow-wrap: anywhere;
   }
 
-  .badge-chip.is-earned .badge-name {
+  .rewards-on .badge-chip.is-earned .badge-name {
     color: var(--ink);
   }
 
-  .badge-progress {
+  .rewards-on .badge-progress {
     flex: 0 0 auto;
     color: var(--faint);
     font-size: 0.66rem;
@@ -2553,11 +2553,11 @@
     white-space: nowrap;
   }
 
-  .badge-chip.is-earned .badge-progress {
+  .rewards-on .badge-chip.is-earned .badge-progress {
     color: var(--primary-deep);
   }
 
-  .badge-goal {
+  .rewards-on .badge-goal {
     grid-column: 2;
     min-width: 0;
     margin-top: 2px;
@@ -2567,7 +2567,7 @@
     overflow-wrap: anywhere;
   }
 
-  .badge-chip.is-earned .badge-goal {
+  .rewards-on .badge-chip.is-earned .badge-goal {
     color: var(--ink-soft);
   }
 
@@ -3337,6 +3337,13 @@
 
   .rewards-on .badge-seal.is-flipped .badge-seal-coin {
     transform: rotateY(180deg) !important;
+  }
+
+  /* Avatar buttons — no hover lift or press squeeze; the selection ring and
+     focus outline carry the state without motion. */
+  .rewards-on .avatar-option {
+    transition: none !important;
+    transform: none !important;
   }
 
   /* Shenja — selection and unlock state appear immediately, without a turn. */
