@@ -36,4 +36,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+      # Deliberately no `npm ci`: the default path has zero runtime deps and
+      # must stay green from a bare checkout (the Neon block skips itself).
       - run: npm run check
+
+  # Executes the Neon adapter's SQL against real Postgres (pglite, WASM) via
+  # scripts/neon-pglite-bridge.mjs — the only job that installs dependencies.
+  # Real Postgres semantics, NOT Neon-the-service; see the bridge's header.
+  neon-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:neon-bridge
