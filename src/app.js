@@ -127,7 +127,7 @@ function rewardsEnabled() {
 const BADGE_COPY = Object.freeze({
   "daily-win-1": {
     name: "Vula e parë",
-    goal: "Fito fjalën e ditës një herë.",
+    goal: "Gjeje fjalën e ditës një herë.",
     mark: "01",
     secret: "F",
   },
@@ -169,7 +169,7 @@ const BADGE_COPY = Object.freeze({
   },
   "daily-win-25": {
     name: "Njëzet e pesë",
-    goal: "Fito fjalën e ditës 25 herë.",
+    goal: "Gjeje fjalën e ditës 25 herë.",
     mark: "25",
     secret: "B",
   },
@@ -187,7 +187,7 @@ const BADGE_COPY = Object.freeze({
   },
   "daily-besa-3": {
     name: "Besa e trefishtë",
-    goal: "Fito fjalën e ditës 3 herë me Besë.",
+    goal: "Gjeje fjalën e ditës 3 herë me Besë.",
     mark: "B",
     secret: "Ë",
   },

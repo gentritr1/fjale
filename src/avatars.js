@@ -27,7 +27,7 @@ export const EARNED_AVATARS = Object.freeze([
   { id: "animal-owl", name: "Buf", asset: "/avatars/animal-owl-v1.webp", badgeId: "daily-win-1" },
   { id: "animal-fox", name: "Dhelpër", asset: "/avatars/animal-fox-v1.webp", badgeId: "daily-attempt-1" },
   { id: "animal-hare", name: "Lepur", asset: "/avatars/animal-hare-v1.webp", badgeId: "daily-attempt-6" },
-  { id: "animal-bear", name: "Ari", asset: "/avatars/animal-bear-v1.webp", badgeId: "daily-fast-10" },
+  { id: "animal-bear", name: "Ariu", asset: "/avatars/animal-bear-v1.webp", badgeId: "daily-fast-10" },
   { id: "animal-goat", name: "Dhi mali", asset: "/avatars/animal-goat-v1.webp", badgeId: "streak-7" },
   { id: "animal-cat", name: "Mace", asset: "/avatars/animal-cat-v1.webp", badgeId: "streak-30" },
   { id: "animal-tortoise", name: "Breshkë", asset: "/avatars/animal-tortoise-v1.webp", badgeId: "daily-played-100" },
