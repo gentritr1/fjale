@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v33";
+const CACHE_NAME = "fjale-shell-v34";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 // Avatars are deliberately NOT precached while REWARDS_ENABLED is off: install
@@ -45,8 +45,6 @@ const CACHE_FIRST_ASSETS = new Set([
   "/avatars/stick-tinkerer-v1.webp",
   "/avatars/stick-music-v1.webp",
   "/avatars/stick-cup-v1.webp",
-  // Retained for older open tabs that still reference the previous catalog.
-  "/avatars/stick-wheelchair-v1.webp",
   "/avatars/stick-elder-v1.webp",
   "/avatars/stick-reader-v1.webp",
   "/avatars/stick-runner-v1.webp",
