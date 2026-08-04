@@ -270,9 +270,14 @@ detection theatre.
   backfilling a perfect history. **Shape:** `attempts ∈ 1..6 | "X"`, booleans are
   booleans, no free text except the display name.
 - **Rate limits:** 60 req/min per member key, 10 circle creations/day, 20
-  joins/day; IP is an ephemeral bucket key only, never stored. **Caps:** 10
-  members/circle, 10 circles/member — small enough to stay personal, and also
-  the free-tier cost control. **Invite codes:** 13 chars Crockford base32 from a CSPRNG (~65 bits),
+  joins/day; a raw IP or plain hash is never stored. The anonymous bucket is a
+  short-lived HMAC of the IP plus the current window, rotated and pruned within
+  48 hours. **Caps:** 10 members/circle, 10 circles/member — small enough to
+  stay personal, and also the free-tier cost control. Both caps are database
+  invariants: a handler-side count followed by `addMembership` is forbidden
+  because concurrent joins can create an eleventh seat. M1 needs one atomic
+  join operation and a two-request race test that proves exactly one final seat
+  is granted. **Invite codes:** 13 chars Crockford base32 from a CSPRNG (~65 bits),
   revocable by the creator; revocation issues a new code and keeps members.
 - **Display names:** trimmed, NFC, ≤20 chars, no control characters, ≤2 emoji. No
   automated profanity filter — circles are self-selecting and the creator can
@@ -472,7 +477,8 @@ delete returns `204`.
 
 **M4 — family beta (2 wk calendar).** One real circle, 5+ members, 14 consecutive
 days. *Acceptance:* zero spoiler complaints, zero "Rrethi broke my streak"
-reports, free-tier compute below 40% of quota at day 14.
+reports, no polling observed, and at most 40 CU-hours consumed over the 14 days
+(an 80 CU-hour monthly projection, leaving 20% headroom).
 
 ---
 
@@ -785,7 +791,7 @@ rewrite), any epoch or pool change of any kind, and the §3.4 backlog.
 
 **Hard dependencies.** Rrethi M3 (privacy page) **must** be in the same deploy as
 the first live `/api` route — not the release before, not after. Any change to a
-precached runtime file must bump `CACHE_NAME` (now `fjale-shell-v25`,
+precached runtime file must bump `CACHE_NAME` (now `fjale-shell-v31`,
 `service-worker.js:1`), enforced in CI by `scripts/check-cache-version-bump.mjs`;
 every item in §4 touches `styles.css` and `src/app.js`, so every one needs a bump.
 `/api/*` is already excluded from the service-worker fetch handler and protected
@@ -820,42 +826,53 @@ absent, not zeroed; keep the outbox fire-and-forget so a pending upload cannot
 render a partial board; add fake-clock boundary tests at Tirana midnight including
 a DST date, using the archive clock-shim technique.
 
-**2. Backend cost creep past the free tier.** Serverless Postgres free tiers bill
-compute-hours and connection time, not storage, and the §2.8 math shows 22 MB/year
+**2. Backend cost creep past the free tier.** Serverless Postgres free tiers meter
+CU-hours and active compute time, not storage alone, and the §2.8 math shows 22 MB/year
 at 1,000 players — so **the risk is request volume and cold starts, not rows**.
 *Mitigation:* board fetch at most once per app foreground, never on an interval;
 the week query reuses the board's index; caps of 10 members/circle and 10
-circles/member; and a hard tripwire — if projected monthly compute exceeds 60% of
-free quota at M4, the flag goes back OFF and we re-scope rather than upgrade
+circles/member; and a hard tripwire — if projected monthly compute reaches 80
+CU-hours at M4, the flag goes back OFF and we re-scope rather than upgrade
 silently. Paying for infrastructure is a product decision, not an ops reflex.
 
-**Cost-model addendum (2026-08-05 review).** The 40%/§2.12 and 60% gates above
-were written before anyone modeled them. The model (assumptions marked ⚠ need
-confirmation against Neon's current free plan: ⚠191.9 compute-h/month included,
-⚠0.25 CU minimum, ⚠5-min autosuspend):
+**Cost-model addendum (2026-08-04 re-check).** The earlier quota arithmetic was
+based on a superseded allowance. Neon's current published Free plan is
+**100 CU-hours/project/month**, 0.5 GB storage, computes up to 2 CU, with a
+fixed 5-minute scale-to-zero delay ([pricing](https://neon.com/pricing),
+[scale to zero](https://neon.com/docs/introduction/scale-to-zero)). At a fixed
+0.25 CU, that buys about **400 active compute-hours/month**, or 13.3 h/day in a
+30-day month. If traffic keeps the compute continuously active, 10 h/day uses
+75% of quota, 12 h/day 90%, 16 h/day 120%, and 24 h/day 180%. A 16–24-hour
+diaspora window therefore cannot be promised at €0; only a sparse beta that
+actually returns to zero between bursts can.
 
-- Billing is **CU × wall-clock hours awake**, not query count. Real query work
-  at 500 Rrethi-DAU is ~12 s/day vs ~57,600 s/day billed on a 16 h active
-  window — a 1:4,800 ratio. Query optimization is a latency lever, never a
-  cost lever.
-- Each request resets the 5-min idle timer, so past ~64 Rrethi-active DAU the
-  compute never suspends during the active window and **cost goes flat in
-  DAU**: 10 h/day awake = 39% of quota, 12 h = 47%, 16 h = 62%, 24 h = 94%
-  (at 0.25 CU). For a diaspora audience spanning ~9 timezones, 16-24 h is the
-  realistic window — meaning the 40% day-14 gate and the 60% tripwire are
-  unmeetable as written at target scale and must be restated in the unit that
-  is actually billed: **awake-hours/day at a pinned CU** (Neon's console
-  reports this directly).
-- Before M1 ships, in order of leverage: (1) pin the Neon compute to
-  min=max=0.25 CU — every number above scales linearly in CU and one evening
-  autoscale to 0.5 doubles the bill; (2) enforce "no polling" as a test (any
-  interval under the autosuspend window pins compute 24/7 = ~95% of quota at
-  ANY scale), in the spirit of the §2.11 flag-off test; (3) decide the
-  last_seen_at touch semantics (a naive per-request UPDATE makes every read a
-  write; throttle to once/day inside an existing statement); (4) add a
-  getBoard join to the §2.9 contract for round-trip latency (4→2), booked as
-  UX, not savings; (5) add avatar_id/letter_seal to schema.sql before the M1
-  endpoints are written, not after.
+- Billing is **average CU × active compute time**, not request count. At beta
+  scale, the five-minute warm tail will usually dominate the SQL execution
+  time, but query work still affects latency and can trigger autoscaling under
+  load. The prior absolute claims that cost becomes flat past 64 users and that
+  query optimization can never affect cost are removed; arrival gaps and the
+  Console's measured CU-hours decide the result.
+- Restate the M4 tripwire in provider units: keep Rrethi private and flag-off by
+  default until a two-week family beta projects below 80 CU-hours/month at the
+  fixed 0.25 CU size. At 80–100, stop expansion and tune; at 100 or above,
+  choose a paid plan/provider explicitly rather than letting the backend fail.
+- Before M1 ships, in order of leverage and correctness: (1) run the Vercel
+  function and Neon compute in the same European region, then measure cold and
+  warm p95; (2) pin min=max=0.25 CU and keep scale-to-zero enabled; (3) enforce
+  no polling — board refresh only on foreground or explicit action, and deep
+  health never on a sub-five-minute cadence; (4) fold authorization, membership,
+  board rows, and the once-daily `last_seen_at` touch into the fewest one-shot
+  statements; (5) make the 10-seat and 10-circle caps atomic in the database,
+  with concurrent race tests; (6) use versioned additive migrations over an
+  **unpooled** migration URL — `CREATE TABLE IF NOT EXISTS` is bootstrap, not a
+  migration system, and will not add future columns to an existing table; (7)
+  add `avatar_id`/`letter_seal` before endpoints; (8) HMAC and prune anonymous
+  rate buckets as specified in §2.5.
+
+The Vercel Hobby plan is suitable only while FJALË remains a personal,
+non-commercial project. Ads, paid client work, or another commercial use require
+moving to Pro before launch under Vercel's current
+[Hobby terms](https://vercel.com/docs/plans/hobby).
 
 **3. Animation overload undermines the anti-gimmick position.** Market research
 names heavy animation the lowest-ROI direction and the product's anti-references

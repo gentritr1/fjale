@@ -238,14 +238,28 @@ test("keeps touch interaction contracts for mobile", async () => {
     "viewport meta must not cap maximum-scale",
   );
 
-  // (c) pull-to-refresh must be suppressed on the game surface
+  // (c) iOS Safari zooms the viewport when a focused text control renders
+  // below 16px. Both shipped selects must keep their control text at 1rem;
+  // labels and helper copy may remain smaller.
+  assert.match(
+    styles,
+    /\.setting-row select\s*\{[^}]*font-size:\s*1rem/u,
+    "the theme select must not trigger iOS focus zoom",
+  );
+  assert.match(
+    styles,
+    /\.avatar-letter-field select\s*\{[^}]*font-size:\s*1rem/u,
+    "the avatar letter select must not trigger iOS focus zoom",
+  );
+
+  // (d) pull-to-refresh must be suppressed on the game surface
   assert.match(
     styles,
     /overscroll-behavior-y:\s*none/u,
     "styles.css must suppress vertical overscroll (pull-to-refresh)",
   );
 
-  // (d) every :hover rule must sit inside an @media (hover: hover) guard.
+  // (e) every :hover rule must sit inside an @media (hover: hover) guard.
   // Strip balanced @media (hover: hover) { ... } blocks, then assert no :hover leaks.
   const marker = "@media (hover: hover)";
   let outsideGuards = "";
@@ -718,11 +732,11 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v30", "fjale-shell-v29");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v31", "fjale-shell-v30");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 30);
+  assert.equal(readCacheVersion(serviceWorker), 31);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -747,10 +761,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v29/u,
+    /did not advance beyond fjale-shell-v30/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 29, currentVersion: 30 },
+    { previousVersion: 30, currentVersion: 31 },
   );
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v30";
+const CACHE_NAME = "fjale-shell-v31";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 // Avatars are deliberately NOT precached while REWARDS_ENABLED is off: install

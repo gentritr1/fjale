@@ -1949,7 +1949,11 @@
       right 11px center / 12px 8px no-repeat,
       var(--surface);
     color: var(--ink);
-    font-size: 0.78rem;
+    /* Keep every focused text control at 16px or above. iOS Safari zooms the
+       whole page when this select is smaller, just as it does for the Shenja
+       letter picker below. Supporting copy can stay compact; the control
+       itself must not move the viewport. */
+    font-size: 1rem;
     font-weight: 700;
     transition: border-color 160ms var(--ease-standard);
   }
