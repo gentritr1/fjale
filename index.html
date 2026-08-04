@@ -79,6 +79,17 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="stylesheet" href="/styles.css" />
+    <!-- The module graph is three levels deep (app.js → words.js →
+         accepted-words.js, the single largest asset). Preloading the whole
+         graph collapses three network round-trips into one — worth
+         ~300-500ms of cold-start latency on mobile RTTs. CSP-safe: governed
+         by script-src 'self', no inline content, pinned JSON-LD hash
+         untouched. -->
+    <link rel="modulepreload" href="/src/game.js" />
+    <link rel="modulepreload" href="/src/avatars.js" />
+    <link rel="modulepreload" href="/src/words.js" />
+    <link rel="modulepreload" href="/src/accepted-words.js" />
+    <link rel="modulepreload" href="/src/config.js" />
   </head>
   <body>
     <a class="skip-link" href="#game-board">Kalo te loja</a>
@@ -309,6 +320,7 @@
             <img
               class="result-besa-seal"
               id="result-besa-seal"
+              loading="lazy"
               src="/besa-seal-v1.svg"
               alt=""
               aria-hidden="true"
@@ -362,6 +374,7 @@
         <div class="dialog-content">
           <img
             class="help-hero"
+            loading="lazy"
             src="/help-hero-v1.svg"
             alt=""
             aria-hidden="true"

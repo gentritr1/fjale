@@ -1,4 +1,4 @@
-const CACHE_NAME = "fjale-shell-v29";
+const CACHE_NAME = "fjale-shell-v30";
 const CACHE_PREFIX = "fjale-";
 const INDEX_ROUTES = new Set(["/", "/index.html"]);
 // Avatars are deliberately NOT precached while REWARDS_ENABLED is off: install
@@ -115,7 +115,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(networkFirst(request, url));
+  event.respondWith(networkFirst(request, url, event));
 });
 
 async function cacheFirst(request) {
@@ -134,7 +134,13 @@ async function cacheFirst(request) {
 
 async function precacheAppShell() {
   const cache = await caches.open(CACHE_NAME);
-  const requests = APP_SHELL.map((url) => new Request(url, { cache: "reload" }));
+  // "no-cache" (revalidate) instead of "reload" (force full download): the page
+  // fetched these same 19 files seconds ago, so revalidation turns ~115 KB of
+  // duplicate transfer into 304s. COUPLING: this is only equivalent to "reload"
+  // because vercel.json serves every shell file `max-age=0, must-revalidate` —
+  // if those headers ever allow real HTTP caching, this must go back to
+  // "reload" or the precache could capture a stale copy.
+  const requests = APP_SHELL.map((url) => new Request(url, { cache: "no-cache" }));
   const responses = await Promise.all(
     requests.map(async (request) => {
       const response = await fetch(request);
@@ -150,14 +156,46 @@ async function precacheAppShell() {
   );
 }
 
-async function networkFirst(request, url) {
+// How long a network-first request may stall before a cached copy is served
+// instead. Offline rejects instantly and is unaffected; this bounds the lie-fi
+// case (captive portal, one-bar 3G: TCP connects, then nothing) where the
+// browser's own socket timeout would otherwise hang a fully-cached app for
+// tens of seconds.
+const NETWORK_FIRST_TIMEOUT_MS = 3_500;
+
+async function networkFirst(request, url, event) {
   const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
   let networkResponse = null;
 
   try {
     // Revalidate every network-first shell and corpus request instead of using
     // a still-fresh HTTP cache entry. The Cache API remains the offline fallback.
-    networkResponse = await fetch(request, { cache: "no-cache" });
+    const networkPromise = fetch(request, { cache: "no-cache" });
+    // The timeout only exists when there is a cached copy to fall back on; a
+    // first-ever visit on a slow network must keep waiting for the real thing.
+    networkResponse = cached
+      ? await Promise.race([
+          networkPromise,
+          new Promise((resolve) => setTimeout(() => resolve(null), NETWORK_FIRST_TIMEOUT_MS)),
+        ])
+      : await networkPromise;
+
+    if (networkResponse === null) {
+      // Serve the cache now; let the late network response finish in the
+      // background so the next load gets the fresh copy.
+      event.waitUntil(
+        networkPromise
+          .then(async (lateResponse) => {
+            if (lateResponse.ok && lateResponse.type === "basic") {
+              await cache.put(request, lateResponse.clone());
+            }
+          })
+          .catch(() => {}),
+      );
+      return cached;
+    }
+
     if (networkResponse.status >= 500) {
       throw new Error(`Temporary server error: ${networkResponse.status}`);
     }
@@ -166,7 +204,6 @@ async function networkFirst(request, url) {
     }
     return networkResponse;
   } catch {
-    const cached = await cache.match(request);
     if (cached) {
       return cached;
     }

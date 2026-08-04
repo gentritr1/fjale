@@ -7,6 +7,12 @@
 .env
 .env.*
 !.env.example
+# Superseded assets nothing references (manifest points at -v3; the maskable
+# icon shipped as PNG). og-fjale-v1/v2 stay deployed on purpose: old social
+# shares may still embed those URLs.
+screenshot-narrow-v2.png
+screenshot-wide-v2.png
+icon-maskable.svg
 design-concepts/
 third_party/
 tests/
