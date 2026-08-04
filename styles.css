@@ -632,7 +632,14 @@
     background: var(--bg);
     box-shadow: inset 0 0 0 1.5px var(--line);
     color: var(--ink);
-    font-size: clamp(1.25rem, 5vw, 1.72rem);
+    /* The shipped viewport-width formula, additionally capped by the tile box
+       itself: --tile-size can be driven by HEIGHT (8.25dvh) in landscape,
+       where the width-based 5vw font made DH/SH digraphs overflow their
+       ~31px tiles. 0.46 is the largest tile-to-font ratio that keeps a
+       two-glyph digraph (0.95em, negative tracking) inside the box. Portrait
+       and desktop sizes are unchanged to within 1px: the box cap only bites
+       when height is the constraint. */
+    font-size: min(clamp(1.25rem, 5vw, 1.72rem), calc(var(--tile-size, 60px) * 0.46));
     font-weight: 860;
     line-height: 1;
     text-transform: uppercase;
@@ -2661,6 +2668,9 @@
     padding: 8px 30px 8px 12px;
     background: var(--bg);
     color: var(--ink);
+    /* 16px minimum: iOS Safari auto-zooms the whole page when a focused
+       form control's font is smaller. The field label stays 0.76rem. */
+    font-size: 1rem;
     font-weight: 820;
   }
 
