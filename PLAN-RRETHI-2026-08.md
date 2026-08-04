@@ -829,6 +829,34 @@ circles/member; and a hard tripwire — if projected monthly compute exceeds 60%
 free quota at M4, the flag goes back OFF and we re-scope rather than upgrade
 silently. Paying for infrastructure is a product decision, not an ops reflex.
 
+**Cost-model addendum (2026-08-05 review).** The 40%/§2.12 and 60% gates above
+were written before anyone modeled them. The model (assumptions marked ⚠ need
+confirmation against Neon's current free plan: ⚠191.9 compute-h/month included,
+⚠0.25 CU minimum, ⚠5-min autosuspend):
+
+- Billing is **CU × wall-clock hours awake**, not query count. Real query work
+  at 500 Rrethi-DAU is ~12 s/day vs ~57,600 s/day billed on a 16 h active
+  window — a 1:4,800 ratio. Query optimization is a latency lever, never a
+  cost lever.
+- Each request resets the 5-min idle timer, so past ~64 Rrethi-active DAU the
+  compute never suspends during the active window and **cost goes flat in
+  DAU**: 10 h/day awake = 39% of quota, 12 h = 47%, 16 h = 62%, 24 h = 94%
+  (at 0.25 CU). For a diaspora audience spanning ~9 timezones, 16-24 h is the
+  realistic window — meaning the 40% day-14 gate and the 60% tripwire are
+  unmeetable as written at target scale and must be restated in the unit that
+  is actually billed: **awake-hours/day at a pinned CU** (Neon's console
+  reports this directly).
+- Before M1 ships, in order of leverage: (1) pin the Neon compute to
+  min=max=0.25 CU — every number above scales linearly in CU and one evening
+  autoscale to 0.5 doubles the bill; (2) enforce "no polling" as a test (any
+  interval under the autosuspend window pins compute 24/7 = ~95% of quota at
+  ANY scale), in the spirit of the §2.11 flag-off test; (3) decide the
+  last_seen_at touch semantics (a naive per-request UPDATE makes every read a
+  write; throttle to once/day inside an existing statement); (4) add a
+  getBoard join to the §2.9 contract for round-trip latency (4→2), booked as
+  UX, not savings; (5) add avatar_id/letter_seal to schema.sql before the M1
+  endpoints are written, not after.
+
 **3. Animation overload undermines the anti-gimmick position.** Market research
 names heavy animation the lowest-ROI direction and the product's anti-references
 ban casino chrome; seven new animations is near the ceiling. *Mitigation:*
