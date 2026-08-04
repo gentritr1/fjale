@@ -24,6 +24,10 @@ test("the avatar catalog has twelve free and twelve earned identities", () => {
   assert.equal(getAvatarById(DEFAULT_AVATAR_ID)?.id, DEFAULT_AVATAR_ID);
   assert.equal(getAvatarById("not-an-avatar"), null);
   assert.equal(isAvatarId("not-an-avatar"), false);
+
+  const cupAvatar = getAvatarById("stick-wheelchair");
+  assert.equal(cupAvatar?.name, "Filxhan");
+  assert.equal(cupAvatar?.asset, "/avatars/stick-cup-v1.webp");
 });
 
 test("each local badge unlocks exactly one animal and Rrethi keeps one future slot", () => {

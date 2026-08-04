@@ -15,7 +15,9 @@ export const FREE_AVATARS = Object.freeze([
   { id: "stick-skater", name: "Skejt", asset: "/avatars/stick-skater-v1.webp", badgeId: null },
   { id: "stick-tinkerer", name: "Vegla", asset: "/avatars/stick-tinkerer-v1.webp", badgeId: null },
   { id: "stick-music", name: "Ritëm", asset: "/avatars/stick-music-v1.webp", badgeId: null },
-  { id: "stick-wheelchair", name: "Rrota", asset: "/avatars/stick-wheelchair-v1.webp", badgeId: null },
+  // This shipped storage id stays stable so existing profiles keep their choice
+  // when the reviewed character art changes.
+  { id: "stick-wheelchair", name: "Filxhan", asset: "/avatars/stick-cup-v1.webp", badgeId: null },
   { id: "stick-elder", name: "Urtësi", asset: "/avatars/stick-elder-v1.webp", badgeId: null },
   { id: "stick-reader", name: "Libri", asset: "/avatars/stick-reader-v1.webp", badgeId: null },
   { id: "stick-runner", name: "Vrap", asset: "/avatars/stick-runner-v1.webp", badgeId: null },

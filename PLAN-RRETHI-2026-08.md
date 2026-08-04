@@ -791,7 +791,7 @@ rewrite), any epoch or pool change of any kind, and the §3.4 backlog.
 
 **Hard dependencies.** Rrethi M3 (privacy page) **must** be in the same deploy as
 the first live `/api` route — not the release before, not after. Any change to a
-precached runtime file must bump `CACHE_NAME` (now `fjale-shell-v31`,
+precached runtime file must bump `CACHE_NAME` (now `fjale-shell-v33`,
 `service-worker.js:1`), enforced in CI by `scripts/check-cache-version-bump.mjs`;
 every item in §4 touches `styles.css` and `src/app.js`, so every one needs a bump.
 `/api/*` is already excluded from the service-worker fetch handler and protected
