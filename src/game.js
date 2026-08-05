@@ -1,3 +1,9 @@
+import {
+  DEFAULT_AVATAR_ID,
+  DEFAULT_LETTER_SEAL,
+  isAvatarId,
+} from "./avatars.js";
+
 export const ALBANIAN_DIGRAPHS = Object.freeze([
   "dh",
   "gj",
@@ -74,10 +80,12 @@ const TIRANA_DATETIME_FORMATTER = new Intl.DateTimeFormat("en", {
 });
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const DAILY_STEP_BASE = 37;
 const DAILY_OFFSET = 911;
 const CHALLENGE_PREFIX = "SQ";
 const CHALLENGE_MULTIPLIER = 37;
+const CHALLENGE_CODE_MAX_LENGTH = 16;
 export const COMPLETED_PUZZLES_CAP = 4_000;
 const CHALLENGE_OFFSET = 911;
 
@@ -240,6 +248,19 @@ export function removeLastToken(tokens) {
   }
 
   return tokens.slice(0, -1);
+}
+
+export function hasSubmittedGuess(guesses, candidateTokens) {
+  if (!Array.isArray(guesses) || !Array.isArray(candidateTokens)) {
+    return false;
+  }
+
+  return guesses.some(
+    (guess) =>
+      Array.isArray(guess) &&
+      guess.length === candidateTokens.length &&
+      guess.every((token, index) => token === candidateTokens[index]),
+  );
 }
 
 export function evaluateGuess(answerTokens, guessTokens) {
@@ -468,10 +489,10 @@ function greatestCommonDivisor(left, right) {
   return a;
 }
 
-// Validate a stored daily-results map: "YYYY-MM-DD" -> 1..maxGuesses (win in
-// that many guesses) or "X" (loss). Invalid keys/values are dropped; any
-// non-object input yields an empty map. Format validation only — the map is
-// deliberately uncapped (one ~20-byte entry per played day).
+// Validate a stored daily-results map: real "YYYY-MM-DD" calendar date ->
+// 1..maxGuesses (win in that many guesses) or "X" (loss). Invalid keys/values
+// are dropped; any non-object input yields an empty map. The map is deliberately
+// uncapped (one ~20-byte entry per played day).
 export function sanitizeDailyResults(raw, maxGuesses = 6) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
@@ -480,7 +501,7 @@ export function sanitizeDailyResults(raw, maxGuesses = 6) {
   return Object.fromEntries(
     Object.entries(raw).filter(
       ([key, value]) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+        isDateKey(key) &&
         (value === "X" ||
           (Number.isInteger(value) && value >= 1 && value <= maxGuesses)),
     ),
@@ -497,6 +518,44 @@ export const MODE_STATS_KEYS = Object.freeze([
   "challenge",
 ]);
 
+// Streak grace: exactly one missed day is forgiven automatically, at most once
+// per rolling 30 Tirana days. It is free, never announced in advance, and never
+// stacked — two consecutive missed days always break the streak. Grace forgives
+// absence, not loss: a played-and-lost day already reset the streak and must
+// never spend the grace day.
+export const STREAK_GRACE_WINDOW_DAYS = 30;
+
+// Milestones are the once-ever moments (plan §4.4 tier 3). Recorded in an
+// additive, append-only profile.milestones array so the celebration for one can
+// never fire twice. Ids are stable keys; the Albanian labels live in the UI.
+export const MILESTONE_IDS = Object.freeze([
+  "streak-7",
+  "streak-30",
+  "streak-100",
+  "digraphs-9",
+  "letters-36",
+  "besa-first",
+  "daily-wins-100",
+]);
+
+// The eleven locally computable badges (plan §4.5, rows 1–11; row 12 is
+// server-derived and Rrethi-gated, so it is not computed here). Badges are
+// derived from stored totals rather than persisted, which is what guarantees
+// that one can never be lost once earned.
+export const BADGE_IDS = Object.freeze([
+  "daily-win-1",
+  "daily-attempt-1",
+  "daily-attempt-6",
+  "daily-fast-10",
+  "streak-7",
+  "streak-30",
+  "daily-played-100",
+  "daily-win-25",
+  "digraphs-9",
+  "letters-36",
+  "daily-besa-3",
+]);
+
 // Stable identifiers for the post-game word ratings. The human-facing Albanian
 // labels live in the UI layer; only these keys are persisted.
 export const WORD_RATING_VALUES = Object.freeze([
@@ -510,7 +569,7 @@ export const WORD_RATING_VALUES = Object.freeze([
 const WORD_RATING_SET = new Set(WORD_RATING_VALUES);
 
 function safeCount(value) {
-  return Number.isInteger(value) && value >= 0 ? value : 0;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 function emptyModeBucket(distributionLength) {
@@ -617,6 +676,92 @@ export function sanitizeReportedWords(raw, cap = 200) {
   return cleaned.slice(-Math.max(0, cap));
 }
 
+// Validate a stored milestone list: known ids only, deduped, original order
+// preserved. Non-array input yields an empty list. The list is append-only by
+// contract — nothing in this module ever removes an id from it.
+export function sanitizeMilestones(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const known = new Set(MILESTONE_IDS);
+  const seen = new Set();
+  const kept = [];
+  for (const id of raw) {
+    if (typeof id !== "string" || !known.has(id) || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    kept.push(id);
+  }
+
+  return kept;
+}
+
+// Validate a persisted profile into the exact shape the game layer expects.
+// Every field is defaulted, so a legacy save loads with all recognized totals
+// intact and unknown-to-it fields (besaDailyWins, lastGraceDate, milestones)
+// simply default — additive, never destructive, no wipe risk.
+export function sanitizeProfile(
+  saved,
+  rowCount = 6,
+  completedPuzzlesCap = COMPLETED_PUZZLES_CAP,
+) {
+  const source = saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  const distribution = Array.isArray(source.distribution)
+    ? Array.from({ length: rowCount }, (_, index) => safeCount(source.distribution[index]))
+    : Array(rowCount).fill(0);
+  const collection = Array.isArray(source.collection)
+    ? [
+        ...new Set(
+          source.collection
+            .map(normalizeWord)
+            .filter((letter) => ALBANIAN_LETTERS.has(letter)),
+        ),
+      ]
+    : [];
+  const completedPuzzles = Array.isArray(source.completedPuzzles)
+    ? source.completedPuzzles
+        .filter((id) => typeof id === "string" && id.length > 0 && id.length <= 100)
+        .slice(-completedPuzzlesCap)
+    : [];
+  const letterSeal = normalizeWord(source.letterSeal);
+
+  return {
+    played: safeCount(source.played),
+    won: safeCount(source.won),
+    currentStreak: safeCount(source.currentStreak),
+    bestStreak: safeCount(source.bestStreak),
+    lastDailyWin: isDateKey(source.lastDailyWin) ? source.lastDailyWin : null,
+    lastWinGuesses: Number.isInteger(source.lastWinGuesses) ? source.lastWinGuesses : null,
+    besaWins: safeCount(source.besaWins),
+    // Additive: Besa wins earned in the daily mode only. The legacy besaWins
+    // counts every mode and is deliberately left alone so no profile loses a
+    // total it already has (plan §4.5).
+    besaDailyWins: safeCount(source.besaDailyWins),
+    // Additive: the missed day forgiven by the rolling grace window, or null.
+    lastGraceDate: isDateKey(source.lastGraceDate) ? source.lastGraceDate : null,
+    // Additive: once-ever milestone ids, append-only.
+    milestones: sanitizeMilestones(source.milestones),
+    // Additive local identity for the future Rrethi UI. Both values are drawn
+    // from closed catalogs, so storage can never inject an arbitrary image URL
+    // or an unsupported seal into the DOM.
+    avatarId: isAvatarId(source.avatarId) ? source.avatarId : DEFAULT_AVATAR_ID,
+    letterSeal: ALBANIAN_LETTERS.has(letterSeal) ? letterSeal : DEFAULT_LETTER_SEAL,
+    distribution,
+    collection,
+    completedPuzzles,
+    // Additive field: old profiles simply produce an empty map, no data loss.
+    dailyResults: sanitizeDailyResults(source.dailyResults, rowCount),
+    // Additive per-mode statistics. A legacy profile with no modeStats yields an
+    // all-zero record; the legacy top-level fields above remain the "Overall".
+    modeStats: sanitizeModeStats(source.modeStats, rowCount),
+    // Additive trust fields; both default to empty for legacy profiles.
+    wordRatings: sanitizeWordRatings(source.wordRatings),
+    reportedWords: sanitizeReportedWords(source.reportedWords),
+  };
+}
+
 function cloneModeStats(modeStats) {
   return Object.fromEntries(
     MODE_STATS_KEYS.map((mode) => {
@@ -640,12 +785,203 @@ function completionDateKey(mode, puzzleId) {
   }
 
   const key = puzzleId.slice(prefix.length);
-  return /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : null;
+  return isDateKey(key) ? key : null;
 }
 
-function dateKeyOrdinal(key) {
+function isDateKey(value) {
+  if (typeof value !== "string" || !DATE_KEY_PATTERN.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1 || year > 9999) {
+    return false;
+  }
+  const candidate = new Date(0);
+  candidate.setUTCHours(0, 0, 0, 0);
+  candidate.setUTCFullYear(year, month - 1, day);
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day
+  );
+}
+
+// Calendar-day arithmetic on "YYYY-MM-DD" keys. The keys themselves always come
+// from getTiranaDateKey, so the zone is already resolved and these two are pure
+// UTC-ordinal conversions — never a second time-zone implementation.
+export function dateKeyOrdinal(key) {
+  if (!isDateKey(key)) {
+    throw new RangeError("key must be a real YYYY-MM-DD calendar date");
+  }
   const [year, month, day] = key.split("-").map(Number);
-  return Math.floor(Date.UTC(year, month - 1, day) / DAY_IN_MILLISECONDS);
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  return Math.floor(date.getTime() / DAY_IN_MILLISECONDS);
+}
+
+export function dateKeyFromOrdinal(ordinal) {
+  if (!Number.isSafeInteger(ordinal)) {
+    throw new RangeError("ordinal must be a safe integer");
+  }
+  const date = new Date(ordinal * DAY_IN_MILLISECONDS);
+  const year = date.getUTCFullYear();
+  if (!Number.isFinite(date.getTime()) || year < 1 || year > 9999) {
+    throw new RangeError("ordinal must resolve to a four-digit calendar year");
+  }
+  const paddedYear = String(year).padStart(4, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${paddedYear}-${month}-${day}`;
+}
+
+// The rolling grace window: a grace day is available when none was consumed in
+// the previous STREAK_GRACE_WINDOW_DAYS days, counted from the day being
+// resolved. Consuming one records the missed day, so consecutive misses can
+// never both be forgiven.
+export function isStreakGraceAvailable(
+  profile,
+  dateKey,
+  windowDays = STREAK_GRACE_WINDOW_DAYS,
+) {
+  const lastGraceDate = profile?.lastGraceDate;
+  if (!isDateKey(lastGraceDate) || !isDateKey(dateKey)) {
+    return true;
+  }
+
+  return dateKeyOrdinal(dateKey) - dateKeyOrdinal(lastGraceDate) > windowDays;
+}
+
+// Resolve a stored streak against today without recording anything: a gap of
+// one day is still live, a gap of two survives only while the grace day is
+// available (it is spent when the day is actually completed), and anything
+// larger is over. Returns a new profile when the streak expired, mirroring the
+// no-mutation contract of applyCompletedGameToProfile.
+export function normalizeStreakForDate(profile, dateKey, options = {}) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    throw new TypeError("profile must be an object");
+  }
+  if (!isDateKey(dateKey)) {
+    throw new RangeError("dateKey must be a YYYY-MM-DD key");
+  }
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("options must be an object");
+  }
+
+  const streakGraceEnabled = Boolean(options.streakGraceEnabled);
+
+  if (!isDateKey(profile.lastDailyWin) || safeCount(profile.currentStreak) === 0) {
+    return { profile, changed: false };
+  }
+
+  const difference = dateKeyOrdinal(dateKey) - dateKeyOrdinal(profile.lastDailyWin);
+  const survives =
+    difference <= 1 ||
+    (streakGraceEnabled && difference === 2 && isStreakGraceAvailable(profile, dateKey));
+  if (survives) {
+    return { profile, changed: false };
+  }
+
+  return { profile: { ...profile, currentStreak: 0 }, changed: true };
+}
+
+function collectedTokenSet(profile) {
+  return new Set(
+    Array.isArray(profile?.collection) ? profile.collection.map(normalizeWord) : [],
+  );
+}
+
+function countCollected(profile, tokens) {
+  const collected = collectedTokenSet(profile);
+  return tokens.filter((token) => collected.has(token)).length;
+}
+
+function modeBucketOf(profile, mode) {
+  const bucket = profile?.modeStats?.[mode];
+  return {
+    played: safeCount(bucket?.played),
+    won: safeCount(bucket?.won),
+    distribution: Array.isArray(bucket?.distribution)
+      ? bucket.distribution.map(safeCount)
+      : [],
+  };
+}
+
+// Every daily count reads modeStats.daily, never dailyResults: an archive play
+// for date D writes dailyResults[D] too (see completionDateKey), so dailyResults
+// is not mode-isolated and would inflate daily badges (plan §4.5).
+function badgeProgress(profile) {
+  const daily = modeBucketOf(profile, "daily");
+  const inThreeOrFewer = daily.distribution
+    .slice(0, 3)
+    .reduce((total, count) => total + count, 0);
+
+  return {
+    "daily-win-1": { current: daily.won, target: 1 },
+    "daily-attempt-1": { current: daily.distribution[0] ?? 0, target: 1 },
+    "daily-attempt-6": { current: daily.distribution[5] ?? 0, target: 1 },
+    "daily-fast-10": { current: inThreeOrFewer, target: 10 },
+    "streak-7": { current: safeCount(profile?.bestStreak), target: 7 },
+    "streak-30": { current: safeCount(profile?.bestStreak), target: 30 },
+    "daily-played-100": { current: daily.played, target: 100 },
+    "daily-win-25": { current: daily.won, target: 25 },
+    "digraphs-9": {
+      current: countCollected(profile, ALBANIAN_DIGRAPHS),
+      target: ALBANIAN_DIGRAPHS.length,
+    },
+    "letters-36": {
+      current: countCollected(profile, ALBANIAN_ALPHABET),
+      target: ALBANIAN_ALPHABET.length,
+    },
+    "daily-besa-3": { current: safeCount(profile?.besaDailyWins), target: 3 },
+  };
+}
+
+// Pure badge evaluation over a profile. Progress is returned with the earned
+// state so the UI can show a concrete next step without re-deriving thresholds.
+export function computeEarnedBadges(profile) {
+  const progress = badgeProgress(profile);
+  return BADGE_IDS.map((id) => {
+    const { current, target } = progress[id];
+    return { id, current, target, earned: current >= target };
+  });
+}
+
+// A milestone's condition is the same kind of monotonic read as a badge, so a
+// milestone can never un-earn itself. Streak milestones read bestStreak, which
+// only grows, and the Besa milestone reads the strict daily counter.
+function satisfiedMilestoneIds(profile) {
+  const daily = modeBucketOf(profile, "daily");
+  const satisfied = {
+    "streak-7": safeCount(profile?.bestStreak) >= 7,
+    "streak-30": safeCount(profile?.bestStreak) >= 30,
+    "streak-100": safeCount(profile?.bestStreak) >= 100,
+    "digraphs-9": countCollected(profile, ALBANIAN_DIGRAPHS) === ALBANIAN_DIGRAPHS.length,
+    "letters-36": countCollected(profile, ALBANIAN_ALPHABET) === ALBANIAN_ALPHABET.length,
+    "besa-first": safeCount(profile?.besaDailyWins) >= 1,
+    "daily-wins-100": daily.won >= 100,
+  };
+
+  return MILESTONE_IDS.filter((id) => satisfied[id]);
+}
+
+function emptyCompletionEvents() {
+  return {
+    mode: null,
+    status: null,
+    newLetters: [],
+    newMilestones: [],
+    besaDaily: false,
+    streak: {
+      previous: 0,
+      current: 0,
+      changed: false,
+      continued: false,
+      graceUsed: false,
+      broken: false,
+    },
+  };
 }
 
 export function getAttemptCount(guessCount, usedAttemptForHint = false) {
@@ -675,10 +1011,38 @@ export function formatHintMetadata(partOfSpeech, syllables) {
 // Apply one finished puzzle to an already-sanitized profile without mutating
 // either input. Keeping this transition in the game layer makes mode isolation,
 // deduplication, streak behavior, and legacy Overall totals directly testable.
+//
+// Returns { profile, recorded, events }. `events` is the completion contract the
+// celebration layer consumes — everything it needs is computed here, so no UI
+// code ever re-derives a diff or a threshold:
+//
+//   events.mode           the completed mode ("daily" | "archive" | ...)
+//   events.status         "won" | "lost"
+//   events.newLetters     letters this completion added to profile.collection,
+//                         in collection order (drives stamp-land; [] when none)
+//   events.newMilestones  milestone ids crossed BY this completion, in
+//                         MILESTONE_IDS order (drives milestone-band + the
+//                         tier-3 confetti). Milestones a profile already
+//                         satisfied before this completion are backfilled into
+//                         profile.milestones silently and never appear here, so
+//                         a legacy profile cannot trigger a burst of stale
+//                         celebrations.
+//   events.besaDaily      true for a daily win with Besa declared and no hint
+//                         (drives besa-seal-press)
+//   events.streak         { previous, current, changed, continued, graceUsed,
+//                           broken } — `continued` is a daily win that extended
+//                         a running streak (including one saved by the grace
+//                         day), `graceUsed` means this completion spent the
+//                         rolling grace day, `broken` is a daily completion that
+//                         ended a running streak.
+//
+// A duplicate completion (recorded === false) returns a neutral events object,
+// so replaying a finished puzzle can never re-fire a celebration.
 export function applyCompletedGameToProfile(
   profile,
   completion,
   completedPuzzlesCap = COMPLETED_PUZZLES_CAP,
+  options = {},
 ) {
   if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
     throw new TypeError("profile must be an object");
@@ -686,8 +1050,12 @@ export function applyCompletedGameToProfile(
   if (!completion || typeof completion !== "object" || Array.isArray(completion)) {
     throw new TypeError("completion must be an object");
   }
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("options must be an object");
+  }
 
   const { puzzleId, mode, status, attemptCount, answerTokens, besa, usedHint } = completion;
+  const streakGraceEnabled = Boolean(options.streakGraceEnabled);
   if (typeof puzzleId !== "string" || puzzleId.length === 0 || puzzleId.length > 100) {
     throw new RangeError("completion puzzleId must be a non-empty string");
   }
@@ -705,17 +1073,24 @@ export function applyCompletedGameToProfile(
   }
 
   if (profile.completedPuzzles.includes(puzzleId)) {
-    return { profile, recorded: false };
+    return { profile, recorded: false, events: emptyCompletionEvents() };
   }
 
   const next = {
     ...profile,
+    // The additive reward fields are normalized here too, so a completion
+    // applied to a profile that predates them still persists a valid shape.
+    besaDailyWins: safeCount(profile.besaDailyWins),
+    lastGraceDate: isDateKey(profile.lastGraceDate) ? profile.lastGraceDate : null,
+    milestones: sanitizeMilestones(profile.milestones),
     distribution: [...profile.distribution],
     collection: [...profile.collection],
     completedPuzzles: [...profile.completedPuzzles, puzzleId].slice(-completedPuzzlesCap),
     dailyResults: { ...profile.dailyResults },
     modeStats: cloneModeStats(profile.modeStats),
   };
+  const previousCollection = new Set(profile.collection);
+  const previousStreak = safeCount(profile.currentStreak);
 
   next.played += 1;
   const modeBucket = next.modeStats[mode];
@@ -734,12 +1109,22 @@ export function applyCompletedGameToProfile(
     next.lastWinGuesses = attemptCount;
     modeBucket.won += 1;
     modeBucket.distribution[attemptCount - 1] += 1;
-    next.collection = [
-      ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
-    ].filter((letter) => ALBANIAN_LETTERS.has(letter));
+    // The alphabet passport is a daily ritual, not a grindable collection.
+    // Archive, Practice, and Challenge still keep their own honest statistics,
+    // but only a win on today's Daily word may add letter stamps.
+    if (mode === "daily") {
+      next.collection = [
+        ...new Set([...next.collection, ...answerTokens.map(normalizeWord)]),
+      ].filter((letter) => ALBANIAN_LETTERS.has(letter));
+    }
 
     if (besa && !usedHint) {
-      next.besaWins += 1;
+      next.besaWins = safeCount(next.besaWins) + 1;
+      // besaWins stays mode-agnostic so no profile loses the total it already
+      // has; besaDailyWins is the strict daily counter new profiles build up.
+      if (mode === "daily") {
+        next.besaDailyWins += 1;
+      }
     }
   }
 
@@ -747,6 +1132,9 @@ export function applyCompletedGameToProfile(
   if (trackedDate) {
     next.dailyResults[trackedDate] = status === "won" ? attemptCount : "X";
   }
+
+  let graceUsed = false;
+  let streakContinued = false;
 
   if (mode === "daily") {
     if (!trackedDate) {
@@ -757,7 +1145,28 @@ export function applyCompletedGameToProfile(
       const dayDifference = next.lastDailyWin
         ? dateKeyOrdinal(trackedDate) - dateKeyOrdinal(next.lastDailyWin)
         : null;
-      next.currentStreak = dayDifference === 1 ? next.currentStreak + 1 : 1;
+
+      if (dayDifference === 1) {
+        next.currentStreak = previousStreak + 1;
+        streakContinued = true;
+      } else if (
+        // One missed day is forgiven when the rolling grace day is available
+        // and a streak is actually running. A played-and-lost day has already
+        // set currentStreak to 0, so this branch cannot fire for it: grace
+        // forgives absence, never a loss, and is never spent on one.
+        dayDifference === 2 &&
+        streakGraceEnabled &&
+        previousStreak > 0 &&
+        isStreakGraceAvailable(next, trackedDate)
+      ) {
+        next.currentStreak = previousStreak + 1;
+        next.lastGraceDate = dateKeyFromOrdinal(dateKeyOrdinal(trackedDate) - 1);
+        graceUsed = true;
+        streakContinued = true;
+      } else {
+        next.currentStreak = 1;
+      }
+
       next.bestStreak = Math.max(next.bestStreak, next.currentStreak);
       next.lastDailyWin = trackedDate;
     } else {
@@ -765,7 +1174,38 @@ export function applyCompletedGameToProfile(
     }
   }
 
-  return { profile: next, recorded: true };
+  // Milestones already satisfied before this completion are backfilled without
+  // being surfaced; only genuinely crossed ones become events. The list is
+  // append-only, so an id recorded once is never written again.
+  const recordedMilestones = new Set(next.milestones);
+  const previouslySatisfied = new Set(satisfiedMilestoneIds(profile));
+  const backfilled = [...previouslySatisfied].filter((id) => !recordedMilestones.has(id));
+  const newMilestones = satisfiedMilestoneIds(next).filter(
+    (id) => !recordedMilestones.has(id) && !previouslySatisfied.has(id),
+  );
+  next.milestones = [
+    ...next.milestones,
+    ...MILESTONE_IDS.filter((id) => backfilled.includes(id)),
+    ...newMilestones,
+  ];
+
+  const events = {
+    mode,
+    status,
+    newLetters: next.collection.filter((letter) => !previousCollection.has(letter)),
+    newMilestones,
+    besaDaily: mode === "daily" && status === "won" && Boolean(besa) && !usedHint,
+    streak: {
+      previous: previousStreak,
+      current: next.currentStreak,
+      changed: next.currentStreak !== previousStreak,
+      continued: streakContinued,
+      graceUsed,
+      broken: mode === "daily" && previousStreak > 0 && !streakContinued,
+    },
+  };
+
+  return { profile: next, recorded: true, events };
 }
 
 export function formatDuration(seconds) {
@@ -811,7 +1251,12 @@ export function decodeChallengeCode(code, count) {
     return null;
   }
 
-  const match = code.trim().match(/^SQ-([0-9A-Z]+)$/i);
+  const normalized = code.trim();
+  if (normalized.length === 0 || normalized.length > CHALLENGE_CODE_MAX_LENGTH) {
+    return null;
+  }
+
+  const match = normalized.match(/^SQ-([0-9A-Z]+)$/i);
   if (!match) {
     return null;
   }

@@ -93,7 +93,7 @@ This is a product surface with restrained density. The game board and Albanian k
 
 - Pure, high-contrast surfaces with one scarce honey brand accent.
 - Compact system typography that disappears into the task.
-- Correct Albanian digraphs treated as first-class controls.
+- Correct Albanian digraphs treated as first-class game letters.
 - Flat-by-default components with fast, state-driven motion.
 - Progress and celebration that appear only after earned actions.
 
@@ -188,7 +188,7 @@ The centered wordmark anchors a 56–62px header. Daily and endless modes use a 
 
 ### Albanian Tile and Keyboard
 
-Each board tile represents one of the 36 Albanian letters, not one Unicode character. `DH`, `GJ`, `LL`, `NJ`, `RR`, `SH`, `TH`, `XH`, and `ZH` receive dedicated keys and an optically smaller tile size. The ordinary keys follow Albanian QWERTZ muscle memory, while the nine digraphs occupy a dedicated final row; Backspace sits at the right edge of the last ordinary-letter row and Enter at the bottom-right. Four compact rows keep every touch target at least 24px wide even at the 320px minimum viewport. Tapping an occupied tile in the current guess selects it for in-place replacement, including replacement by an atomic digraph. Reveal states flip quickly, then expose a persistent symbol. Physical typing merges a digraph atomically and backspace removes it as one unit.
+Each board tile represents one of the 36 Albanian letters, not one Unicode character. The visible keyboard follows familiar Albanian QWERTZ muscle memory in three compact rows: Backspace sits at the far right of the first row and Enter directly below it at the far right of the second. The third row is centered. `DH`, `GJ`, `LL`, `NJ`, `RR`, `SH`, `TH`, `XH`, and `ZH` still form atomically when their two ordinary keys are typed in sequence, and receive an optically smaller tile size. At the 320px minimum viewport, the keyboard uses the full safe width so every target remains at least 24px wide. Tapping an occupied tile in the current guess selects it for in-place replacement, including completion of an atomic digraph. Reveal states flip quickly, then expose a persistent symbol. Physical Backspace removes a digraph as one Albanian letter.
 
 ## Do's and Don'ts
 

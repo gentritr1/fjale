@@ -18,6 +18,7 @@ import {
   getDailyAnswerIndex,
   getDailyIndex,
   getTiranaDateKey,
+  hasSubmittedGuess,
   mergePhysicalCharacterAt,
   MODE_STATS_KEYS,
   normalizeWord,
@@ -143,6 +144,16 @@ test("removeGuessTokenAt deletes the selected Albanian token and shifts the rest
   assert.deepEqual(original, ["a", "gj", "y", "sh"]);
 });
 
+test("hasSubmittedGuess detects an exact repeated Albanian guess without mutation", () => {
+  const guesses = [tokenizeAlbanian("shijet"), tokenizeAlbanian("çelës")];
+  const snapshot = structuredClone(guesses);
+
+  assert.equal(hasSubmittedGuess(guesses, tokenizeAlbanian("shijet")), true);
+  assert.equal(hasSubmittedGuess(guesses, tokenizeAlbanian("shtegu")), false);
+  assert.equal(hasSubmittedGuess(null, tokenizeAlbanian("shijet")), false);
+  assert.deepEqual(guesses, snapshot);
+});
+
 test("evaluateGuess gives exact matches priority when letters repeat", () => {
   assert.deepEqual(
     evaluateGuess(
@@ -254,6 +265,9 @@ test("sanitizeDailyResults keeps valid entries and drops invalid keys and values
     "2026-07-19": 6,
     "2026-7-20": 2, // malformed key
     "not-a-date": 4, // malformed key
+    "2026-02-29": 2, // not a leap day
+    "2026-04-31": 2, // impossible calendar day
+    "2026-13-01": 2, // impossible month
     "2026-07-21": 0, // below range
     "2026-07-22": 7, // above range (maxGuesses = 6)
     "2026-07-23": 2.5, // not an integer
@@ -449,6 +463,8 @@ test("applyCompletedGameToProfile keeps archive, practice, and challenge outside
     assert.equal(result.profile.modeStats[mode].played, 1);
     assert.equal(result.profile.modeStats[mode].won, 1);
     assert.equal(result.profile.modeStats[mode].distribution[2], 1);
+    assert.deepEqual(result.profile.collection, ["a", "n"], `${mode} must not fill the passport`);
+    assert.deepEqual(result.events.newLetters, [], `${mode} must not land passport stamps`);
   }
 });
 
@@ -566,6 +582,7 @@ test("challenge codes round-trip, are case-insensitive, and reject invalid range
 
   assert.equal(decodeChallengeCode("not-a-code", 500), null);
   assert.equal(decodeChallengeCode("SQ-0", 500), null);
+  assert.equal(decodeChallengeCode(`SQ-${"A".repeat(10_000)}`, 500), null);
   assert.equal(decodeChallengeCode(createChallengeCode(500), 500), null);
   assert.throws(() => createChallengeCode(-1), RangeError);
 });

@@ -3,6 +3,11 @@ node_modules/
 .claude/
 *.log
 
+# Local environment secrets. Keep the documented template versioned.
+.env
+.env.*
+!.env.example
+
 # Local/private editorial output. Frozen inputs in editorial/batches stay versioned.
 editorial/reviews/
 editorial/decisions/

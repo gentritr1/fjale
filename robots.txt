@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+# API responses are private JSON; keeping crawlers off /api also keeps the
+# deep health check from waking the database compute.
+Disallow: /api/
 
 Sitemap: https://www.xn--fjal-opa.com/sitemap.xml

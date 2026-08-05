@@ -1,6 +1,8 @@
 # FJALË
 
-FJALË është një lojë e përditshme fjalësh në shqip. Aplikacioni është statik, pa varësi runtime dhe mund të përdoret si PWA.
+FJALË është një lojë e përditshme fjalësh në shqip. Ndërfaqja e lojës është
+statike dhe mund të përdoret si PWA; vetëm kontrolli operacional dhe shtresa e
+ardhshme e Rrethit përdorin kod serveri.
 
 ## Çfarë përfshin
 
@@ -47,6 +49,20 @@ npm run check
 
 `npm run check` kontrollon sintaksën e serverit dhe service worker-it, pastaj ekzekuton testet e Node-it.
 
+### Gjendja e shërbimit
+
+`GET /api/health` kontrollon aplikacionin dhe konfigurimin pa kontaktuar Neon-in,
+prandaj është rruga e duhur për një monitor të shpeshtë dhe nuk e mban compute-in
+e tier-it falas zgjuar. `GET /api/health?deep=1` bën një kontroll real, vetëm për
+lexim, të lidhjes dhe pesë tabelave të Rrethit. Me `RRETHI_STORE=neon`, kjo rrugë
+kërkon `HEALTH_DEEP_TOKEN` të vlefshëm në header-in `x-health-token`; token-i i
+munguar ose i dobët kthen `503`, kurse token-i i gabuar kthen `401`, pa prekur
+bazën. Një kontroll i autorizuar memoizohet për 60 sekonda dhe kthen `503` nëse
+Neon-i është i paarritshëm ose skema nuk është aplikuar. Me store-in `memory`,
+kontrolli i thellë kthen `200` me `database: "disabled"`. Asnjë përgjigje ose log
+nuk nxjerr URL, kredenciale, emrin e skemës apo mesazhin e driver-it; përgjigjet
+janë `no-store`.
+
 ## Redaksia lokale
 
 Grupi i fjalëve në pritje mund të shqyrtohet në një mjet lokal në shfletues:
@@ -62,7 +78,7 @@ Rrjedha e plotë, bashkërendimi dhe propozimi i epokës dokumentohen te
 
 ## Struktura
 
-- `server.mjs` shërben vetëm skedarë brenda projektit, me MIME types dhe headers sigurie. Vetëm `/` kalon te `index.html`; rrugët dhe skedarët e panjohur kthejnë `404`.
+- `server.mjs` shërben vetëm skedarë brenda projektit, me MIME types dhe headers sigurie. Vetëm `/` kalon te `index.html`; rrugët dhe skedarët e panjohur kthejnë `404`. Rruga e vetme operative është `/api/health`.
 - `manifest.webmanifest` përmban emrin, gjuhën, ngjyrat dhe ikonat e instalimit.
 - `service-worker.js` ruan shell-in lokal për përdorim offline.
 - `favicon.svg` është ikona e faqes dhe e PWA-së.
@@ -90,6 +106,9 @@ cache-in; offline përdor kopjen e fundit të suksesshme. Ikonat (`favicon.svg`,
 `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`) përdorin **cache
 first**, sepse nuk ndryshojnë pa ndryshuar URL-në, dhe kështu shmangen kërkesa
 të panevojshme rrjeti. Rrugët e panjohura nuk zëvendësohen me `index.html`.
+Rrugët `/api/*` anashkalojnë plotësisht service worker-in dhe shërbehen me
+`Cache-Control: private, no-store`, që përgjigjet e ardhshme private të Rrethit
+të mos ruhen në cache-in offline.
 
 Aplikacioni e regjistron worker-in nga kodi i klientit:
 

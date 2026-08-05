@@ -1,3 +1,19 @@
+# `/api/health` is the only deployed function at M0. Files under `/api/_lib`
+# are supporting modules, not standalone Vercel functions.
+#
+# When .vercelignore exists, the CLI uses it INSTEAD of .gitignore for the
+# upload set — so the local .env (Neon URL, server pepper) must be excluded
+# here explicitly or a `vercel` CLI deploy would upload it.
+.env
+.env.*
+!.env.example
+# Superseded assets nothing references (manifest points at -v3; the maskable
+# icon shipped as PNG). og-fjale-v1/v2 stay deployed on purpose: old social
+# shares may still embed those URLs.
+screenshot-narrow-v2.png
+screenshot-wide-v2.png
+icon-maskable.svg
+design-concepts/
 third_party/
 tests/
 scripts/
@@ -14,3 +30,4 @@ LEXICON.md
 LESSONS.md
 README.md
 EDITORIAL.md
+PLAN-RRETHI-2026-08.md

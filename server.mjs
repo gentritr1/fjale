@@ -4,6 +4,8 @@ import { createServer } from "node:http";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { handleHealthRequest } from "./api/health.js";
+
 const rootDirectory = dirname(fileURLToPath(import.meta.url));
 const canonicalRoot = await realpath(rootDirectory);
 const host = process.env.HOST || "127.0.0.1";
@@ -29,14 +31,42 @@ const publicPaths = new Set([
   "/besa-seal-v1.svg",
   "/stamp-digraph-v1.svg",
   "/help-hero-v1.svg",
-  "/screenshot-narrow-v1.png",
-  "/screenshot-wide-v1.png",
+  "/screenshot-narrow-v2.png",
+  "/screenshot-wide-v2.png",
+  "/screenshot-narrow-v3.png",
+  "/screenshot-wide-v3.png",
   "/src/app.js",
+  "/src/avatars.js",
   "/src/config.js",
   "/src/game.js",
   "/src/page-theme.js",
   "/src/words.js",
   "/src/accepted-words.js",
+  "/avatars/stick-racer-v1.webp",
+  "/avatars/stick-rebel-v1.webp",
+  "/avatars/stick-dyed-v1.webp",
+  "/avatars/stick-skater-v1.webp",
+  "/avatars/stick-tinkerer-v1.webp",
+  "/avatars/stick-music-v1.webp",
+  "/avatars/stick-cup-v1.webp",
+  // Retained for older open tabs that still reference the previous catalog.
+  "/avatars/stick-elder-v1.webp",
+  "/avatars/stick-reader-v1.webp",
+  "/avatars/stick-runner-v1.webp",
+  "/avatars/stick-creator-v1.webp",
+  "/avatars/stick-hoodie-v1.webp",
+  "/avatars/animal-owl-v1.webp",
+  "/avatars/animal-fox-v1.webp",
+  "/avatars/animal-hare-v1.webp",
+  "/avatars/animal-bear-v1.webp",
+  "/avatars/animal-goat-v1.webp",
+  "/avatars/animal-cat-v1.webp",
+  "/avatars/animal-tortoise-v1.webp",
+  "/avatars/animal-songbird-v1.webp",
+  "/avatars/animal-hedgehog-v1.webp",
+  "/avatars/animal-moth-v1.webp",
+  "/avatars/animal-frog-v1.webp",
+  "/avatars/animal-badger-v1.webp",
 ]);
 
 const mimeTypes = new Map([
@@ -86,17 +116,22 @@ const securityHeaders = {
 const server = createServer(async (request, response) => {
   setHeaders(response, securityHeaders);
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    response.setHeader("Allow", "GET, HEAD");
-    sendText(response, 405, "Metoda nuk lejohet.\n", request.method);
-    return;
-  }
-
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url || "/", "http://localhost").pathname);
   } catch {
     sendText(response, 400, "Kërkesë e pavlefshme.\n", request.method);
+    return;
+  }
+
+  if (pathname === "/api/health") {
+    await handleHealthRequest(request, response);
+    return;
+  }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    response.setHeader("Allow", "GET, HEAD");
+    sendText(response, 405, "Metoda nuk lejohet.\n", request.method);
     return;
   }
 

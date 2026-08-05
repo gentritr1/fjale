@@ -632,7 +632,14 @@
     background: var(--bg);
     box-shadow: inset 0 0 0 1.5px var(--line);
     color: var(--ink);
-    font-size: clamp(1.25rem, 5vw, 1.72rem);
+    /* The shipped viewport-width formula, additionally capped by the tile box
+       itself: --tile-size can be driven by HEIGHT (8.25dvh) in landscape,
+       where the width-based 5vw font made DH/SH digraphs overflow their
+       ~31px tiles. 0.46 is the largest tile-to-font ratio that keeps a
+       two-glyph digraph (0.95em, negative tracking) inside the box. Portrait
+       and desktop sizes are unchanged to within 1px: the box cap only bites
+       when height is the constraint. */
+    font-size: min(clamp(1.25rem, 5vw, 1.72rem), calc(var(--tile-size, 60px) * 0.46));
     font-weight: 860;
     line-height: 1;
     text-transform: uppercase;
@@ -802,7 +809,7 @@
   }
 
   .keyboard-row.is-short-row {
-    width: 82%;
+    width: 70%;
     align-self: center;
   }
 
@@ -1942,7 +1949,11 @@
       right 11px center / 12px 8px no-repeat,
       var(--surface);
     color: var(--ink);
-    font-size: 0.78rem;
+    /* Keep every focused text control at 16px or above. iOS Safari zooms the
+       whole page when this select is smaller, just as it does for the Shenja
+       letter picker below. Supporting copy can stay compact; the control
+       itself must not move the viewport. */
+    font-size: 1rem;
     font-weight: 700;
     transition: border-color 160ms var(--ease-standard);
   }
@@ -2110,6 +2121,733 @@
     color: var(--ink);
     text-align: center;
   }
+
+  /* ==========================================================================
+     Lëvizje & shpërblime (plan §4)
+
+     Every rule below is scoped to `.rewards-on`, the class src/app.js puts on
+     <body> only when the feature flag resolves true. With the flag off not one
+     of these selectors can match, so the rendered app is byte-for-byte the
+     shipped one. Motion here is transform and opacity only — no width, height,
+     top, left, margin, or box-shadow is ever animated — and uses only the two
+     existing easing tokens. Each animation has its own reduced-motion rule at
+     the end of this file; the blunt global cannot be trusted to land these.
+     Colours come from --primary, --primary-deep, --primary-pale, --correct and
+     the --ink family, all of which are redeclared for the dark theme, so both
+     themes inherit without a single new token.
+     ========================================================================== */
+
+  /* digraph-snap — 140ms, --ease-out. The product's signature interaction
+     finally gets a signature motion: the tile takes the pair with a small
+     overshoot while the letters condense into their digraph width. Driven by a
+     one-shot class consumed in renderBoard, because renderBoard rebuilds every
+     tile and an unconditional class would replay this on every keystroke. */
+  .rewards-on .tile.is-digraph.is-snapping {
+    animation: digraph-snap 140ms var(--ease-out) both;
+  }
+
+  .rewards-on .tile.is-digraph.is-snapping .tile-letter {
+    animation: digraph-snap-letter 140ms var(--ease-out) both;
+  }
+
+  /* key-press — 90ms, --ease-out. The shipped key already dips on :active; the
+     refinement drops the 2px translate so the key scales in place, which reads
+     as a press rather than a slide. The transition duration is unchanged. */
+  .rewards-on .key:active:not(:disabled),
+  .rewards-on .key.is-pressed {
+    transform: scale(0.96);
+  }
+
+  /* stamp-land — 260ms, --ease-out, 40ms stagger. Fires only for letters this
+     win newly added to the collection. */
+  .rewards-on .alphabet-stamp.is-landing,
+  .rewards-on .rare-letter.is-landing {
+    animation: stamp-land 260ms var(--ease-out) both;
+    animation-delay: var(--stamp-delay, 0ms);
+  }
+
+  /* streak-tick — 220ms, --ease-out. Two stacked digits inside a clipped
+     window; the pair translates one digit-height so the new number rises into
+     place. At rest the stack already sits on the new digit, so a re-render
+     without the ticking class simply shows the current streak. */
+  .rewards-on .streak-figure {
+    position: relative;
+    display: none;
+  }
+
+  .rewards-on .streak-figure {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 10px;
+    padding-bottom: 6px;
+    color: var(--ink);
+    font-size: 0.72rem;
+    font-weight: 750;
+  }
+
+  .rewards-on .streak-figure[hidden] {
+    display: none;
+  }
+
+  .rewards-on .streak-caption {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .rewards-on .streak-digits {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    height: 1.15em;
+    font-size: 1.5rem;
+    font-weight: 860;
+    line-height: 1.15em;
+    color: var(--primary-deep);
+  }
+
+  .rewards-on .streak-digit {
+    display: block;
+    height: 1.15em;
+    line-height: 1.15em;
+    text-align: center;
+    /* Resting position: the second digit is the one on show. */
+    transform: translateY(-100%);
+  }
+
+  .rewards-on .streak-figure.is-ticking .streak-digit {
+    animation: streak-tick 220ms var(--ease-out) both;
+  }
+
+  /* hot-underline — 300ms, --ease-standard. A honey rule that thickens with the
+     streak and deepens at 30. This is the entire hot-streak visual: no flame,
+     no emoji, no glow. */
+  .rewards-on .streak-figure::after,
+  .rewards-on #stat-streak::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--primary);
+    transform: scaleX(0);
+  }
+
+  .rewards-on #stat-streak {
+    position: relative;
+  }
+
+  .rewards-on .streak-figure.is-hot::after,
+  .rewards-on #stat-streak.is-hot::after {
+    animation: hot-underline 300ms var(--ease-standard) both;
+  }
+
+  .rewards-on .streak-figure.is-hotter::after,
+  .rewards-on #stat-streak.is-hotter::after {
+    height: 3px;
+  }
+
+  .rewards-on .streak-figure.is-hottest::after,
+  .rewards-on #stat-streak.is-hottest::after {
+    background: var(--primary-deep);
+  }
+
+  /* besa-seal-press — 320ms, --ease-out. The seal keeps its resting -8deg tilt
+     through the whole animation, so the press reads as a stamp coming down
+     rather than a rotation. */
+  .rewards-on .result-besa-seal.is-pressing {
+    animation: besa-seal-press 320ms var(--ease-out) both;
+  }
+
+  /* milestone-band — 700ms, once. The rule sweeps out from the centre and the
+     whole band then fades. The label is a separate node so it is never squashed
+     by the bar's scaleX. Decorative: the milestone is announced separately. */
+  .rewards-on .milestone-band {
+    display: none;
+  }
+
+  .rewards-on .milestone-band {
+    position: relative;
+    display: grid;
+    place-items: center;
+    margin-top: 12px;
+    padding: 7px 0;
+    pointer-events: none;
+  }
+
+  .rewards-on .milestone-band[hidden] {
+    display: none;
+  }
+
+  .rewards-on .milestone-band::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: var(--radius-sm);
+    background: var(--primary-pale);
+    transform: scaleX(0);
+  }
+
+  .rewards-on .milestone-band-label {
+    position: relative;
+    padding: 0 10px;
+    color: var(--primary-deep);
+    font-size: 0.82rem;
+    font-weight: 860;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .rewards-on .milestone-band.is-running::before {
+    animation: milestone-band 700ms var(--ease-out) both;
+  }
+
+  .rewards-on .milestone-band.is-running {
+    animation: milestone-band-fade 700ms var(--ease-out) both;
+  }
+
+  /* ---- Vulat: the badge page of the passport dialog (plan §4.5) ---------- */
+
+  .rewards-on .passport-tablist {
+    display: none;
+  }
+
+  .rewards-on .passport-tablist {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    padding: 3px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .rewards-on .passport-tablist[hidden] {
+    display: none;
+  }
+
+  /* The tab's four states are spelled out rather than blended. Both themes
+     redeclare every token used here, and no state is produced by mixing amber
+     with a near-white surface — that drift is what made an earlier
+     pressed-plus-disabled pairing unreadable. */
+  .rewards-on .passport-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 780;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-standard), color 150ms var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .rewards-on .passport-tab:hover:not(:disabled, [aria-selected="true"]) {
+      background: var(--surface-hover);
+      color: var(--ink);
+    }
+  }
+
+  .rewards-on .passport-tab[aria-selected="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  @media (hover: hover) {
+    .rewards-on .passport-tab[aria-selected="true"]:hover:not(:disabled) {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
+  }
+
+  .rewards-on .passport-tab:disabled {
+    background: transparent;
+    color: var(--faint);
+    cursor: default;
+  }
+
+  /* The readable disabled-and-selected pairing: keep the pale honey plate and
+     the full-strength ink instead of fading the label into the plate. */
+  .rewards-on .passport-tab[aria-selected="true"]:disabled {
+    background: var(--primary-pale);
+    color: var(--primary-deep);
+  }
+
+  .rewards-on .badge-summary {
+    margin-bottom: 10px;
+  }
+
+  /* One readable list on phones, two columns only once the dialog has room.
+     The rows use dividers instead of eleven boxed cards, which keeps the page
+     from turning into a reward dashboard. */
+  .rewards-on .badge-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 16px;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 480px) {
+    .rewards-on .badge-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* Unearned goals remain visible, with live progress. The seal family comes
+     from the ImageGen direction sheet but stays code-native: a double-ring
+     front, a hidden letter on the back, and no motion until the user asks. */
+  .rewards-on .badge-chip {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    align-items: center;
+    min-width: 0;
+    min-height: 68px;
+    padding: 10px 2px;
+    border-bottom: 1px solid var(--line-strong);
+    background: transparent;
+  }
+
+  .rewards-on .badge-seal {
+    position: relative;
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 5px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    perspective: 160px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 100ms var(--ease-out);
+  }
+
+  .rewards-on .badge-seal:active {
+    transform: scale(0.96);
+  }
+
+  .rewards-on .badge-seal:focus-visible {
+    outline: 2px solid var(--primary-deep);
+    outline-offset: 1px;
+  }
+
+  .rewards-on .badge-seal-coin {
+    position: relative;
+    display: block;
+    width: 34px;
+    height: 34px;
+    transform: rotateY(0deg);
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transition: transform 360ms var(--ease-out);
+  }
+
+  .rewards-on .badge-seal.is-flipped .badge-seal-coin {
+    transform: rotateY(180deg);
+  }
+
+  @media (hover: hover) {
+    .rewards-on .badge-seal:not(.is-flipped):hover .badge-seal-coin {
+      transform: rotateX(5deg) rotateY(-24deg);
+    }
+
+    .rewards-on .badge-seal.is-flipped:hover .badge-seal-coin {
+      transform: rotateX(5deg) rotateY(204deg);
+    }
+  }
+
+  .rewards-on .badge-seal-face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--faint);
+    font-size: 0.72rem;
+    font-weight: 860;
+    line-height: 1;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .rewards-on .badge-seal-face::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.55;
+  }
+
+  .rewards-on .badge-seal-front.has-wide-mark {
+    font-size: 0.58rem;
+  }
+
+  .rewards-on .badge-seal-back {
+    background: var(--bg);
+    color: var(--primary-deep);
+    transform: rotateY(180deg);
+  }
+
+  .rewards-on .badge-chip.is-earned .badge-seal-front {
+    border-color: var(--primary-deep);
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .rewards-on .badge-chip.is-earned .badge-seal-back {
+    border-color: var(--primary-deep);
+    background: var(--primary-pale);
+  }
+
+  .rewards-on .badge-earned-mark {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--primary-deep);
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 0.52rem;
+    line-height: 1;
+  }
+
+  .rewards-on .badge-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .rewards-on .badge-name {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.79rem;
+    font-weight: 840;
+    overflow-wrap: anywhere;
+  }
+
+  .rewards-on .badge-chip.is-earned .badge-name {
+    color: var(--ink);
+  }
+
+  .rewards-on .badge-progress {
+    flex: 0 0 auto;
+    color: var(--faint);
+    font-size: 0.66rem;
+    font-weight: 780;
+    white-space: nowrap;
+  }
+
+  .rewards-on .badge-chip.is-earned .badge-progress {
+    color: var(--primary-deep);
+  }
+
+  .rewards-on .badge-goal {
+    grid-column: 2;
+    min-width: 0;
+    margin-top: 2px;
+    color: var(--faint);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .rewards-on .badge-chip.is-earned .badge-goal {
+    color: var(--ink-soft);
+  }
+
+  /* ---- Shenja: local avatar identity inside the passport ---------------- */
+
+  .rewards-on .avatar-current {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 12px 14px;
+    align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .rewards-on .avatar-current-visual {
+    position: relative;
+    width: 82px;
+    height: 82px;
+    perspective: 220px;
+  }
+
+  .rewards-on .avatar-current-visual img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--primary-deep);
+    border-radius: 50%;
+    background: var(--bg);
+    object-fit: cover;
+  }
+
+  .rewards-on .avatar-letter-seal {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 0.78rem;
+    font-weight: 880;
+    line-height: 1;
+  }
+
+  .rewards-on .avatar-current-copy {
+    min-width: 0;
+  }
+
+  .rewards-on .avatar-current-copy > span {
+    display: block;
+    color: var(--primary-deep);
+    font-size: 0.7rem;
+    font-weight: 820;
+  }
+
+  .rewards-on .avatar-current-copy strong {
+    display: block;
+    margin-top: 1px;
+    color: var(--ink);
+    font-size: 1rem;
+  }
+
+  .rewards-on .avatar-current-copy p {
+    max-width: 38ch;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  .rewards-on .avatar-letter-field {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--ink-soft);
+    font-size: 0.76rem;
+    font-weight: 760;
+  }
+
+  .rewards-on .avatar-letter-field select {
+    min-width: 92px;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 30px 8px 12px;
+    background: var(--bg);
+    color: var(--ink);
+    /* 16px minimum: iOS Safari auto-zooms the whole page when a focused
+       form control's font is smaller. The field label stays 0.76rem. */
+    font-size: 1rem;
+    font-weight: 820;
+  }
+
+  .rewards-on .avatar-picker-group {
+    margin-top: 18px;
+  }
+
+  .rewards-on .avatar-picker-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .rewards-on .avatar-picker-heading h3 {
+    color: var(--ink);
+    font-size: 0.84rem;
+    text-wrap: balance;
+  }
+
+  .rewards-on .avatar-picker-heading span {
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 760;
+  }
+
+  .rewards-on .avatar-option-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  @media (min-width: 480px) {
+    .rewards-on .avatar-option-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  .rewards-on .avatar-option {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 50%;
+    padding: 2px;
+    background: transparent;
+    transition: transform 150ms var(--ease-out);
+  }
+
+  .rewards-on .avatar-option img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    object-fit: cover;
+    transition: filter 150ms var(--ease-standard), opacity 150ms var(--ease-standard);
+  }
+
+  .rewards-on .avatar-option.is-selected img {
+    border: 3px solid var(--primary-deep);
+    outline: 3px solid var(--primary-pale);
+    outline-offset: -6px;
+  }
+
+  .rewards-on .avatar-option.is-locked img {
+    filter: grayscale(1);
+    opacity: 0.42;
+  }
+
+  @media (hover: hover) {
+    .rewards-on .avatar-option:hover:not(.is-locked) {
+      transform: translateY(-2px);
+    }
+
+    .rewards-on .avatar-option.is-locked:hover img {
+      opacity: 0.56;
+    }
+  }
+
+  .rewards-on .avatar-option:active {
+    transform: scale(0.96);
+  }
+
+  .rewards-on .avatar-option-lock {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--ink-soft);
+  }
+
+  .rewards-on .avatar-option-lock svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2;
+  }
+
+  .rewards-on .avatar-earned {
+    margin-top: 18px;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .rewards-on .avatar-earned summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 820;
+    cursor: pointer;
+  }
+
+  .rewards-on .avatar-earned summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .rewards-on .avatar-earned summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    color: var(--primary-deep);
+    font-size: 1rem;
+  }
+
+  .rewards-on .avatar-earned[open] summary::after {
+    content: "−";
+  }
+
+  .rewards-on .avatar-earned summary strong {
+    margin-left: auto;
+    color: var(--primary-deep);
+    font-size: 0.7rem;
+  }
+
+  .rewards-on .avatar-earned-intro {
+    max-width: 58ch;
+    margin: -3px 0 12px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.45;
+  }
+
+  .rewards-on .avatar-earned .avatar-option-grid {
+    padding-bottom: 14px;
+  }
+
+  .rewards-on .avatar-picker-note {
+    min-height: 2.8em;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .rewards-on .avatar-current-visual.is-changing img {
+    animation: avatar-settle 180ms var(--ease-out) both;
+  }
+
+  .rewards-on .avatar-option.is-unlocking img {
+    animation: avatar-unlock 240ms var(--ease-out) both;
+  }
 }
 
 @layer utilities {
@@ -2200,6 +2938,69 @@
 @keyframes hint-confirmation-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Lëvizje & shpërblime keyframes (plan §4.3) -------------------------- */
+
+@keyframes digraph-snap {
+  0% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes digraph-snap-letter {
+  0% { transform: scaleX(0.9); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes stamp-land {
+  0% { opacity: 0; transform: scale(0.72); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes streak-tick {
+  0% { opacity: 0.35; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(-100%); }
+}
+
+@keyframes hot-underline {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+/* The seal's resting -8deg tilt is carried through both frames so the press is
+   a scale, never a rotation. */
+@keyframes besa-seal-press {
+  0% { opacity: 0; transform: rotate(-8deg) scale(0.86); }
+  100% { opacity: 1; transform: rotate(-8deg) scale(1); }
+}
+
+@keyframes milestone-band {
+  0% { transform: scaleX(0); }
+  38%, 100% { transform: scaleX(1); }
+}
+
+@keyframes milestone-band-fade {
+  0% { opacity: 0; }
+  16%, 72% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Reduced-motion counterpart: the band holds still and full width for 2.4s,
+   then fades on opacity alone. src/app.js matches this with a 2400ms teardown
+   timer, so the node is removed only after the fade completes. */
+@keyframes milestone-band-static {
+  0%, 83% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes avatar-settle {
+  0% { opacity: 0.76; transform: rotateY(-18deg) scale(0.96); }
+  100% { opacity: 1; transform: rotateY(0) scale(1); }
+}
+
+@keyframes avatar-unlock {
+  0% { opacity: 0.35; transform: rotateY(-82deg) scale(0.9); }
+  100% { opacity: 1; transform: rotateY(0) scale(1); }
 }
 
 @media (max-width: 880px) {
@@ -2339,6 +3140,28 @@
     height: 16px;
   }
 
+  /* At the 320px support floor, let the keyboard borrow four pixels from each
+     side of the game column and tighten only the inter-key gutters. This keeps
+     ordinary letters above the WCAG 2.2 24px target minimum without changing
+     the familiar three-row shape on regular phones. */
+  @media (max-width: 340px) {
+    .brand {
+      /* Four 44px header controls plus the brand cannot remain perfectly
+         centred at the 320px support floor. Shift only the small Ë mark into
+         the quiet gap so it never enters the Passport target or focus ring. */
+      left: calc(50% - 24px);
+    }
+
+    .keyboard-section {
+      width: calc(100% + 8px);
+      margin-inline: -4px;
+    }
+
+    .keyboard-row {
+      gap: 2px;
+    }
+  }
+
   .board-message {
     min-height: 32px;
     padding-top: 7px;
@@ -2459,6 +3282,107 @@
   .celebration {
     display: none;
   }
+}
+
+/* Reduced-motion fallbacks for the reward layer (plan §4.3, fallback column).
+   Written out per animation rather than left to the blunt global above, which
+   only lands correctly for `both`-filled animations with a meaningful final
+   keyframe. Each rule below out-specifies the `*` selector, so its !important
+   wins over the global !important regardless of source order. */
+@media (prefers-reduced-motion: reduce) {
+  /* digraph-snap — none. The tile renders directly in its final digraph state. */
+  .rewards-on .tile.is-digraph.is-snapping,
+  .rewards-on .tile.is-digraph.is-snapping .tile-letter {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* key-press — none. The existing background change still confirms the tap. */
+  .rewards-on .key:active:not(:disabled),
+  .rewards-on .key.is-pressed {
+    transform: none !important;
+  }
+
+  /* stamp-land — the stamp is already in its final state; a 900ms honey outline
+     is what marks which letters are new. Outline is painted, not laid out, so
+     it cannot shift the grid it sits in. */
+  .rewards-on .alphabet-stamp.is-landing,
+  .rewards-on .rare-letter.is-landing {
+    animation: stamp-new-outline 900ms step-end both !important;
+    animation-delay: 0ms !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* streak-tick — the number swaps instantly; the honey underline still
+     applies, so only the digit motion is removed. */
+  .rewards-on .streak-figure.is-ticking .streak-digit {
+    animation: none !important;
+    transform: translateY(-100%);
+  }
+
+  /* hot-underline — static honey rule, no grow. */
+  .rewards-on .streak-figure.is-hot::after,
+  .rewards-on #stat-streak.is-hot::after {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+
+  /* besa-seal-press — seal in its final state. */
+  .rewards-on .result-besa-seal.is-pressing {
+    animation: none !important;
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
+
+  /* Two-sided Vulat — preserve the chosen face, but remove the turn and hover
+     tilt. The easter egg remains fully available by tap and keyboard. */
+  .rewards-on .badge-seal {
+    transform: none !important;
+  }
+
+  .rewards-on .badge-seal-coin {
+    transition: none !important;
+  }
+
+  .rewards-on .badge-seal:not(.is-flipped) .badge-seal-coin {
+    transform: none !important;
+  }
+
+  .rewards-on .badge-seal.is-flipped .badge-seal-coin {
+    transform: rotateY(180deg) !important;
+  }
+
+  /* Avatar buttons — no hover lift or press squeeze; the selection ring and
+     focus outline carry the state without motion. */
+  .rewards-on .avatar-option {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  /* Shenja — selection and unlock state appear immediately, without a turn. */
+  .rewards-on .avatar-current-visual.is-changing img,
+  .rewards-on .avatar-option.is-unlocking img {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* milestone-band — a static full-width band for 2.4s, then opacity only. */
+  .rewards-on .milestone-band.is-running::before {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+
+  .rewards-on .milestone-band.is-running {
+    animation: milestone-band-static 2400ms linear both !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+@keyframes stamp-new-outline {
+  0% { outline: 2px solid var(--primary); outline-offset: 2px; }
+  100% { outline: 2px solid transparent; outline-offset: 2px; }
 }
 
 /* Static pages (privatesia.html): same tokens as the app, document layout. */

@@ -31,7 +31,20 @@
       ]
     },
     {
-      "source": "/(icon-192.png|icon-512.png|icon-maskable-512.png|favicon.svg|icon-maskable.svg)",
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/(icon-192.png|icon-512.png|icon-maskable-512.png|favicon.svg)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -40,7 +53,16 @@
       ]
     },
     {
-      "source": "/(og-fjale-v1.png|og-fjale-v1.svg|og-fjale-v2.png|og-fjale-v2.svg|og-fjale-v3.png|og-fjale-v3.svg|besa-seal-v1.svg|stamp-digraph-v1.svg|help-hero-v1.svg|screenshot-narrow-v1.png|screenshot-wide-v1.png)",
+      "source": "/(og-fjale-v1.png|og-fjale-v1.svg|og-fjale-v2.png|og-fjale-v2.svg|og-fjale-v3.png|og-fjale-v3.svg|besa-seal-v1.svg|stamp-digraph-v1.svg|help-hero-v1.svg|screenshot-narrow-v3.png|screenshot-wide-v3.png)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/avatars/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -98,7 +120,7 @@
       ]
     },
     {
-      "source": "/src/(app.js|config.js|game.js|page-theme.js|words.js)",
+      "source": "/src/(app.js|avatars.js|config.js|game.js|page-theme.js|words.js)",
       "headers": [
         {
           "key": "Cache-Control",
