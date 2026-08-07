@@ -13,7 +13,7 @@
 Milestone M0 shipped storage and nothing else: `api/_lib/store.js` (interface +
 shared validation), `store-memory.js`, `store-neon.js`, `schema.sql`. This
 branch adds `api/_lib/board.js` (masking). The only live HTTP route today is
-`api/health.js`. M1 adds the nine endpoints and the two store operations they
+`api/health.js`. M1 adds the nine endpoints and the three store operations they
 cannot be written without.
 
 ---
@@ -27,8 +27,10 @@ rate-limit policy; the atomic seat claim; the schema deltas those require.
 §11, the server gate exists so M1 can deploy without breaking the §2.10 promise).
 No invite-code revocation endpoint, no `show_time` toggle endpoint, no ownership
 transfer, no avatar on the board payload, no streak field, no retention sweep
-job, no `Sfida`, no motion. Each of those is either a later milestone or listed
-in §11 as an open decision. **An implementer who finds themselves adding a tenth
+job — **the sweep is owned by M2**, alongside the daily `rate_bucket` prune the
+schema already documents, and it must be running before M3's privacy page states
+the 400-day promise publicly — no `Sfida`, no motion. Each of those is either a
+later milestone or listed in §11 as an open decision. **An implementer who finds themselves adding a tenth
 endpoint has left the brief.**
 
 **Module layout.**
@@ -39,7 +41,7 @@ endpoint has left the brief.**
 | `api/_lib/http.js` | Header set, method gate, origin check, body reader, error envelope |
 | `api/_lib/auth.js` | Bearer parsing, `memberKey` derivation, log redaction |
 | `api/_lib/limits.js` | Bucket key derivation + the four policies of §3 |
-| `api/_lib/store.js` (edit) | Two new methods, `Member` typedef gains two fields (§7) |
+| `api/_lib/store.js` (edit) | Three new methods, `Member` typedef gains two fields (§7) |
 | `api/_lib/store-memory.js`, `store-neon.js` (edit) | Implement them |
 | `api/_lib/schema.sql` (edit) | §6 |
 | `server.mjs` (edit) | Forward `/api/rrethi/…` to the router in local dev |
@@ -317,6 +319,9 @@ request cannot be simultaneously authenticated and anonymous.
 
 Order inside a request:
 
+0. The `RRETHI_API_ENABLED` gate (O6) fires first — before any bucket take or
+   store call. A disabled service answers `404` for free; it must not write
+   `rate_bucket` rows while switched off.
 1. Headers, method gate, origin check, body limits — all free, no store call.
 2. Parse the bearer. Canonical → derive `memberKey`; else → anonymous bucket.
 3. Take the minute bucket. `false` → `429 rate_limited` with `Retry-After: 60`,
@@ -324,11 +329,10 @@ Order inside a request:
 4. Auth/lookup (`getMember`), then the endpoint's own work.
 5. On `POST /circles` and `POST /circles/:code/join` only: take the second,
    daily bucket **after** validation passes but **before** the write. `false` →
-   `429` with `Retry-After` = seconds to the end of that day-window, computed as
-   `86400 - ((Date.now() - windowStart) / 1000)`; since the handler cannot see
-   `window_start`, M1 returns the constant `3600`. A retry-after that is too
-   small is a client re-try, not a correctness bug; leaking the exact window
-   start would let a caller schedule around the limiter precisely.
+   `429` with the constant `Retry-After: 3600` — `takeToken` does not expose
+   `window_start`, and that is fine: a too-small retry-after costs the client
+   one extra retry, while leaking the exact window start would let a caller
+   schedule around the limiter precisely.
 
 **Honest cost note.** With `RRETHI_STORE=neon`, step 3 is one `rate_bucket`
 upsert per request — including cheap board reads, which `store.js` warns about
@@ -662,7 +666,7 @@ not new ones.
 
 | Field | Rule |
 |---|---|
-| `displayName` | Trim, then NFC-normalise. Then: **2–20 code points** (`Array.from(s).length`), no control characters (the `CONTROL_CHARACTER_PATTERN` of `store.js`: `/[\u0000-\u001f\u007f]/u`), at most **2** `\p{Extended_Pictographic}` code points. Rejection → `400 invalid_field`, `field: "displayName"`. No profanity filter — §2.5 names it a deliberate non-goal. |
+| `displayName` | Trim, then NFC-normalise. Then: **2–20 code points** (`Array.from(s).length`), no control characters (the control-character rule of `store.js` — today a module-private constant; export `CONTROL_CHARACTER_PATTERN` additively rather than re-declaring it: `/[\u0000-\u001f\u007f]/u`), at most **2** `\p{Extended_Pictographic}` code points. Rejection → `400 invalid_field`, `field: "displayName"`. No profanity filter — §2.5 names it a deliberate non-goal. |
 | `avatarId` | Must satisfy `isAvatarId` from `src/avatars.js`. The server validates against the fixed catalog and does **not** check whether the badge behind an earned avatar was actually earned — §2.1.1: policing a locally altered cosmetic would mean transmitting badge history for no security benefit. |
 | `letterSeal` | Must be a member of `ALBANIAN_ALPHABET` (`src/game.js`, 36 entries) after `normalizeWord`. |
 | `name` (circle) | Same rule as `displayName`, character for character (§11, O1). |
@@ -790,7 +794,11 @@ on every board they are on. That is the plan's model, not an oversight.
 
 **Order of store calls:** (optional `upsertMember`) → `claimSeat(code,
 memberKey, CIRCLE_MAX_MEMBERS, MEMBER_MAX_CIRCLES)` → `getCircle(code)` and
-`listMembers(code)` to shape the response.
+`listMembers(code)` to shape the response. Stated consequence of that order: a
+join against a nonexistent code returns `404` *after* the rename has applied
+globally. Accepted — the rename is user-intended independently of whether the
+join lands, and reordering would cost a read on every successful join to save
+a rename on the failure path.
 
 **Success**
 
@@ -818,8 +826,9 @@ Leave a circle.
 adapters, and the response is the same either way, so the extra read would only
 add a round trip and a way to probe which codes exist.
 
-**Success:** `204 No Content`, empty body (no `Content-Length` payload; the
-headers of §1 still apply).
+**Success:** `204 No Content`, empty body with explicit `Content-Length: 0` —
+§1's "every response carries `Content-Length`" holds uniformly, and acceptance
+test 8 asserts headers on every response including this one.
 
 **Errors:** `400 invalid_field` (`code`), `403 forbidden_origin`. **Not** `404`
 — leaving a circle you are not in succeeds silently, which is what makes the
@@ -891,8 +900,9 @@ and burn the minute bucket.
 ### 8.7 `GET /api/rrethi/circles/:code/board?date=`
 
 **Query:** `date` optional, default `getTiranaDateKey(now)`. Must be a real date
-(§8.0), not in the future, and not older than **400 days** (§2.10 retention) →
-`400 date_out_of_range`.
+(§8.0), not in the future — "future" meaning lexicographically greater than
+`getTiranaDateKey(now)`, the same comparison the fake-clock tests pin — and not
+older than **400 days** (§2.10 retention) → `400 date_out_of_range`.
 
 **Order of store calls:** `getCircle(code)` → `404` if null → `listMembers(code)`
 → caller not in roster → `403 not_a_member` → `listResults(code, date)` →
@@ -907,11 +917,13 @@ to a masked row breaks the M1 acceptance test on the raw response text.
 
 **The mask covers today *and* yesterday** — `isBoardMasked` as shipped on this
 branch, which widens §2.4's "today only" because the archive keeps yesterday's
-word one tap away, so revealing it spoils a game the viewer can still play. A
-masked yesterday always has an escape hatch: the viewer can still post
-yesterday's result inside the §5 write window, and the mask ages out on its own
-at Tirana midnight. Days older than yesterday are never masked. **The handler
-must not encode any of that** — it passes `playDate` and gets `masked` back.
+word one tap away, so revealing it spoils a game the viewer can still play
+(deviation D5). Be precise about the escape hatch: yesterday's result is
+POSTable only inside §5's 6-hour grace, so from 06:00 Tirana onward a viewer who
+skipped yesterday sees its board masked with no unmask path until Tirana
+midnight reveals the day — the accepted cost recorded in D5. Days older than
+yesterday are never masked. **The handler must not encode any of that** — it
+passes `playDate` and gets `masked` back.
 
 `buildBoard` also throws if `viewerKey` is not in the roster. That is
 defence in depth behind the `403 not_a_member` check, not a substitute for it:
@@ -1152,7 +1164,10 @@ are the gate.
 **Boundaries (fake clock)**
 25. **[M1 acceptance]** At 23:59:30 Europe/Tirane a POST files under `D`; at
     00:00:30 the next POST files under `D+1`, and the `D` board is fully
-    unmasked for a viewer with no `D+1` result.
+    unmasked **for any viewer holding a `D` result** (the member who posted at
+    23:59:30). A viewer with neither a `D` nor a `D+1` result still sees `D`
+    masked — at 00:00:30, `D` is "yesterday" and D5's widened window applies.
+    Plan §2.12's unqualified phrasing predates D5.
 26. **[M1 acceptance]** Repeat 25 on both DST transition dates (spring forward
     and fall back), using the clock-shim technique from the archive verification.
 27. Grace: at 05:59 local a POST for yesterday succeeds; six hours plus one
@@ -1270,18 +1285,20 @@ the UI that explains it.
 **D1 — `POST /api/rrethi/members` does not return `recoveryCode`.** §2.7's table
 says it returns `{memberId, recoveryCode}`. §2.2 says the client generates the
 128-bit secret and the recovery code *is* that secret, re-encoded. Both cannot be
-true. §2.2 wins because it is the section that defines the security model: a
-server that returns a recovery code is a server that has seen the secret, and the
-whole claim ("a lost secret is unrecoverable by us") collapses. The recovery code
-is derived and displayed entirely client-side. The response returns `memberId`
-plus the profile echo.
+true. §2.2 wins because it is the section that defines the security model. (To
+state the rationale precisely: the server necessarily *sees* the secret on every
+bearer request — what it never does is store or emit it. A server-issued recovery
+code would be a pure re-encoding the client can already produce, and shipping it
+server-side would mean a second Crockford/checksum implementation whose only
+possible contribution is drift.) The recovery code is derived and displayed
+entirely client-side. The response returns `memberId` plus the profile echo.
 
 **D2 — Bearer auth is required on `POST /members` too.** §2.7 says "bearer auth
 on all but `POST /members`". Reconciled in §2.1: the header is required; what is
 *not* required is a pre-existing member row. Without the header there is no key
 to create.
 
-**D3 — Two new store methods and one extended typedef.** `claimSeat`,
+**D3 — Three new store methods and one extended typedef.** `claimSeat`,
 `upsertMember`, `touchMember`; `Member` gains `avatarId` and `letterSeal`. §2.9's
 typedef lists thirteen methods and `store.js` already records `listMembers` as a
 deliberate fourteenth. All three additions are additive; no existing method
@@ -1290,3 +1307,25 @@ changes shape, and the M0 conformance suite runs unmodified.
 **D4 — `src/game.js` gains one `export` keyword.** `tiranaMidnightEpoch` becomes
 exported so §5 can compute the 6-hour grace without a second date
 implementation, which §2.4 forbids. The function body is not touched.
+
+**D5 — The board mask covers today AND yesterday, not today only.** §2.4 says
+"yesterday and earlier are always fully visible, because the spoiler is gone."
+That sentence predates the shipped archive: `isArchivableDate` (src/app.js)
+keeps every day up to and including yesterday playable one tap away, so
+revealing yesterday's board spoils a game the viewer can still play — the exact
+harm §2.4 exists to prevent (found by the 2026-08-05 adversarial review of
+`board.js`, MAJOR 1). `isBoardMasked` therefore masks `playDate ∈ {today,
+yesterday}` until the viewer's own result for that date exists. Days older than
+yesterday reveal unconditionally: §5's write window makes them permanently
+unwritable, so masking them would be masking forever. Honest cost, accepted
+deliberately: yesterday's result can only be posted within §5's 6-hour grace,
+so a member who skipped yesterday sees yesterday's circle board masked for the
+rest of that Tirana day (~18 hours) with no way to unmask it except waiting for
+midnight. That trade favors spoiler protection over board access and self-heals
+daily. Consequences recorded here so the precedence rule in the preamble cannot
+revert them: (a) §2.4's "always visible" sentence and §2.12's "the D board is
+fully unmasked at 00:00:30" are stale as unqualified statements — the D board at
+00:00:30 is unmasked only for a viewer holding a D result; (b) the masked row
+shape is `{displayName, finished}` plus `you: true` on the viewer's own row —
+`you` is self-referential and leaks nothing about others; (c) plan §2.4 should
+gain a one-line amendment when this merges.

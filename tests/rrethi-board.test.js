@@ -130,8 +130,9 @@ test("yesterday stays masked for a viewer who has not played it — the archive 
 });
 
 test("yesterday reveals to a viewer who finished it, and older days reveal to everyone", () => {
-  // Finishing yesterday (daily or archive replay, both inside the write
-  // window) unmasks it for that viewer...
+  // Finishing yesterday unmasks it for that viewer. (The §5 write window only
+  // accepts yesterday's result during the 6-hour post-midnight grace — a
+  // viewer who missed it stays masked until Tirana midnight reveals the day.)
   const finished = buildBoard({
     members: MEMBERS,
     results: [result("hmac-a", YESTERDAY, 6), result("hmac-b", YESTERDAY, 3)],

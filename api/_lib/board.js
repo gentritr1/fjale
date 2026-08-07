@@ -28,10 +28,14 @@ import { assertDateKey, storeError } from "./store.js";
  * Today AND yesterday are masked until the viewer posts their own result.
  * §2.4 as written masked today only, but the shipped archive keeps yesterday's
  * word playable one tap away, so revealing it spoils a game the viewer can
- * still play (2026-08-05 adversarial review, MAJOR 1). Yesterday is the right
- * boundary because §2.5's write window covers exactly today and yesterday: a
- * masked yesterday can always be unmasked by finishing, and it self-heals at
- * Tirana midnight when it ages out of the window. Older archive days stay
+ * still play (2026-08-05 adversarial review, MAJOR 1; recorded as deviation D5
+ * in PLAN-RRETHI-M1-API.md §12). Yesterday is the right boundary because it is
+ * the newest day the write window can ever reach — but note the window is
+ * grace-gated: yesterday accepts a result only within the 6-hour grace after
+ * Tirana midnight, so for the rest of that day a viewer who skipped yesterday
+ * sees its board masked with no way to unmask it except waiting for midnight,
+ * when it ages out and reveals on its own. That ~18-hour blind spot is the
+ * accepted cost of not spoiling a still-playable word. Older archive days stay
  * visible — they can never acquire a result row, so masking them would be
  * permanent, which is worse than the residual spoiler. Revisit if the write
  * window ever widens.
