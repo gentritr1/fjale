@@ -23,6 +23,7 @@
 import { readFile } from "node:fs/promises";
 
 import {
+  CIRCLE_MAX_MEMBERS,
   assertDateKey,
   assertDateRange,
   assertKey,
@@ -34,6 +35,8 @@ import {
 
 /** Postgres SQLSTATE for a foreign-key violation. */
 const FOREIGN_KEY_VIOLATION = "23503";
+/** Postgres SQLSTATE for a unique-index violation — `claimSeat`'s retry signal. */
+const UNIQUE_VIOLATION = "23505";
 /** CHECK / NOT NULL violations — shared validation should have caught these. */
 const CONSTRAINT_VIOLATIONS = new Set(["23502", "23514"]);
 
@@ -135,6 +138,22 @@ export async function checkNeonHealth(env, timeoutMs = 5_000) {
   }
 }
 
+/**
+ * Which unique index a 23505 came from: the seat index (a lost seat race, so
+ * retry) or the membership primary key (this member raced themselves).
+ * The driver exposes `constraint`; when it does not, the safe reading is the
+ * seat index, because a primary-key collision is already absorbed by
+ * `ON CONFLICT (circle_code, member_key) DO NOTHING` and so should not surface
+ * here at all — and a retry converges, while a wrong `'conflict'` would report
+ * a member as seated when they are not.
+ *
+ * @param {unknown} error
+ */
+function isSeatIndexViolation(error) {
+  const constraint = String(error?.constraint ?? "");
+  return constraint === "" || constraint.includes("seat");
+}
+
 /** @param {unknown} error */
 function mapError(error) {
   const code = error?.code;
@@ -178,6 +197,8 @@ function toMember(row) {
   return {
     memberKey: row.member_key,
     displayName: row.display_name,
+    avatarId: row.avatar_id,
+    letterSeal: row.letter_seal,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
   };
@@ -294,7 +315,44 @@ export async function createNeonStore(env) {
   /** @param {string} name */
   const t = (name) => `"${schema}".${name}`;
 
-  const MEMBER_COLUMNS = `member_key, display_name, ${isoUtc("created_at")}, ${isoUtc("last_seen_at")}`;
+  const MEMBER_COLUMNS =
+    `member_key, display_name, avatar_id, letter_seal, ` +
+    `${isoUtc("created_at")}, ${isoUtc("last_seen_at")}`;
+
+  /**
+   * Lowest unoccupied seat in `1..$n`, evaluated inside the INSERT so no seat
+   * number is ever chosen by a handler. See the memory adapter's
+   * `lowestFreeSeat` for why this is lowest-free and not `MAX(seat) + 1`
+   * (deviation D7).
+   */
+  const lowestFreeSeatSql = (limitParam) =>
+    `(SELECT MIN(s.n) FROM generate_series(1, ${limitParam}::smallint) AS s(n)
+       WHERE NOT EXISTS (SELECT 1 FROM ${t("membership")} taken
+                          WHERE taken.circle_code = c.code AND taken.seat = s.n))`;
+
+  /**
+   * Runs only when `claimSeat`'s insert produced no row, and answers which of
+   * its guards refused. The order is the contract's: a missing circle first,
+   * then an existing membership (so an existing member re-joining a circle that
+   * has since filled reads as an idempotent `'conflict'`, never as `'full'`),
+   * then the per-member circle cap, and `'full'` as the remainder.
+   */
+  async function disambiguateClaim(code, key, maxCircles) {
+    const rows = await run(
+      sql,
+      `SELECT (SELECT COUNT(*) FROM ${t("circle")} c WHERE c.code = $1) AS circle_count,
+              (SELECT COUNT(*) FROM ${t("membership")} m
+                WHERE m.circle_code = $1 AND m.member_key = $2) AS membership_count,
+              (SELECT COUNT(*) FROM ${t("membership")} m
+                WHERE m.member_key = $2) AS circles_joined`,
+      [code, key],
+    );
+    const row = rows[0] ?? {};
+    if (Number(row.circle_count ?? 0) === 0) return "missing";
+    if (Number(row.membership_count ?? 0) > 0) return "conflict";
+    if (Number(row.circles_joined ?? 0) >= maxCircles) return "over_circle_limit";
+    return "full";
+  }
   const CIRCLE_COLUMNS = `code, name, owner_key, show_time, ${isoUtc("created_at")}`;
   const RESULT_COLUMNS =
     `circle_code, member_key, to_char(play_date, 'YYYY-MM-DD') AS play_date, ` +
@@ -368,15 +426,121 @@ export async function createNeonStore(env) {
     async addMembership(code, key) {
       assertKey(code, "circleCode");
       assertKey(key, "memberKey");
+      // `seat` is NOT NULL, so even the narrow primitive assigns one. It applies
+      // no caps — that is `claimSeat`'s job — but a circle with no free seat
+      // yields a NULL seat and so a NOT NULL violation, mapped by `mapError`
+      // to the same "stored constraint" error the memory adapter raises.
       const rows = await run(
         sql,
-        `INSERT INTO ${t("membership")} (circle_code, member_key, joined_at)
-         VALUES ($1, $2, now())
+        `INSERT INTO ${t("membership")} (circle_code, member_key, seat, joined_at)
+         SELECT c.code, $2, ${lowestFreeSeatSql(String(CIRCLE_MAX_MEMBERS))}, now()
+           FROM ${t("circle")} c
+          WHERE c.code = $1
          ON CONFLICT (circle_code, member_key) DO NOTHING
          RETURNING 1 AS inserted`,
         [code, key],
       );
-      return rows.length > 0 ? "created" : "conflict";
+      if (rows.length > 0) return "created";
+      // Zero rows means either the ON CONFLICT fired or the circle does not
+      // exist. M0 semantics: a missing circle throws the foreign-key error.
+      const existing = await run(
+        sql,
+        `SELECT 1 AS found FROM ${t("membership")}
+          WHERE circle_code = $1 AND member_key = $2`,
+        [code, key],
+      );
+      if (existing.length > 0) return "conflict";
+      throw foreignKeyError();
+    },
+
+    async claimSeat(code, key, maxSeats, maxCircles) {
+      assertKey(code, "circleCode");
+      assertKey(key, "memberKey");
+      assertPositiveInteger(maxSeats, "maxSeats");
+      assertPositiveInteger(maxCircles, "maxCircles");
+      if (maxSeats > CIRCLE_MAX_MEMBERS) {
+        throw storeError(`maxSeats must be at most ${CIRCLE_MAX_MEMBERS}`);
+      }
+
+      // One statement. Concurrency is resolved by membership_circle_seat_idx,
+      // never by a count this process read a moment ago (plan §4.2).
+      const insert =
+        `INSERT INTO ${t("membership")} (circle_code, member_key, seat, joined_at)
+         SELECT c.code, $2, ${lowestFreeSeatSql("$3")}, now()
+           FROM ${t("circle")} c
+          WHERE c.code = $1
+            AND (SELECT COUNT(*) FROM ${t("membership")} m
+                  WHERE m.circle_code = c.code) < $3
+            AND (SELECT COUNT(*) FROM ${t("membership")} m
+                  WHERE m.member_key = $2) < $4
+         ON CONFLICT (circle_code, member_key) DO NOTHING
+         RETURNING seat`;
+
+      // Five attempts is for the lottery, not the common case: with a ten-seat
+      // ceiling, five consecutive losses of the same seat race is unreachable,
+      // so exhausting them must be loud rather than silently reported as full.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        let rows;
+        try {
+          const output = await sql.query(insert, [code, key, maxSeats, maxCircles]);
+          rows = Array.isArray(output) ? output : (output?.rows ?? []);
+        } catch (error) {
+          if (error?.code === UNIQUE_VIOLATION && isSeatIndexViolation(error)) {
+            // A concurrent join took the seat this statement computed. Retrying
+            // re-evaluates both count guards, so a loser converges to 'full'
+            // when the circle filled and to a higher seat when it did not.
+            continue;
+          }
+          if (error?.code === UNIQUE_VIOLATION) {
+            // The primary key: this member raced themselves (an outbox double
+            // flush). ON CONFLICT normally absorbs it; this is the backstop.
+            return "conflict";
+          }
+          throw mapError(error);
+        }
+        if (rows.length > 0) return "created";
+
+        // Zero rows and no error: one read on the failure path only decides
+        // which guard refused. The happy path stays a single round trip.
+        return disambiguateClaim(code, key, maxCircles);
+      }
+      throw storeError("seat contention");
+    },
+
+    async upsertMember(key, profile) {
+      assertKey(key, "memberKey");
+      if (profile === null || typeof profile !== "object") {
+        throw storeError("profile must be an object");
+      }
+      const displayName = assertKey(profile.displayName, "displayName");
+      const avatarId = assertKey(profile.avatarId, "avatarId");
+      const letterSeal = assertKey(profile.letterSeal, "letterSeal");
+      // `xmax = 0` is true only for a row this statement inserted, which is how
+      // one upsert reports which of the two things happened. created_at and
+      // last_seen_at are left alone on the update path: an edit is not a visit.
+      const rows = await run(
+        sql,
+        `INSERT INTO ${t("member")}
+           (member_key, display_name, avatar_id, letter_seal, created_at, last_seen_at)
+         VALUES ($1, $2, $3, $4, now(), now())
+         ON CONFLICT (member_key) DO UPDATE
+            SET display_name = EXCLUDED.display_name,
+                avatar_id = EXCLUDED.avatar_id,
+                letter_seal = EXCLUDED.letter_seal
+         RETURNING (xmax = 0) AS created`,
+        [key, displayName, avatarId, letterSeal],
+      );
+      return toBoolean(rows[0]?.created) ? "created" : "updated";
+    },
+
+    async touchMember(key) {
+      assertKey(key, "memberKey");
+      // A no-op on an unknown key, matching renameMember.
+      await run(
+        sql,
+        `UPDATE ${t("member")} SET last_seen_at = now() WHERE member_key = $1`,
+        [key],
+      );
     },
 
     async removeMembership(code, key) {

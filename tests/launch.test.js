@@ -732,11 +732,12 @@ test("keeps the service-worker shell, server allowlist, and corpus policy synchr
 
 test("pins the release cache and guards every cached runtime update", async () => {
   const serviceWorker = await readFile("service-worker.js", "utf8");
-  const previousServiceWorker = serviceWorker.replace("fjale-shell-v34", "fjale-shell-v33");
+  const previousServiceWorker = serviceWorker.replace("fjale-shell-v35", "fjale-shell-v34");
 
   // This pin advances with every production release. CI additionally compares
   // the branch against its base so cached files cannot change without a bump.
-  assert.equal(readCacheVersion(serviceWorker), 34);
+  // v35: src/game.js exports tiranaMidnightEpoch for the Rrethi write window.
+  assert.equal(readCacheVersion(serviceWorker), 35);
   assert.ok(readAppShellFiles(serviceWorker).includes("src/game.js"));
   assert.ok(
     readAppShellFiles(
@@ -761,10 +762,10 @@ test("pins the release cache and guards every cached runtime update", async () =
   );
   assert.throws(
     () => assertCacheVersionBump(["src/game.js"], previousServiceWorker, previousServiceWorker),
-    /did not advance beyond fjale-shell-v33/u,
+    /did not advance beyond fjale-shell-v34/u,
   );
   assert.deepEqual(
     assertCacheVersionBump(["src/game.js"], previousServiceWorker, serviceWorker),
-    { previousVersion: 33, currentVersion: 34 },
+    { previousVersion: 34, currentVersion: 35 },
   );
 });

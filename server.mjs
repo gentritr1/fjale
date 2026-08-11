@@ -129,6 +129,15 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // The nine Rrethi routes. Imported lazily so the static-file path never pulls
+  // in the store layer, and so `node server.mjs` starts even when the API is
+  // switched off — which it is by default (RRETHI_API_ENABLED, plan §11 O6).
+  if (pathname === "/api/rrethi" || pathname.startsWith("/api/rrethi/")) {
+    const { handleRrethiRequest } = await import("./api/_lib/router.js");
+    await handleRrethiRequest(request, response);
+    return;
+  }
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.setHeader("Allow", "GET, HEAD");
     sendText(response, 405, "Metoda nuk lejohet.\n", request.method);
