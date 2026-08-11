@@ -1416,3 +1416,29 @@ the Vercel entry point, but it is a two-line re-export: a specifier containing
 `[[...]]` is percent-encoded by URL parsing, which makes it awkward to import
 from `server.mjs` and from the test suite. There is still exactly one router and
 one shared preamble, which is what §0's "one router, not nine files" is for.
+
+**D10 — the origin check derives its scheme from the connection, not a hard
+`https` default.** §1 says to derive the deployment's own origin from
+`x-forwarded-proto` (default `https`) and `host`. Behind Vercel that is always
+correct, because the platform sets the header on every request. On the local dev
+server there is no such header and no TLS, so the hard default derives
+`https://localhost:4174` while the browser sends `Origin: http://localhost:4174`
+— and **every same-origin browser POST is refused with `403 forbidden_origin`**.
+Found by running the §10 line-47 scripted run in a real service-worker-controlled
+browser, not by reasoning: neither the unit harness nor node's `fetch` sends an
+`Origin` header on a same-origin request, so no test in the suite could see it,
+and it would have ambushed M2's first UI POST. `x-forwarded-proto` still wins
+whenever a proxy sets it; only the fallback changed, from a constant to the
+connection's actual scheme, with §1's `https` retained when there is no socket at
+all. The check stays fail-closed in every direction: a mismatch is still a 403,
+and a TLS-terminating proxy that strips the header derives `http` and refuses an
+`https` Origin rather than admitting anything extra. Pinned by
+`tests/rrethi-api.test.js` line 11b (six scheme/socket/proxy combinations) and by
+a same-origin POST carrying a real `Origin` header in the `node:http` test.
+
+**Checklist 47 — CLOSED, 2026-08-11.** The one line that needs a browser is
+verified. `RRETHI_API_ENABLED=1` local dev server, page confirmed
+service-worker-controlled (`navigator.serviceWorker.controller` non-null, cache
+`fjale-shell-v35`), a seven-call scripted run (register → create → join card →
+post result → board → week → delete) all answering `private, no-store, max-age=0`,
+then `caches.keys()` walked: **19 cached entries, zero with a `/api` pathname.**

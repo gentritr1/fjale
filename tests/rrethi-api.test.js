@@ -515,6 +515,51 @@ test("11. [M1 acceptance] a cross-origin mutation is 403 before any store call",
   assert.equal(sameOrigin.status, 201);
 });
 
+test("11b. the origin check derives the scheme from the connection, not a hard https default", async () => {
+  // Found in a real service-worker-controlled browser, not by a test: with the
+  // scheme hard-defaulted to https, a page served over plain http derives
+  // `https://localhost:4174` while the browser sends `Origin:
+  // http://localhost:4174`, so EVERY same-origin browser POST is a 403. It is
+  // invisible on Vercel (which always sets x-forwarded-proto) and invisible to
+  // both this harness and node's fetch, neither of which sends Origin on a
+  // same-origin request. It would have ambushed M2's first UI POST.
+  const post = async (headers, socket) => {
+    const request = createRequest({
+      method: "POST",
+      path: "/api/rrethi/members",
+      token: TOKEN_A,
+      body: PROFILE,
+      headers,
+    });
+    if (socket !== undefined) request.socket = socket;
+    const response = createResponse();
+    await handleRrethiRequest(request, response, ENV, { store: await freshStore() });
+    return response.statusCode;
+  };
+
+  const plain = { host: "localhost:4174" };
+  // An unencrypted connection: the http origin is this deployment's own.
+  assert.equal(await post({ ...plain, origin: "http://localhost:4174" }, { encrypted: false }), 201);
+  assert.equal(await post({ ...plain, origin: "https://localhost:4174" }, { encrypted: false }), 403);
+  // A TLS connection with no proxy header.
+  assert.equal(await post({ ...plain, origin: "https://localhost:4174" }, { encrypted: true }), 201);
+  assert.equal(await post({ ...plain, origin: "http://localhost:4174" }, { encrypted: true }), 403);
+  // The production path: the proxy header wins over the socket, and a chain
+  // keeps its client-facing hop.
+  const proxied = { host: "www.example.test", "x-forwarded-proto": "https" };
+  assert.equal(await post({ ...proxied, origin: "https://www.example.test" }, { encrypted: false }), 201);
+  assert.equal(await post({ ...proxied, origin: "http://www.example.test" }, { encrypted: false }), 403);
+  assert.equal(
+    await post(
+      { host: "www.example.test", "x-forwarded-proto": "https, http", origin: "https://www.example.test" },
+      { encrypted: false },
+    ),
+    201,
+  );
+  // With no socket at all, §1's documented https default still stands.
+  assert.equal(await post({ host: "www.example.test", origin: "https://www.example.test" }), 201);
+});
+
 test("13. an adapter throw is 500 with a bounded log line and no detail on the wire", async () => {
   const inner = await freshStore();
   const store = {
@@ -1719,6 +1764,20 @@ test("the router works over a real HTTP socket, not just the test harness", asyn
     const preflight = await fetch(`${base}/api/rrethi/circles`, { method: "OPTIONS" });
     assert.equal(preflight.status, 405);
     assert.equal(preflight.headers.get("allow"), "POST");
+
+    // A same-origin browser POST over plain http, with the Origin header a
+    // browser actually sends and node's fetch does not. This is the request
+    // shape that was 403ing before the scheme fix.
+    const sameOrigin = await fetch(`${base}/api/rrethi/circles`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${TOKEN_A}`,
+        "content-type": "application/json",
+        origin: base,
+      },
+      body: JSON.stringify({ name: "Nga shfletuesi" }),
+    });
+    assert.equal(sameOrigin.status, 201, await sameOrigin.text());
 
     // A genuinely cross-origin POST over the wire.
     const crossOrigin = await fetch(`${base}/api/rrethi/circles`, {

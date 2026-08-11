@@ -161,6 +161,20 @@ export function parseRequestUrl(request) {
  * The second, independent defence is that `OPTIONS` is not implemented at all
  * (it returns 405), so a cross-origin JSON POST can never clear its preflight.
  *
+ * **Why the scheme is not simply defaulted to `https`.** §1 says "default
+ * `https`", and behind Vercel that is always right because the platform sets
+ * `x-forwarded-proto` on every request. On the local dev server there is no such
+ * header and no TLS, so a hard `https` default derives `https://localhost:4174`
+ * while the browser sends `Origin: http://localhost:4174` — and *every*
+ * same-origin browser POST is refused with 403. That was measured in a real
+ * service-worker-controlled browser, not reasoned about: neither the unit
+ * harness nor node's `fetch` sends an `Origin` header on a same-origin request,
+ * so no test could see it, and it would have ambushed M2's first UI POST.
+ * The scheme therefore comes from the connection when the header is absent.
+ * This stays fail-closed in every direction: a mismatch is still a 403, and a
+ * TLS-terminating proxy that strips `x-forwarded-proto` would derive `http` and
+ * refuse an `https` Origin rather than admit anything extra.
+ *
  * @param {object} request
  * @returns {boolean} true when the request may proceed
  */
@@ -170,10 +184,25 @@ export function isSameOrigin(request) {
   if (presented === undefined || presented === null || presented === "") {
     return true;
   }
-  const proto = String(firstHeaderValue(headers["x-forwarded-proto"]) ?? "https").trim();
   const host = String(firstHeaderValue(headers.host) ?? "").trim();
   if (host === "") return false;
-  return String(presented) === `${proto}://${host}`;
+  return String(presented) === `${requestScheme(request)}://${host}`;
+}
+
+/**
+ * `x-forwarded-proto` when a proxy set it (the production path), otherwise the
+ * scheme this connection actually arrived on. With no socket at all — a unit
+ * harness — §1's documented `https` default stands.
+ */
+function requestScheme(request) {
+  const forwarded = firstHeaderValue(request?.headers?.["x-forwarded-proto"]);
+  if (typeof forwarded === "string" && forwarded.trim() !== "") {
+    // A comma-joined chain keeps the client-facing hop first.
+    return forwarded.split(",")[0].trim().toLowerCase();
+  }
+  const socket = request?.socket;
+  if (socket === undefined || socket === null) return "https";
+  return socket.encrypted === true ? "https" : "http";
 }
 
 /** Header values arrive as a string or, for repeated headers, an array. */
