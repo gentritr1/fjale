@@ -1,9 +1,17 @@
 # PLAN — Rrethi M1: the nine HTTP endpoints
 
-> **DRAFT — for review.** Nothing here is implemented. This document expands
-> `PLAN-RRETHI-2026-08.md` §2.7 into an implementable contract and is subordinate
-> to it: where this file and the plan disagree, the plan wins unless the
-> disagreement is recorded in §12 (Deviations) below.
+> **IMPLEMENTED 2026-08-11.** All nine endpoints, the three store methods and the
+> §6 schema deltas are in the tree and the §10 checklist is a passing suite
+> (`tests/rrethi-api.test.js`, plus the database-level lines in
+> `tests/rrethi-store.test.js`). The routes ship **dark**: `RRETHI_API_ENABLED`
+> defaults off and every route answers `404` until it is set, which is the M3
+> deploy step that ships beside the rewritten privacy page. The seven open
+> decisions of §11 were adopted as recommended on 2026-08-11; three further
+> deviations found during implementation are recorded in §12 as D6, D7 and D8.
+>
+> This document expands `PLAN-RRETHI-2026-08.md` §2.7 into an implementable
+> contract and is subordinate to it: where this file and the plan disagree, the
+> plan wins unless the disagreement is recorded in §12 (Deviations) below.
 >
 > **All Albanian user-facing strings quoted in this document are UNVERIFIED**
 > and stay UNVERIFIED until the native review pass. No endpoint in M1 returns a
@@ -1220,10 +1228,21 @@ are the gate.
 
 ---
 
-## 11. Open decisions
+## 11. Open decisions — **all seven adopted as recommended, 2026-08-11**
 
 Places the plan genuinely does not decide. Each carries a recommendation; none is
 silently resolved in the spec above without being named here.
+
+**Resolution (2026-08-11, owner sign-off).** Every recommendation below was
+adopted verbatim. In the shipped code that means: O1 circle `name` reuses the
+`displayName` validator; O2 the board payload carries no avatar; O3 the owner may
+leave and the circle survives with no transfer; O4 no `streaks` argument is ever
+passed to `buildBoard`; O5 the circles-per-member cap is accepted as
+guard-based rather than exact, and §2.5's "both caps are database invariants" is
+met to the letter for seats and in spirit for circles; O6 `RRETHI_API_ENABLED`
+exists and defaults off; O7 neither revocation nor a `show_time` toggle is
+implemented, so `show_time` is `FALSE` for every circle and the `seconds` path is
+dead code with a live test.
 
 **O1 — Circle name rules.** §2.1 asks for a "circle name" and never bounds it.
 §8.0 above reuses the `displayName` rule verbatim (2–20 code points, NFC, ≤2
@@ -1329,3 +1348,71 @@ fully unmasked at 00:00:30" are stale as unqualified statements — the D board 
 shape is `{displayName, finished}` plus `you: true` on the viewer's own row —
 `you` is self-referential and leaks nothing about others; (c) plan §2.4 should
 gain a one-line amendment when this merges.
+
+---
+
+**D6 — the opportunistic `rate_bucket` prune is not in M1.** §3.1 says M1 runs
+`DELETE FROM rate_bucket WHERE window_start < now() - interval '1 day'`
+opportunistically, at a 1-in-500 chance per authenticated request. §0 says the
+opposite in its non-goals: "no retention sweep job — the sweep is owned by M2,
+alongside the daily `rate_bucket` prune the schema already documents." §0 wins,
+because it is the section that defines scope and because the alternative
+contradicts §7 as well: pruning through the store boundary needs a fourth new
+store method, and §7/D3 pin the additions at exactly three. Consequences, stated
+rather than assumed: with `RRETHI_STORE=memory` (production's setting today, and
+the only one M1 can reach while the gate is off) buckets live in one process and
+vanish on every cold start, so nothing accumulates. With `RRETHI_STORE=neon`,
+bucket rows would accumulate until M2 ships the prune. **M2 owns this and must
+ship it before `RRETHI_STORE=neon` is ever set in production**, because plan
+§2.5's "rotated and pruned within 48 hours" is a privacy promise, not a storage
+optimisation. Until then the promise holds only by the rows being one-way HMACs
+that rotate hourly and are unlinkable to any member.
+
+**D7 — `claimSeat` takes the lowest free seat, not `MAX(seat) + 1`.** §4.2's SQL
+computes `COALESCE(MAX(m.seat), 0) + 1`, and §4.3(a) requires that after seats
+1..10 are taken and seat 4 is freed, a new claim succeeds with ten distinct seats
+in the circle. Those two cannot both hold: nine members holding seats 1..3 and
+5..10 make `MAX(seat) + 1 = 11`, which violates `CHECK (seat BETWEEN 1 AND 10)`
+— and a `23514` is not the `23505` the retry loop handles, so the claim would
+throw a `500` instead of seating anyone. The consequence is worse than one failed
+join: a circle that has ever been full becomes permanently unjoinable even after
+members leave. Both adapters therefore compute the lowest unoccupied seat in
+`1..maxSeats` (`generate_series` + `NOT EXISTS` in SQL, the same expression in
+the memory adapter). Nothing else changes: the guards, the return values and the
+`ON CONFLICT` clause are §4.2's, and concurrency is still resolved by
+`UNIQUE (circle_code, seat)` — two joins that observe the same lowest free seat
+still collide there, and the loser still retries. §8.5's parenthetical that a
+freed seat "will be reused only after the higher seats also free up" is now
+stale: a freed seat is reused immediately. Seat numbers remain an internal
+mechanism and appear in no payload, so nothing observable depends on which
+number a member holds. Asserted by `tests/rrethi-store.test.js` ("§4.3(a) seat
+invariants, including a freed middle seat") on every adapter, and by the direct
+`23505`/`23514` SQL assertions under the pglite bridge.
+
+**D8 — three §10 checklist lines are corrected, not silently satisfied.**
+
+- **Line 2** ("no store method is called" for a malformed bearer) cannot be true
+  as written: §3.2 requires exactly those requests to charge the anonymous
+  bucket, and line 40 asserts that they do. `takeToken` is a store method. The
+  test asserts what is both true and load-bearing — that no identity-bearing
+  method (`getMember`, `getCircle`, `listMembers`, …) is reached, i.e. the call
+  set is exactly `["takeToken"]`.
+- **Line 3** ("`401 unknown_member` on endpoints 2–9") over-reaches by one.
+  Endpoint 9 is `DELETE /api/rrethi/me`, which §8.9 and the §9 summary table both
+  define as requiring no member row and always answering `204` — §8.9 is explicit
+  that a `404` there "would confirm that a given secret was never registered",
+  and a `401 unknown_member` would confirm exactly the same thing. The rule
+  applies to endpoints **2–8**; endpoint 9's own behaviour is pinned separately.
+- **Line 47** (zero `/api/*` entries in Cache Storage after a scripted run in a
+  service-worker-controlled browser) is a browser check and is **not** covered by
+  the node:test suite. It is listed as an open verification gap rather than
+  claimed. What *is* asserted automatically: every response carries
+  `Cache-Control: private, no-store, max-age=0` on every request the suite makes,
+  and `service-worker.js` has no `/api` route in its shell list.
+
+**D9 — the router implementation lives in `api/_lib/router.js`.** §0's module
+table names `api/rrethi/[[...path]].js` as the router. That file exists and is
+the Vercel entry point, but it is a two-line re-export: a specifier containing
+`[[...]]` is percent-encoded by URL parsing, which makes it awkward to import
+from `server.mjs` and from the test suite. There is still exactly one router and
+one shared preamble, which is what §0's "one router, not nine files" is for.

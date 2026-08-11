@@ -1,5 +1,7 @@
-# `/api/health` is the only deployed function at M0. Files under `/api/_lib`
-# are supporting modules, not standalone Vercel functions.
+# Two deployed functions at M1: `/api/health` and the `/api/rrethi` catch-all.
+# Files under `/api/_lib` are supporting modules, not standalone functions.
+# The nine Rrethi routes stay dark until RRETHI_API_ENABLED=1 is set, which is
+# the M3 deploy step that ships beside the rewritten privacy page (plan §2.10).
 #
 # When .vercelignore exists, the CLI uses it INSTEAD of .gitignore for the
 # upload set — so the local .env (Neon URL, server pepper) must be excluded

@@ -16,12 +16,15 @@
 // results in that circle.
 
 import {
+  CIRCLE_MAX_MEMBERS,
+  DEFAULT_PROFILE,
   assertDateKey,
   assertDateRange,
   assertKey,
   assertPositiveInteger,
   foreignKeyError,
   normalizeResultInput,
+  storeError,
 } from "./store.js";
 
 const SEPARATOR = "\u0000";
@@ -56,6 +59,8 @@ function cloneMember(row) {
   return {
     memberKey: row.memberKey,
     displayName: row.displayName,
+    avatarId: row.avatarId,
+    letterSeal: row.letterSeal,
     createdAt: row.createdAt,
     lastSeenAt: row.lastSeenAt,
   };
@@ -103,6 +108,28 @@ export function createMemoryStore() {
     }
   }
 
+  /**
+   * Lowest unoccupied seat in `1..CIRCLE_MAX_MEMBERS`, or `null` when the circle
+   * is full — the same expression the Neon adapter runs in SQL.
+   *
+   * Lowest-free rather than plan §4.2's `MAX(seat) + 1`: with a hard
+   * `CHECK (seat BETWEEN 1 AND 10)`, counting up from the maximum makes a circle
+   * that has ever been full permanently unjoinable. Nine members holding seats
+   * 1..3 and 5..10 (seat 4 left) would compute seat 11 and violate the CHECK,
+   * which is exactly the case §4.3(a) requires to succeed. Recorded as deviation
+   * D7 in PLAN-RRETHI-M1-API.md §12.
+   */
+  function lowestFreeSeat(code) {
+    const taken = new Set();
+    for (const row of memberships.values()) {
+      if (row.circleCode === code) taken.add(row.seat);
+    }
+    for (let seat = 1; seat <= CIRCLE_MAX_MEMBERS; seat += 1) {
+      if (!taken.has(seat)) return seat;
+    }
+    return null;
+  }
+
   /** Deletes a circle and everything reachable from it (circle cascade). */
   function cascadeCircle(code) {
     circles.delete(code);
@@ -120,7 +147,16 @@ export function createMemoryStore() {
       assertKey(name, "displayName");
       if (members.has(key)) return; // ON CONFLICT (member_key) DO NOTHING
       const at = nowIso();
-      members.set(key, { memberKey: key, displayName: name, createdAt: at, lastSeenAt: at });
+      members.set(key, {
+        memberKey: key,
+        displayName: name,
+        // Mirrors the columns' NOT NULL DEFAULT in schema.sql: a row written by
+        // the narrow primitive still carries a valid profile.
+        avatarId: DEFAULT_PROFILE.avatarId,
+        letterSeal: DEFAULT_PROFILE.letterSeal,
+        createdAt: at,
+        lastSeenAt: at,
+      });
     },
 
     async getMember(key) {
@@ -135,6 +171,42 @@ export function createMemoryStore() {
       const row = members.get(key);
       if (row === undefined) return; // UPDATE ... WHERE member_key = $1 matched no row
       row.displayName = name;
+    },
+
+    async upsertMember(key, profile) {
+      assertKey(key, "memberKey");
+      if (profile === null || typeof profile !== "object") {
+        throw storeError("profile must be an object");
+      }
+      const displayName = assertKey(profile.displayName, "displayName");
+      const avatarId = assertKey(profile.avatarId, "avatarId");
+      const letterSeal = assertKey(profile.letterSeal, "letterSeal");
+      const row = members.get(key);
+      if (row !== undefined) {
+        // ON CONFLICT (member_key) DO UPDATE: all three profile columns move.
+        // created_at and last_seen_at are untouched — an edit is not a visit.
+        row.displayName = displayName;
+        row.avatarId = avatarId;
+        row.letterSeal = letterSeal;
+        return "updated";
+      }
+      const at = nowIso();
+      members.set(key, {
+        memberKey: key,
+        displayName,
+        avatarId,
+        letterSeal,
+        createdAt: at,
+        lastSeenAt: at,
+      });
+      return "created";
+    },
+
+    async touchMember(key) {
+      assertKey(key, "memberKey");
+      const row = members.get(key);
+      if (row === undefined) return; // UPDATE ... WHERE matched no row
+      row.lastSeenAt = nowIso();
     },
 
     async deleteMember(key) {
@@ -181,9 +253,59 @@ export function createMemoryStore() {
       const membershipKey = compositeKey(code, key);
       if (memberships.has(membershipKey)) return "conflict"; // ON CONFLICT DO NOTHING
       if (!circles.has(code) || !members.has(key)) throw foreignKeyError();
+      // `seat` is NOT NULL, so even the narrow primitive assigns one. It applies
+      // no caps — `claimSeat` is the method that enforces them — but a circle
+      // with no free seat has nothing valid to write, which in Postgres is a
+      // NOT NULL violation mapped to the same "stored constraint" error.
+      const seat = lowestFreeSeat(code);
+      if (seat === null) throw storeError("value violates a stored constraint");
       memberships.set(membershipKey, {
         circleCode: code,
         memberKey: key,
+        seat,
+        joinedAt: nowIso(),
+      });
+      return "created";
+    },
+
+    async claimSeat(code, key, maxSeats, maxCircles) {
+      assertKey(code, "circleCode");
+      assertKey(key, "memberKey");
+      assertPositiveInteger(maxSeats, "maxSeats");
+      assertPositiveInteger(maxCircles, "maxCircles");
+      if (maxSeats > CIRCLE_MAX_MEMBERS) {
+        // The database CHECK is hard-coded at 10; a larger argument would
+        // surface there as a confusing constraint violation instead of an
+        // answer, so both adapters refuse it up front.
+        throw storeError(`maxSeats must be at most ${CIRCLE_MAX_MEMBERS}`);
+      }
+
+      // The order below is the SQL's disambiguation order (plan §4.2 step 4),
+      // not the order of its WHERE clause. It matters: an existing member
+      // re-joining a circle that is now full must read as 'conflict' (an
+      // idempotent repeat join), never as 'full'.
+      if (!circles.has(code)) return "missing";
+      const membershipKey = compositeKey(code, key);
+      if (memberships.has(membershipKey)) return "conflict";
+
+      let seatsTaken = 0;
+      let circlesJoined = 0;
+      for (const row of memberships.values()) {
+        if (row.circleCode === code) seatsTaken += 1;
+        if (row.memberKey === key) circlesJoined += 1;
+      }
+      if (circlesJoined >= maxCircles) return "over_circle_limit";
+      if (seatsTaken >= maxSeats) return "full";
+      if (!members.has(key)) throw foreignKeyError();
+
+      const seat = lowestFreeSeat(code);
+      // Unreachable while `seatsTaken < maxSeats <= CIRCLE_MAX_MEMBERS`; kept
+      // because the alternative to a loud failure is a silent NULL seat.
+      if (seat === null) return "full";
+      memberships.set(membershipKey, {
+        circleCode: code,
+        memberKey: key,
+        seat,
         joinedAt: nowIso(),
       });
       return "created";
