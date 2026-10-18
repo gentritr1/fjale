@@ -265,12 +265,16 @@ test("the server gate answers 404 for every route and spends nothing", async () 
 // Auth (checklist 1–7)
 // ---------------------------------------------------------------------------
 
-test("1. a missing Authorization header is 401 and says nothing else", async () => {
-  const store = await freshStore();
-  const result = await callApi({ method: "GET", path: "/api/rrethi/circles/8G2K4M9P1QRTV", store });
-  assert.equal(result.status, 401);
-  assert.deepEqual(Object.keys(result.body).sort(), ["error", "status"]);
-  assert.equal(result.body.error, "unauthorized");
+test("1. a missing Authorization header is 401, says nothing else, and costs no store call", async () => {
+  const { store, calls } = countingStore(await freshStore());
+  for (const route of everyRoute()) {
+    const result = await callApi({ ...route, store });
+    assert.equal(result.status, 401, `${route.method} ${route.path}`);
+    assert.deepEqual(Object.keys(result.body).sort(), ["error", "status"]);
+    assert.equal(result.body.error, "unauthorized");
+  }
+  // A caller who has not even claimed an identity must not wake the database.
+  assert.deepEqual(calls, []);
 });
 
 test("2. a non-canonical bearer is 401 and reaches no member or circle method", async () => {
@@ -289,11 +293,10 @@ test("2. a non-canonical bearer is 401 and reaches no member or circle method", 
     const result = await callApi({ method: "GET", path: "/api/rrethi/circles/8G2K4M9P1QRTV", token: bearer, store });
     assert.equal(result.status, 401, `expected 401 for ${bearer}`);
     assert.equal(result.body.error, "unauthorized");
-    // §10's line reads "no store method is called". §3.2 requires the anonymous
-    // bucket to be charged for exactly these requests (checklist 40 asserts it),
-    // so the assertion that is actually true — and the one that matters — is
-    // that nothing identity-bearing was touched.
-    assert.deepEqual([...new Set(calls)], ["takeToken"]);
+    // §10's line as originally written: no store method is called. (Until
+    // 2026-10-18 this asserted ["takeToken"], because §3.2 charged an anonymous
+    // bucket first; §12 D11 records why that bucket was removed.)
+    assert.deepEqual(calls, []);
   }
 });
 
@@ -313,6 +316,21 @@ test("3. a well-formed bearer with no row is 401 unknown_member on 2–8, 201 on
   }
   const created = await callApi({ ...members, token: TOKEN_C, store });
   assert.equal(created.status, 201);
+});
+
+test("3c. an unknown well-formed bearer costs exactly one getMember and no bucket write", async () => {
+  // §12 D11: an unknown bearer is still one read. Only a server-signed bearer
+  // (not built) would make it free.
+  const { store, calls } = countingStore(await freshStore());
+  const result = await callApi({
+    method: "GET",
+    path: "/api/rrethi/circles/8G2K4M9P1QRTV",
+    token: TOKEN_C,
+    store,
+  });
+  assert.equal(result.status, 401);
+  assert.equal(result.body.error, "unknown_member");
+  assert.deepEqual(calls, ["getMember"]);
 });
 
 test("3b. DELETE /me needs no row and is 204 for an unregistered secret", async () => {
@@ -1272,7 +1290,7 @@ test("34. an eleventh circle is 409 circle_limit_reached", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Rate limits (checklist 36–42)
+// Rate limits (checklist 36–41; 42 was removed with the anonymous bucket)
 // ---------------------------------------------------------------------------
 
 test("36. [M1 acceptance] 61 requests in a minute produce exactly one 429", async () => {
@@ -1385,12 +1403,16 @@ test("39. the twenty-first join in a day is 429", async () => {
   assert.equal(refused.headers.get("retry-after"), "3600");
 });
 
-test("40. a malformed bearer charges the anonymous bucket, not a member one", async () => {
-  const store = await freshStore();
-  await register(store, TOKEN_A, { displayName: "Ana" });
+test("40. a malformed bearer charges no bucket, so it cannot exhaust anyone's", async () => {
+  // Until 2026-10-18 this asserted that 61 malformed requests from one
+  // x-forwarded-for produced one 429 from the anonymous bucket. §12 D11 removed
+  // that bucket: a malformed bearer is refused before any store call, so there
+  // is nothing to count and no 429 to give.
+  const inner = await freshStore();
+  await register(inner, TOKEN_A, { displayName: "Ana" });
+  const { store, calls } = countingStore(inner);
 
   const headers = { "x-forwarded-for": "203.0.113.7, 70.41.3.18" };
-  let limited = 0;
   for (let index = 0; index < 61; index += 1) {
     const result = await callApi({
       method: "GET",
@@ -1399,10 +1421,9 @@ test("40. a malformed bearer charges the anonymous bucket, not a member one", as
       headers,
       store,
     });
-    if (result.status === 429) limited += 1;
-    else assert.equal(result.status, 401);
+    assert.equal(result.status, 401);
   }
-  assert.equal(limited, 1);
+  assert.deepEqual(calls, []);
 
   // A valid member in the same minute is unaffected.
   const member = await callApi({
@@ -1445,7 +1466,7 @@ test("41. no stored bucket key contains a member key, an IP, or any substring of
 
   assert.ok(recorded.length >= 3);
   for (const bucket of recorded) {
-    assert.match(bucket, /^rl1:(?:min|create|join|ip):[0-9a-f]{32}$/u);
+    assert.match(bucket, /^rl1:(?:min|create|join):[0-9a-f]{32}$/u);
     assert.ok(!bucket.includes(memberId));
     assert.ok(!bucket.includes(ip));
     assert.ok(!bucket.includes("203"));
@@ -1453,22 +1474,6 @@ test("41. no stored bucket key contains a member key, an IP, or any substring of
     // Not even a prefix of the member key survives the HMAC.
     assert.ok(!bucket.includes(memberId.slice(0, 8)));
   }
-});
-
-test("42. the anonymous bucket key rotates with the hour", async () => {
-  const { anonymousBucket } = await import("../api/_lib/limits.js");
-  const pepper = Buffer.from(PEPPER, "hex");
-  const hour = 3_600_000;
-  const first = anonymousBucket("203.0.113.7", pepper, 10 * hour);
-  const same = anonymousBucket("203.0.113.7", pepper, 10 * hour + 59 * 60_000);
-  const next = anonymousBucket("203.0.113.7", pepper, 11 * hour);
-  assert.equal(first, same);
-  assert.notEqual(first, next);
-  // A client we cannot distinguish shares one conservative bucket.
-  assert.equal(
-    anonymousBucket(undefined, pepper, 10 * hour),
-    anonymousBucket("", pepper, 10 * hour),
-  );
 });
 
 // ---------------------------------------------------------------------------

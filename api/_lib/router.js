@@ -53,7 +53,6 @@ import {
   MINUTE_LIMIT,
   MINUTE_RETRY_AFTER_SECONDS,
   MINUTE_WINDOW_MS,
-  anonymousBucket,
   circleCreateBucket,
   joinBucket,
   memberMinuteBucket,
@@ -395,31 +394,21 @@ export async function handleRrethiRequest(request, response, env = process.env, 
     body = read.body;
   }
 
+  // §3.2 step 2: a caller with no canonical bearer has not claimed an identity,
+  // so it is refused before any store call and cannot wake the database.
   const secret = parseBearer(request.headers?.authorization);
-  const memberKey = secret === null ? null : deriveMemberKey(secret, pepper);
+  if (secret === null) {
+    sendError(response, refusal("unauthorized"));
+    return;
+  }
+  const memberKey = deriveMemberKey(secret, pepper);
 
   const store = await resolveStore(env, options.store);
 
   try {
-    // §3.2 step 3: exactly one minute bucket per request — the member's when the
-    // bearer is canonical, the rotating anonymous one when it is not. Never
-    // both; a request cannot be simultaneously authenticated and anonymous.
-    const bucket =
-      memberKey === null
-        ? anonymousBucket(request.headers?.["x-forwarded-for"], pepper, now().getTime())
-        : memberMinuteBucket(memberKey, pepper);
-    if (!(await store.takeToken(bucket, MINUTE_LIMIT, MINUTE_WINDOW_MS))) {
-      sendError(response, refusal("rate_limited"), {
-        "Retry-After": String(MINUTE_RETRY_AFTER_SECONDS),
-      });
-      return;
-    }
-
-    if (memberKey === null) {
-      sendError(response, refusal("unauthorized"));
-      return;
-    }
-
+    // §3.2 step 3: identify before charging. An unknown bearer costs this one
+    // read and no bucket write; only a known member (or the two routes that
+    // need no row) is charged the minute bucket.
     let member = null;
     if (!SKIPS_MEMBER_LOOKUP.has(route.name)) {
       member = await store.getMember(memberKey);
@@ -427,14 +416,23 @@ export async function handleRrethiRequest(request, response, env = process.env, 
         sendError(response, refusal("unknown_member"));
         return;
       }
-      if (member !== null) {
-        // Fire-and-forget bookkeeping: a failed last_seen_at write must never
-        // turn a successful board read into a 500.
-        try {
-          await store.touchMember(memberKey);
-        } catch (error) {
-          console.error("rrethi: touch failed", boundedErrorFields(error));
-        }
+    }
+
+    // §3.2 step 4: exactly one minute bucket per request, the member's.
+    if (!(await store.takeToken(memberMinuteBucket(memberKey, pepper), MINUTE_LIMIT, MINUTE_WINDOW_MS))) {
+      sendError(response, refusal("rate_limited"), {
+        "Retry-After": String(MINUTE_RETRY_AFTER_SECONDS),
+      });
+      return;
+    }
+
+    if (member !== null) {
+      // Fire-and-forget bookkeeping: a failed last_seen_at write must never
+      // turn a successful board read into a 500.
+      try {
+        await store.touchMember(memberKey);
+      } catch (error) {
+        console.error("rrethi: touch failed", boundedErrorFields(error));
       }
     }
 
