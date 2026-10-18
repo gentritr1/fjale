@@ -300,9 +300,8 @@ one-way, so a surviving bucket row is unlinkable. `schema.sql`'s own comment
 already anticipates this: "The bucket key is a hash … and is never joined to a
 member row."
 
-**The anonymous bucket — removed 2026-10-18 (§12 D11).** It keyed an HMAC of
-the first `x-forwarded-for` entry, which a client can prepend, and it was itself
-a store write on every unauthenticated request. A request without a canonical
+**The anonymous bucket — removed 2026-10-18 (§12 D11).** It was a store write
+on every unauthenticated request. A request without a canonical
 bearer is now `401` before any store call, so there is nothing left to charge.
 
 - Pruning: `DELETE FROM rate_bucket WHERE window_start < now() - interval '1 day'`,
@@ -337,8 +336,9 @@ Order inside a request:
    one extra retry, while leaking the exact window start would let a caller
    schedule around the limiter precisely.
 
-**Honest cost note.** With `RRETHI_STORE=neon`, step 3 is one `rate_bucket`
-upsert per request — including cheap board reads, which `store.js` warns about
+**Honest cost note.** With `RRETHI_STORE=neon`, step 4 is one `rate_bucket`
+upsert per request from an identified member (unidentified callers are never
+charged, §12 D11) — including cheap board reads, which `store.js` warns about
 ("reserve DB-backed buckets for the operations genuinely worth a round trip").
 M1 pays it anyway, because §2.12's M1 acceptance ("61 requests in a minute
 produce exactly one `429`") is only true of a globally counted bucket, and a
@@ -656,7 +656,8 @@ throwing nothing.
 
 Conventions for every table below: the router has already applied §1 (headers,
 method gate, origin, body limits), §2 (bearer → `memberKey`, `503
-not_configured` if the pepper is bad) and §3 step 3 (minute bucket). Only
+not_configured` if the pepper is bad) and §3.2 steps 3–4 (member lookup, then
+the minute bucket, for identified callers only). Only
 endpoint-specific behaviour is listed. Every endpoint can additionally return
 `401 unauthorized`, `401 unknown_member` (all but 8.1), `429 rate_limited`,
 `500 server_error`, `503 not_configured`, `405 method_not_allowed`, and `404
@@ -1450,10 +1451,15 @@ make the server spend compute. Now:
 
 This contradicts the old §3.2 text and checklist lines 2, 40 and 42, which are
 amended above rather than quietly weakened. The anonymous bucket is deleted, not
-kept: with no store call before auth there is nothing for it to protect, and its
-key trusted the **first** `x-forwarded-for` entry, which the client can prepend.
-If an IP-keyed bucket ever returns (for example, to bound `POST /members`), it
-must take the **last** entry — the one the platform's proxy appended.
+kept, because nothing should reach the store before auth. *(Corrected
+2026-10-18: an earlier draft of this note, and the commit that made the change,
+also said its key was spoofable because it took the first `x-forwarded-for`
+entry. On Vercel that is not true: Vercel sets `x-forwarded-for` itself and
+overwrites a client-sent value. The first entry is client-controlled only off
+Vercel — the local `server.mjs` dev server or any other host.)* If an IP-keyed
+bucket ever returns (for example, to bound `POST /members`), it must read the
+address the platform sets, and treat `x-forwarded-for` as client input
+everywhere else.
 
 *Design note, not implemented — the root fix for the one remaining read.* Make
 the bearer server-signed: `bearer = memberKey ‖ HMAC(pepper, "bearer:" ‖
