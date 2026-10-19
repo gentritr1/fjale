@@ -203,8 +203,9 @@ Crockford base32 characters, uppercase, no separators, no checksum character**:
 
 (Crockford's alphabet excludes `I`, `L`, `O`, `U`.) A token failing this regex is
 `401 unauthorized` and is rejected **before** any HMAC, any store call, and any
-member-scoped rate-limit take — a malformed token has no member to charge, so it
-falls to the anonymous bucket (§3).
+member-scoped rate-limit take — a malformed token has no member to charge.
+Since 2026-10-18 it is also refused before any bucket take: there is no
+anonymous bucket (§12 D11).
 
 **The server never accepts the recovery-code display form.** §2.2 defines the
 recovery code as `RKTH-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX-C`: the same 26
@@ -269,7 +270,8 @@ delete is a wasted write and a race with the delete.
 ## 3. Rate limiting
 
 §2.5 sets three limits: **60 req/min per member key, 10 circle creations/day, 20
-joins/day**, plus a rotating anonymous bucket. `takeToken(bucket, limit, windowMs)`
+joins/day**. (A rotating anonymous bucket was here until 2026-10-18; §12 D11
+records why it was removed.) `takeToken(bucket, limit, windowMs)`
 is the only primitive; it is a fixed window that returns `false` once `limit`
 calls have landed in the current window.
 
@@ -289,7 +291,6 @@ const h = (scope, value) =>
 | Member minute | `rl1:min:` + `h("min", memberKey)` | 60 | 60 000 ms | Every request with a canonical bearer |
 | Circle creation | `rl1:create:` + `h("create", memberKey)` | 10 | 86 400 000 ms | `POST /circles` only |
 | Join | `rl1:join:` + `h("join", memberKey)` | 20 | 86 400 000 ms | `POST /circles/:code/join` only |
-| Anonymous | `rl1:ip:` + `h("ip", hourIndex + ":" + ip)` | 60 | 60 000 ms | Every request **without** a canonical bearer |
 
 **Why the member bucket is an HMAC of `memberKey` and not `memberKey` itself.**
 `rate_bucket` has no foreign key and no delete cascade. A raw `memberKey` sitting
@@ -299,19 +300,10 @@ one-way, so a surviving bucket row is unlinkable. `schema.sql`'s own comment
 already anticipates this: "The bucket key is a hash … and is never joined to a
 member row."
 
-**The anonymous bucket, precisely (§2.5: "a raw IP or plain hash is never
-stored … short-lived HMAC of the IP plus the current window, rotated and pruned
-within 48 hours").**
+**The anonymous bucket — removed 2026-10-18 (§12 D11).** It was a store write
+on every unauthenticated request. A request without a canonical
+bearer is now `401` before any store call, so there is nothing left to charge.
 
-- `ip` = the first entry of `x-forwarded-for`, trimmed; empty or absent → the
-  literal `"unknown"` (one shared bucket for clients we cannot distinguish;
-  they get one shared 60/min allowance, which is the conservative direction).
-- `hourIndex = Math.floor(Date.now() / 3_600_000)` — the key rotates hourly, so
-  no bucket row is a durable identifier for an address, and at most 24 rows per
-  address per day exist.
-- The raw IP exists only as a local variable inside the derivation. It is never
-  stored, never logged, never returned, and never used for anything else. No
-  IP-reputation logic exists; §2.5 lists it as a deliberate non-goal.
 - Pruning: `DELETE FROM rate_bucket WHERE window_start < now() - interval '1 day'`,
   the statement `schema.sql` already names. M1 runs it **opportunistically** —
   a 1-in-500 chance per authenticated request, best-effort, failure ignored — so
@@ -320,10 +312,10 @@ within 48 hours").**
 
 ### 3.2 Policy
 
-**Exactly one bucket take per request in the common case.** The member bucket if
-the bearer is canonical; the anonymous bucket if it is not. Never both — charging
-both would double the cost of every request for no extra protection, since a
-request cannot be simultaneously authenticated and anonymous.
+**At most one minute-bucket take per request, and only for an identified
+caller.** A request without a canonical bearer takes no bucket and makes no store
+call; an unknown canonical bearer costs exactly one `getMember` read and no
+bucket write (§12 D11).
 
 Order inside a request:
 
@@ -331,10 +323,12 @@ Order inside a request:
    store call. A disabled service answers `404` for free; it must not write
    `rate_bucket` rows while switched off.
 1. Headers, method gate, origin check, body limits — all free, no store call.
-2. Parse the bearer. Canonical → derive `memberKey`; else → anonymous bucket.
-3. Take the minute bucket. `false` → `429 rate_limited` with `Retry-After: 60`,
-   before any other store call.
-4. Auth/lookup (`getMember`), then the endpoint's own work.
+2. Parse the bearer. Canonical → derive `memberKey`; else → `401
+   unauthorized`, with no store call.
+3. Auth/lookup (`getMember`; skipped on `DELETE /me`). No row → `401
+   unknown_member` (except `POST /members`), with no bucket take.
+4. Take the member's minute bucket. `false` → `429 rate_limited` with
+   `Retry-After: 60`. Then `touchMember` and the endpoint's own work.
 5. On `POST /circles` and `POST /circles/:code/join` only: take the second,
    daily bucket **after** validation passes but **before** the write. `false` →
    `429` with the constant `Retry-After: 3600` — `takeToken` does not expose
@@ -342,8 +336,9 @@ Order inside a request:
    one extra retry, while leaking the exact window start would let a caller
    schedule around the limiter precisely.
 
-**Honest cost note.** With `RRETHI_STORE=neon`, step 3 is one `rate_bucket`
-upsert per request — including cheap board reads, which `store.js` warns about
+**Honest cost note.** With `RRETHI_STORE=neon`, step 4 is one `rate_bucket`
+upsert per request from an identified member (unidentified callers are never
+charged, §12 D11) — including cheap board reads, which `store.js` warns about
 ("reserve DB-backed buckets for the operations genuinely worth a round trip").
 M1 pays it anyway, because §2.12's M1 acceptance ("61 requests in a minute
 produce exactly one `429`") is only true of a globally counted bucket, and a
@@ -661,7 +656,8 @@ throwing nothing.
 
 Conventions for every table below: the router has already applied §1 (headers,
 method gate, origin, body limits), §2 (bearer → `memberKey`, `503
-not_configured` if the pepper is bad) and §3 step 3 (minute bucket). Only
+not_configured` if the pepper is bad) and §3.2 steps 3–4 (member lookup, then
+the minute bucket, for identified callers only). Only
 endpoint-specific behaviour is listed. Every endpoint can additionally return
 `401 unauthorized`, `401 unknown_member` (all but 8.1), `429 rate_limited`,
 `500 server_error`, `503 not_configured`, `405 method_not_allowed`, and `404
@@ -1206,12 +1202,13 @@ are the gate.
     (buckets are per-member, not global).
 38. 11 circle creations in a day → the 11th is `429`, not `409`.
 39. 21 joins in a day → the 21st is `429`.
-40. Requests with a malformed bearer charge the anonymous bucket, not a member
-    bucket: 61 such requests from one IP produce a `429`, and a valid member's
-    request in the same minute still succeeds.
+40. Requests with a malformed bearer charge no bucket and call no store method:
+    61 such requests from one IP are all `401`, and a valid member's request in
+    the same minute still succeeds. (Amended 2026-10-18, §12 D11; it used to
+    require a `429` from the anonymous bucket.)
 41. The stored `bucket_key` never contains a `memberKey`, an IP address, or any
     substring of either — asserted against the actual `rate_bucket` rows.
-42. The anonymous bucket key changes when the hour index changes.
+42. *(Removed 2026-10-18 with the anonymous bucket, §12 D11.)*
 
 **Deletion and cascade**
 43. `DELETE /api/rrethi/me` → `204`; a second call → `204`. **[M3 acceptance]**
@@ -1391,7 +1388,9 @@ invariants, including a freed middle seat") on every adapter, and by the direct
 
 **D8 — three §10 checklist lines are corrected, not silently satisfied.**
 
-- **Line 2** ("no store method is called" for a malformed bearer) cannot be true
+- **Line 2** ("no store method is called" for a malformed bearer) — *superseded
+  2026-10-18 by D11: the line now holds as written, and the test asserts it.* The
+  original note follows. It cannot be true
   as written: §3.2 requires exactly those requests to charge the anonymous
   bucket, and line 40 asserts that they do. `takeToken` is a store method. The
   test asserts what is both true and load-bearing — that no identity-bearing
@@ -1435,6 +1434,41 @@ and a TLS-terminating proxy that strips the header derives `http` and refuses an
 `https` Origin rather than admitting anything extra. Pinned by
 `tests/rrethi-api.test.js` line 11b (six scheme/socket/proxy combinations) and by
 a same-origin POST carrying a real `Origin` header in the `node:http` test.
+
+**D11 — identify before charging; no anonymous bucket (2026-10-18).** §3.2 used
+to take a rate-limit token before identifying the caller: a request with no
+`Authorization` header cost one `rate_bucket` upsert (waking Neon), and an
+unknown bearer cost that upsert plus a `getMember`. Nobody had to own anything to
+make the server spend compute. Now:
+
+- no canonical bearer → `401` with **zero** store calls (checklist 1, 2, 40);
+- an unknown canonical bearer → `401 unknown_member` after **one** `getMember`
+  read and no bucket write (test 3c). This is still not free: a caller can mint
+  well-formed secrets at will, and each one costs a read;
+- a known member → `getMember`, then the minute bucket, then `touchMember`. A
+  rate-limited member now costs `getMember` + `takeToken` instead of `takeToken`
+  alone; that is the price of not charging strangers.
+
+This contradicts the old §3.2 text and checklist lines 2, 40 and 42, which are
+amended above rather than quietly weakened. The anonymous bucket is deleted, not
+kept, because nothing should reach the store before auth. *(Corrected
+2026-10-18: an earlier draft of this note, and the commit that made the change,
+also said its key was spoofable because it took the first `x-forwarded-for`
+entry. On Vercel that is not true: Vercel sets `x-forwarded-for` itself and
+overwrites a client-sent value. The first entry is client-controlled only off
+Vercel — the local `server.mjs` dev server or any other host.)* If an IP-keyed
+bucket ever returns (for example, to bound `POST /members`), it must read the
+address the platform sets, and treat `x-forwarded-for` as client input
+everywhere else.
+
+*Design note, not implemented — the root fix for the one remaining read.* Make
+the bearer server-signed: `bearer = memberKey ‖ HMAC(pepper, "bearer:" ‖
+memberKey)`, issued by `POST /members`. The router verifies the MAC in memory,
+so a minted or tampered bearer is refused with zero store calls, and only a
+bearer the server itself issued can reach `getMember`. Cost: a wire-format
+change for the bearer and the recovery code, and a pepper rotation that
+invalidates every bearer at once (it already orphans every row, §10 line 5).
+Decide this before M2 ships a client that stores bearers.
 
 **Checklist 47 — CLOSED, 2026-08-11.** The one line that needs a browser is
 verified. `RRETHI_API_ENABLED=1` local dev server, page confirmed

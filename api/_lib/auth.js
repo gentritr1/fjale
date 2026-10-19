@@ -48,7 +48,7 @@ export function pepperBytes(env) {
  *
  * A non-canonical token is rejected here — before any HMAC, any member lookup,
  * and any member-scoped rate-limit take — because a malformed token has no
- * member to charge. It falls to the anonymous bucket instead (§3).
+ * member to charge. The router answers it 401 before any store call (§12 D11).
  *
  * @param {unknown} headerValue
  * @returns {string|null}

@@ -1,11 +1,10 @@
 // Rate-limit policy — PLAN-RRETHI-M1-API.md §3, from plan §2.5.
 //
 // `takeToken(bucket, limit, windowMs)` is the only primitive; this module owns
-// which buckets exist and what they cost. Exactly one bucket take per request in
-// the common case: the member bucket when the bearer is canonical, the anonymous
-// bucket when it is not, never both — a request cannot be simultaneously
-// authenticated and anonymous, so charging both would double the cost of every
-// request for no extra protection. The two daily buckets are the exceptions and
+// which buckets exist and what they cost. At most one minute-bucket take per
+// request, and only after the caller is identified: no canonical bearer means no
+// bucket and no store call at all (PLAN-RRETHI-M1-API.md §12 D11). The two daily
+// buckets are the exceptions and
 // are taken only by `POST /circles` and `POST /circles/:code/join`, after
 // validation passes and before the write.
 //
@@ -57,30 +56,4 @@ export function circleCreateBucket(memberKey, pepper) {
 /** @param {string} memberKey @param {Buffer} pepper */
 export function joinBucket(memberKey, pepper) {
   return `${KEY_PREFIX}:join:${scopedHash("join", memberKey, pepper)}`;
-}
-
-/**
- * The anonymous bucket, for requests whose bearer is missing or malformed.
- *
- * Plan §2.5: "a raw IP or plain hash is never stored … short-lived HMAC of the
- * IP plus the current window, rotated and pruned within 48 hours". The hour
- * index is what rotates it: no bucket row is a durable identifier for an
- * address, and at most 24 rows per address per day can exist.
- *
- * The raw IP lives only as a parameter to this function. It is never stored,
- * never logged, never returned, and never used for anything else — there is no
- * IP-reputation logic anywhere, which plan §2.5 names as a deliberate non-goal.
- *
- * @param {unknown} forwardedFor value of `x-forwarded-for`, if any
- * @param {Buffer} pepper
- * @param {number} nowMs
- */
-export function anonymousBucket(forwardedFor, pepper, nowMs) {
-  const header = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-  const first = String(header ?? "").split(",")[0].trim();
-  // Clients we cannot distinguish share one bucket and so share one 60/min
-  // allowance, which is the conservative direction.
-  const ip = first === "" ? "unknown" : first;
-  const hourIndex = Math.floor(nowMs / 3_600_000);
-  return `${KEY_PREFIX}:ip:${scopedHash("ip", `${hourIndex}:${ip}`, pepper)}`;
 }
