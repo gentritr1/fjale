@@ -341,7 +341,11 @@ function tiranaOffsetMs(epoch) {
 // date. Correct across DST transitions: the local offset is measured at the
 // candidate instant, then re-measured once in case the first guess landed in a
 // different offset regime (midnight itself is never the skipped/repeated hour).
-function tiranaMidnightEpoch(year, month, day) {
+// Exported (body unchanged) so the Rrethi result write window can compute its
+// 6-hour grace from the exact midnight instant instead of adding a second date
+// implementation — PLAN-RRETHI-M1-API.md §5 and deviation D4. Plan §2.4 is
+// explicit that a duplicate date implementation is how epochs drift.
+export function tiranaMidnightEpoch(year, month, day) {
   const guess = Date.UTC(year, month - 1, day);
   const offset = tiranaOffsetMs(guess);
   let epoch = guess - offset;

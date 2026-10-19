@@ -27,9 +27,15 @@
  * A player. `memberKey` is `HMAC-SHA-256(server_pepper, secret)` (plan §2.2); the
  * raw secret is never stored and never reaches this layer.
  *
+ * `avatarId` and `letterSeal` are the profile the client already keeps locally
+ * (`src/avatars.js`) and M1 transmits (plan §2.1.1). Both are `NOT NULL DEFAULT`
+ * columns, so they are always strings and never null.
+ *
  * @typedef {object} Member
  * @property {string} memberKey
  * @property {string} displayName
+ * @property {string} avatarId
+ * @property {string} letterSeal
  * @property {string} createdAt   ISO-8601 UTC, e.g. `2026-08-01T21:04:05.123Z`
  * @property {string} lastSeenAt  ISO-8601 UTC
  */
@@ -110,14 +116,38 @@
  *   there costs a database write, so reserve DB-backed buckets for the
  *   operations genuinely worth a round trip (create/join), not cheap reads.
  *
+ * The three methods M1 adds (recorded as deviation D3 in PLAN-RRETHI-M1-API.md
+ * §12; all additive, so the M0 conformance suite runs unmodified):
+ *
+ * - `claimSeat` is the atomic join §2.5 demands. A handler-side count followed
+ *   by `addMembership` is forbidden — it is a TOCTOU race over a
+ *   non-interactive HTTP driver, and two concurrent joins would seat an
+ *   eleventh member. The seat number is the mechanism: `UNIQUE (circle_code,
+ *   seat)` refuses the eleventh seat in the database, not in the handler.
+ *   Expected outcomes are discriminated values, never exceptions — including
+ *   `'missing'`, because a mistyped invite code is an ordinary `404` rather
+ *   than an error path. Seats are an internal mechanism and are never returned
+ *   in any payload.
+ * - `upsertMember` exists because `POST /members` is both registration and
+ *   profile edit and there is no `PATCH` among the nine endpoints.
+ *   `createMember` is documented above as an intentional no-op for an existing
+ *   member, so it cannot serve the edit; rather than change its contract, M1
+ *   adds an upsert that covers both and reports which happened. `createMember`
+ *   and `renameMember` stay as the narrow primitives the conformance suite uses.
+ * - `touchMember` closes the `last_seen_at` gap recorded below. It is a no-op
+ *   on an unknown key, matching `renameMember`.
+ *
  * @typedef {object} RrethiStore
  * @property {(key:string, name:string) => Promise<void>}                createMember
  * @property {(key:string) => Promise<?Member>}                          getMember
  * @property {(key:string, name:string) => Promise<void>}                renameMember
+ * @property {(key:string, profile:{displayName:string, avatarId:string, letterSeal:string}) => Promise<'created'|'updated'>} upsertMember
+ * @property {(key:string) => Promise<void>}                             touchMember
  * @property {(key:string) => Promise<void>}                             deleteMember
  * @property {(code:string, name:string, owner:string) => Promise<'created'|'conflict'>} createCircle
  * @property {(code:string) => Promise<?Circle>}                         getCircle
  * @property {(code:string, key:string) => Promise<'created'|'conflict'>} addMembership
+ * @property {(code:string, key:string, maxSeats:number, maxCircles:number) => Promise<'created'|'conflict'|'full'|'missing'|'over_circle_limit'>} claimSeat
  * @property {(code:string, key:string) => Promise<void>}                removeMembership
  * @property {(key:string) => Promise<Circle[]>}                         listCirclesFor
  * @property {(code:string) => Promise<Member[]>}                        listMembers
@@ -136,9 +166,32 @@
 //   `listResults`. Without it M1 cannot render the pre-finish board at all.
 //   It is additive: no listed method changed shape.
 //
-// Known M0 gap, not a deviation: nothing updates `member.last_seen_at` after
-// `createMember`. The plan's interface has no touch method and M0 has no
-// request path to call one from; M1 adds it with the bearer-auth middleware.
+// Known M0 gap, closed by M1's `touchMember`: nothing updated
+// `member.last_seen_at` after `createMember`. The plan's interface has no touch
+// method and M0 had no request path to call one from.
+
+import { DEFAULT_AVATAR_ID, DEFAULT_LETTER_SEAL } from "../../src/avatars.js";
+
+/**
+ * Both caps of plan §2.5. They are arguments to `claimSeat` rather than adapter
+ * constants so the conformance suite can drive smaller circles, but these are
+ * the only values a handler may pass: `schema.sql`'s
+ * `CHECK (seat BETWEEN 1 AND 10)` hard-codes the ceiling, so an adapter refuses
+ * a larger `maxSeats` rather than letting it surface as a constraint violation.
+ */
+export const CIRCLE_MAX_MEMBERS = 10;
+export const MEMBER_MAX_CIRCLES = 10;
+
+/**
+ * The profile columns' defaults, imported from the client catalog rather than
+ * re-typed, so `schema.sql`'s `DEFAULT` literals and the memory adapter can
+ * never drift from `src/avatars.js`. `tests/rrethi-store.test.js` asserts that
+ * `schema.sql` still spells exactly these two values.
+ */
+export const DEFAULT_PROFILE = Object.freeze({
+  avatarId: DEFAULT_AVATAR_ID,
+  letterSeal: DEFAULT_LETTER_SEAL,
+});
 
 /** Calendar dates cross this boundary as strings, never as `Date`. */
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
@@ -154,7 +207,14 @@ export const SECONDS_MAX = 2_147_483_647;
 // handlers, but it still rejects inputs that can collide in the memory
 // adapter's NUL-delimited composite keys or consume unbounded memory.
 const STORAGE_TEXT_MAX_LENGTH = 256;
-const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
+
+/**
+ * Exported additively for the M1 HTTP layer, which applies the same rule to
+ * `displayName` and circle `name` before storage ever sees them. One pattern,
+ * so the transport and storage rejections can never disagree about what counts
+ * as a control character.
+ */
+export const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
 
 /**
  * Every error an adapter throws is a plain `Error` from this helper, so no

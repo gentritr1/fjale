@@ -272,7 +272,9 @@ detection theatre.
 - **Rate limits:** 60 req/min per member key, 10 circle creations/day, 20
   joins/day; a raw IP or plain hash is never stored. The anonymous bucket is a
   short-lived HMAC of the IP plus the current window, rotated and pruned within
-  48 hours. **Caps:** 10 members/circle, 10 circles/member — small enough to
+  48 hours. *(Amended 2026-10-18: there is no anonymous bucket; a request
+  without a canonical bearer is `401` before any store call — see
+  PLAN-RRETHI-M1-API.md §12 D11.)* **Caps:** 10 members/circle, 10 circles/member — small enough to
   stay personal, and also the free-tier cost control. Both caps are database
   invariants: a handler-side count followed by `addMembership` is forbidden
   because concurrent joins can create an eleventh seat. M1 needs one atomic
@@ -363,6 +365,8 @@ server-side:** the answer, the guesses, the board pattern, IP addresses, user
 agents, email, location, or the raw secret. The share grid stays client-side.
 Expired rate buckets are deleted after 48 hours; otherwise rotating anonymous
 buckets become an unbounded table even though each individual row is tiny.
+*(Amended 2026-10-18: the anonymous buckets no longer exist (M1 §12 D11); the
+48-hour prune still applies to member and daily buckets.)*
 
 ### 2.9 Storage adapter
 
@@ -867,7 +871,8 @@ actually returns to zero between bursts can.
   **unpooled** migration URL — `CREATE TABLE IF NOT EXISTS` is bootstrap, not a
   migration system, and will not add future columns to an existing table; (7)
   add `avatar_id`/`letter_seal` before endpoints; (8) HMAC and prune anonymous
-  rate buckets as specified in §2.5.
+  rate buckets as specified in §2.5 *(amended 2026-10-18: superseded, no
+  anonymous bucket exists — M1 §12 D11)*.
 
 The Vercel Hobby plan is suitable only while FJALË remains a personal,
 non-commercial project. Ads, paid client work, or another commercial use require

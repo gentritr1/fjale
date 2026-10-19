@@ -423,6 +423,115 @@ async function runConformance(t, store) {
     assert.notEqual(await store.getMember("m9-guest"), null);
     assert.deepEqual(await store.listCirclesFor("m9-guest"), []);
   });
+
+  // --- M1 additions (PLAN-RRETHI-M1-API.md §7). Additive: nothing above changed.
+
+  await t.test("upsertMember: creates, then updates all three profile fields", async () => {
+    assert.equal(
+      await store.upsertMember("m10-new", {
+        displayName: "Besa",
+        avatarId: "stick-racer",
+        letterSeal: "ë",
+      }),
+      "created",
+    );
+    const created = await store.getMember("m10-new");
+    assert.equal(created.displayName, "Besa");
+    assert.equal(created.avatarId, "stick-racer");
+    assert.equal(created.letterSeal, "ë");
+
+    assert.equal(
+      await store.upsertMember("m10-new", {
+        displayName: "Besa K.",
+        avatarId: "stick-runner",
+        letterSeal: "ç",
+      }),
+      "updated",
+    );
+    const updated = await store.getMember("m10-new");
+    assert.equal(updated.displayName, "Besa K.");
+    assert.equal(updated.avatarId, "stick-runner");
+    assert.equal(updated.letterSeal, "ç");
+    // An edit is not a visit: created_at is untouched.
+    assert.equal(updated.createdAt, created.createdAt);
+
+    // createMember still fills the profile columns with the catalog defaults.
+    await store.createMember("m10-narrow", "E ngushtë");
+    const narrow = await store.getMember("m10-narrow");
+    assert.equal(narrow.avatarId, "stick-racer");
+    assert.equal(narrow.letterSeal, "ë");
+  });
+
+  await t.test("touchMember: advances last_seen_at, silent on an unknown key", async () => {
+    await store.createMember("m11-seen", "Parë");
+    const before = await store.getMember("m11-seen");
+    await delay(5);
+    await store.touchMember("m11-seen");
+    const after = await store.getMember("m11-seen");
+    assert.ok(after.lastSeenAt > before.lastSeenAt, `${after.lastSeenAt} !> ${before.lastSeenAt}`);
+    assert.equal(after.createdAt, before.createdAt);
+
+    // A no-op on an unknown key, matching renameMember.
+    await store.touchMember("m11-absent");
+    assert.equal(await store.getMember("m11-absent"), null);
+  });
+
+  await t.test("claimSeat: the five discriminated outcomes", async () => {
+    // A mistyped invite code is an ordinary 404, so 'missing' is a value rather
+    // than the foreign-key throw putResult uses.
+    await store.createMember("m12-a", "Ana");
+    assert.equal(await store.claimSeat("RR-C12ABSENT", "m12-a", 10, 10), "missing");
+
+    await store.createCircle("RR-C12SEAT", "Familja", "m12-a");
+    assert.equal(await store.claimSeat("RR-C12SEAT", "m12-a", 10, 10), "created");
+    // Idempotent: a repeat join changes nothing and reports it.
+    assert.equal(await store.claimSeat("RR-C12SEAT", "m12-a", 10, 10), "conflict");
+
+    await store.createMember("m12-b", "Ben");
+    assert.equal(await store.claimSeat("RR-C12SEAT", "m12-b", 2, 10), "created");
+    await store.createMember("m12-c", "Cen");
+    assert.equal(await store.claimSeat("RR-C12SEAT", "m12-c", 2, 10), "full");
+
+    // An existing member re-joining a circle that has since filled must read as
+    // an idempotent 'conflict', never as 'full'.
+    assert.equal(await store.claimSeat("RR-C12SEAT", "m12-a", 2, 10), "conflict");
+
+    // The per-member circle cap.
+    await store.createCircle("RR-C12OTHER", "Tjetër", "m12-a");
+    assert.equal(await store.claimSeat("RR-C12OTHER", "m12-b", 10, 1), "over_circle_limit");
+
+    // The database CHECK is hard-coded at 10, so a larger argument is refused
+    // up front rather than surfacing as a confusing constraint violation.
+    await assert.rejects(() => store.claimSeat("RR-C12SEAT", "m12-c", 11, 10), /at most 10/u);
+  });
+
+  await t.test("claimSeat: §4.3(a) seat invariants, including a freed middle seat", async () => {
+    await store.createMember("m13-owner", "Zotëruesi");
+    await store.createCircle("RR-C13FULL", "Dhjetë", "m13-owner");
+    const keys = Array.from({ length: 10 }, (_, index) => `m13-${index}`);
+    for (const key of keys) {
+      await store.createMember(key, `Anëtar ${key}`);
+      assert.equal(await store.claimSeat("RR-C13FULL", key, 10, 10), "created");
+    }
+    assert.equal((await store.listMembers("RR-C13FULL")).length, 10);
+
+    // An eleventh is refused and the roster does not move.
+    await store.createMember("m13-extra", "I njëmbëdhjeti");
+    assert.equal(await store.claimSeat("RR-C13FULL", "m13-extra", 10, 10), "full");
+    assert.equal((await store.listMembers("RR-C13FULL")).length, 10);
+
+    // Free seat 4 — a middle seat, not the highest. This is the case that
+    // MAX(seat)+1 gets wrong: it would compute seat 11 and violate
+    // CHECK (seat BETWEEN 1 AND 10), leaving a once-full circle permanently
+    // unjoinable. Lowest-free-seat is why this passes (deviation D7).
+    await store.removeMembership("RR-C13FULL", keys[3]);
+    assert.equal((await store.listMembers("RR-C13FULL")).length, 9);
+    assert.equal(await store.claimSeat("RR-C13FULL", "m13-extra", 10, 10), "created");
+
+    const roster = await store.listMembers("RR-C13FULL");
+    assert.equal(roster.length, 10);
+    assert.equal(new Set(roster.map((row) => row.memberKey)).size, 10);
+  });
 }
 
 for (const adapter of ADAPTERS) {
@@ -435,6 +544,240 @@ for (const adapter of ADAPTERS) {
     }
   });
 }
+
+// ---------------------------------------------------------------------------
+// The database-level guarantees (PLAN-RRETHI-M1-API.md §10, lines 30, 31, 35).
+//
+// These need a real Postgres. `npm run test:neon-bridge` supplies one (WASM
+// pglite) and so does RRETHI_TEST_NEON_URL pointed at a scratch project; on a
+// plain `npm test` they report as skipped rather than passing vacuously.
+// ---------------------------------------------------------------------------
+
+/** The bridge serialises statements, so it cannot prove an interleaving. */
+const IS_PGLITE_BRIDGE = NEON_URL.includes("bridge.invalid");
+const NO_POSTGRES =
+  NEON_URL === ""
+    ? "needs a Postgres: run `npm run test:neon-bridge`, or set RRETHI_TEST_NEON_URL to a SCRATCH project"
+    : false;
+
+/** Applies arbitrary schema text into a throwaway schema and returns a handle. */
+async function withSchema(sqlText, name) {
+  const env = { NEON_DATABASE_URL: NEON_URL, RRETHI_PG_SCHEMA: name };
+  const { rewriteSchemaStatements, dropNeonSchema } = await import("../api/_lib/store-neon.js");
+  const { neon } = await import("@neondatabase/serverless");
+  const sql = neon(NEON_URL);
+  await sql.query(`CREATE SCHEMA IF NOT EXISTS "${name}"`);
+  for (const statement of rewriteSchemaStatements(sqlText, name)) {
+    await sql.query(statement);
+  }
+  return { env, sql, name, destroy: () => dropNeonSchema(env) };
+}
+
+async function readSchemaText() {
+  return readFile(new URL("../api/_lib/schema.sql", import.meta.url), "utf8");
+}
+
+test("31. the seat constraints are enforced by the database, not the handler", { skip: NO_POSTGRES }, async () => {
+  // Without these two assertions, a green suite would only show that the
+  // adapter behaves — not that the database would refuse an eleventh seat if
+  // the adapter ever stopped asking.
+  const handle = await withSchema(await readSchemaText(), `rrethi_seat_${randomBytes(5).toString("hex")}`);
+  const t = (table) => `"${handle.name}".${table}`;
+  try {
+    await handle.sql.query(`INSERT INTO ${t("member")} (member_key, display_name) VALUES ('k1', 'Ana')`);
+    await handle.sql.query(
+      `INSERT INTO ${t("circle")} (code, name, owner_key) VALUES ('C1', 'Familja', 'k1')`,
+    );
+    await handle.sql.query(
+      `INSERT INTO ${t("membership")} (circle_code, member_key, seat) VALUES ('C1', 'k1', 1)`,
+    );
+
+    // A duplicate (circle_code, seat) — the collision two concurrent joins hit.
+    await handle.sql.query(`INSERT INTO ${t("member")} (member_key, display_name) VALUES ('k2', 'Ben')`);
+    await assert.rejects(
+      () =>
+        handle.sql.query(
+          `INSERT INTO ${t("membership")} (circle_code, member_key, seat) VALUES ('C1', 'k2', 1)`,
+        ),
+      (error) => {
+        assert.equal(error.code, "23505");
+        return true;
+      },
+    );
+
+    // Seat 11, the second line of defence behind the unique index.
+    await assert.rejects(
+      () =>
+        handle.sql.query(
+          `INSERT INTO ${t("membership")} (circle_code, member_key, seat) VALUES ('C1', 'k2', 11)`,
+        ),
+      (error) => {
+        assert.equal(error.code, "23514");
+        return true;
+      },
+    );
+  } finally {
+    await handle.destroy();
+  }
+});
+
+test("30. concurrent claimSeat calls on a nine-seat circle grant exactly one", { skip: NO_POSTGRES }, async (t) => {
+  if (IS_PGLITE_BRIDGE) {
+    // Stated rather than hidden: under the bridge this asserts the invariants
+    // hold, but it proves nothing about interleaving, because the bridge runs
+    // statements one at a time. Only a run against a real Neon project makes
+    // this a concurrency proof — which is what test 31 above exists to backstop.
+    t.diagnostic("pglite bridge: statements are serialised, so this is an invariant check, not a race test");
+  }
+  const { applyNeonSchema, dropNeonSchema } = await import("../api/_lib/store-neon.js");
+  const name = `rrethi_race_${randomBytes(5).toString("hex")}`;
+  const env = { RRETHI_STORE: "neon", NEON_DATABASE_URL: NEON_URL, RRETHI_PG_SCHEMA: name };
+  await applyNeonSchema(env);
+  const store = await createStore(env);
+  const { neon } = await import("@neondatabase/serverless");
+  const sql = neon(NEON_URL);
+
+  try {
+    // A single run of a race test proves nothing about a race.
+    const ROUNDS = 20;
+    for (let round = 0; round < ROUNDS; round += 1) {
+      const code = `RACE${round}`;
+      const owner = `race-${round}-owner`;
+      await store.createMember(owner, "Zotëruesi");
+      await store.createCircle(code, "Familja", owner);
+      // Seat the circle to nine.
+      for (let index = 0; index < 9; index += 1) {
+        const key = `race-${round}-${index}`;
+        await store.createMember(key, `Anëtar ${index}`);
+        assert.equal(await store.claimSeat(code, key, 10, 10), "created");
+      }
+
+      const keyA = `race-${round}-a`;
+      const keyB = `race-${round}-b`;
+      await store.createMember(keyA, "A");
+      await store.createMember(keyB, "B");
+      const [a, b] = await Promise.all([
+        store.claimSeat(code, keyA, 10, 10),
+        store.claimSeat(code, keyB, 10, 10),
+      ]);
+
+      const outcomes = [a, b].sort();
+      assert.deepEqual(outcomes, ["created", "full"], `round ${round} produced ${outcomes}`);
+
+      const counted = await sql.query(
+        `SELECT count(*)::int AS total, count(DISTINCT seat)::int AS seats
+           FROM "${name}".membership WHERE circle_code = $1`,
+        [code],
+      );
+      const row = Array.isArray(counted) ? counted[0] : counted.rows[0];
+      assert.equal(Number(row.total), 10, `round ${round}: roster is not 10`);
+      assert.equal(Number(row.seats), Number(row.total), `round ${round}: two members share a seat`);
+    }
+  } finally {
+    await dropNeonSchema(env);
+  }
+});
+
+test("35. a fresh database and an upgraded M0 database end in the same shape", { skip: NO_POSTGRES }, async () => {
+  const full = await readSchemaText();
+
+  // The M0 text, derived from the shipped file by removing exactly what M1
+  // added. Each removal is asserted to have changed something, so restructuring
+  // schema.sql fails this loudly instead of silently testing nothing.
+  let m0 = full;
+  const strip = (pattern, label) => {
+    const next = m0.replace(pattern, "");
+    assert.notEqual(next, m0, `could not derive the M0 schema: ${label} not found`);
+    m0 = next;
+  };
+  strip(/\n-- M1 deltas \(PLAN-RRETHI-M1-API\.md §6\)\.[\s\S]*$/u, "the M1 delta block");
+  strip(/\n {2}avatar_id {4}TEXT NOT NULL DEFAULT '[^']*',/u, "member.avatar_id");
+  strip(/\n {2}letter_seal {2}TEXT NOT NULL DEFAULT '[^']*',/u, "member.letter_seal");
+  strip(/\n {2}seat {8}SMALLINT NOT NULL CONSTRAINT membership_seat_range CHECK \([^)]*\),/u, "membership.seat");
+  // Asserted on the statements, not the raw text: the surrounding comments
+  // legitimately still discuss seats, and the loader strips comments anyway.
+  assert.ok(
+    !m0.replace(/--[^\n]*/gu, "").includes("seat"),
+    "the derived M0 schema still declares a seat column",
+  );
+
+  const suffix = randomBytes(5).toString("hex");
+  const upgraded = await withSchema(m0, `rrethi_m0_${suffix}`);
+  const fresh = await withSchema(full, `rrethi_new_${suffix}`);
+  try {
+    // Seed a row first, so the backfill and SET NOT NULL run against real data
+    // rather than against an empty table.
+    await upgraded.sql.query(
+      `INSERT INTO "${upgraded.name}".member (member_key, display_name) VALUES ('k1', 'Ana')`,
+    );
+    await upgraded.sql.query(
+      `INSERT INTO "${upgraded.name}".circle (code, name, owner_key) VALUES ('C1', 'Familja', 'k1')`,
+    );
+    await upgraded.sql.query(
+      `INSERT INTO "${upgraded.name}".membership (circle_code, member_key) VALUES ('C1', 'k1')`,
+    );
+
+    const { rewriteSchemaStatements } = await import("../api/_lib/store-neon.js");
+    // The upgrade path: apply the M1 file over the M0 database.
+    for (const statement of rewriteSchemaStatements(full, upgraded.name)) {
+      await upgraded.sql.query(statement);
+    }
+    // The fresh path: apply the M1 file a second time (re-running is a no-op).
+    for (const statement of rewriteSchemaStatements(full, fresh.name)) {
+      await fresh.sql.query(statement);
+    }
+
+    // The backfilled row kept its data and gained a valid seat and profile.
+    const seeded = await upgraded.sql.query(
+      `SELECT m.seat, p.avatar_id, p.letter_seal
+         FROM "${upgraded.name}".membership m
+         JOIN "${upgraded.name}".member p ON p.member_key = m.member_key`,
+    );
+    const seededRow = Array.isArray(seeded) ? seeded[0] : seeded.rows[0];
+    assert.equal(Number(seededRow.seat), 1);
+    assert.equal(seededRow.avatar_id, "stick-racer");
+    assert.equal(seededRow.letter_seal, "ë");
+
+    const shapeOf = async (handle) => {
+      const columns = await handle.sql.query(
+        `SELECT table_name, column_name, data_type, is_nullable, column_default
+           FROM information_schema.columns WHERE table_schema = $1
+          ORDER BY table_name, column_name`,
+        [handle.name],
+      );
+      const indexes = await handle.sql.query(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = $1 ORDER BY indexname`,
+        [handle.name],
+      );
+      const constraints = await handle.sql.query(
+        `SELECT conname, pg_get_constraintdef(oid) AS def
+           FROM pg_constraint WHERE connamespace = $1::regnamespace ORDER BY conname, def`,
+        [handle.name],
+      );
+      const rows = (output) => (Array.isArray(output) ? output : output.rows);
+      // The schema name is in every indexdef and constraint def, so it is
+      // normalised away before the two shapes are compared.
+      return JSON.stringify({
+        columns: rows(columns),
+        indexes: rows(indexes),
+        constraints: rows(constraints),
+      }).replaceAll(handle.name, "SCHEMA");
+    };
+
+    assert.equal(await shapeOf(upgraded), await shapeOf(fresh));
+    // And the shape actually contains what M1 added.
+    const shape = await shapeOf(fresh);
+    assert.match(shape, /membership_circle_seat_idx/u);
+    assert.match(shape, /membership_seat_range/u);
+    assert.match(shape, /"column_name":"avatar_id"/u);
+    // Exactly one seat CHECK, not one per application of the file — the reason
+    // the DROP IF EXISTS precedes the ADD and the CREATE TABLE names it too.
+    assert.equal(shape.split("membership_seat_range").length - 1, 1);
+  } finally {
+    await upgraded.destroy();
+    await fresh.destroy();
+  }
+});
 
 test("createStore selects an adapter by RRETHI_STORE", async () => {
   const fallback = await createStore({});
@@ -450,15 +793,50 @@ test("schema.sql is fully qualified, so a test run cannot touch public", async (
   const sqlText = await readFile(new URL("../api/_lib/schema.sql", import.meta.url), "utf8");
 
   const statements = rewriteSchemaStatements(sqlText, "rrethi_test_probe");
-  assert.equal(statements.length, 9); // 5 tables + 4 indexes
+  // 5 tables + 5 indexes (M1 added membership_circle_seat_idx) + the 7 M1
+  // deltas of PLAN-RRETHI-M1-API.md §6.
+  assert.equal(statements.length, 17);
+
+  // Re-running the file must stay a no-op. Before M1 every statement said
+  // IF NOT EXISTS and the substring was the whole check; the §6 deltas need
+  // forms Postgres has no IF NOT EXISTS for, so each is matched against the
+  // idempotent shape it actually relies on instead. A statement that fits none
+  // of these is not safe to run on every deploy.
+  const IDEMPOTENT_FORMS = [
+    /^CREATE (?:TABLE|UNIQUE INDEX|INDEX) IF NOT EXISTS/u,
+    /^ALTER TABLE .* ADD COLUMN IF NOT EXISTS/su,
+    /^ALTER TABLE .* DROP CONSTRAINT IF EXISTS/su,
+    // Re-adding is safe only because the DROP IF EXISTS above always precedes
+    // it, which the ordering assertion below pins.
+    /^ALTER TABLE .* ADD CONSTRAINT membership_seat_range CHECK/su,
+    // Naturally repeatable: setting a NOT NULL that already holds, and a
+    // backfill whose WHERE clause matches nothing on a second run.
+    /^ALTER TABLE .* ALTER COLUMN seat SET NOT NULL$/su,
+    /^UPDATE .* AND m\.seat IS NULL$/su,
+  ];
   for (const statement of statements) {
     assert.doesNotMatch(statement, /public\./u);
-    assert.match(statement, /IF NOT EXISTS/u); // re-running the file is a no-op
+    assert.ok(
+      IDEMPOTENT_FORMS.some((form) => form.test(statement)),
+      `statement is not idempotent by construction: ${statement.slice(0, 80)}`,
+    );
   }
+  assert.ok(
+    statements.findIndex((s) => /DROP CONSTRAINT IF EXISTS membership_seat_range/u.test(s)) <
+      statements.findIndex((s) => /ADD CONSTRAINT membership_seat_range/u.test(s)),
+    "the seat CHECK must be dropped before it is re-added, or a second run fails",
+  );
   assert.equal(
     statements.filter((statement) => statement.includes(`"rrethi_test_probe".`)).length,
-    9,
+    17,
   );
+
+  // The column DEFAULTs are the client catalog's values. Re-typed literals here
+  // and in src/avatars.js would drift silently, so store.js imports them and
+  // this asserts schema.sql still spells the same two.
+  const { DEFAULT_PROFILE } = await import("../api/_lib/store.js");
+  assert.match(sqlText, new RegExp(`avatar_id\\s+TEXT NOT NULL DEFAULT '${DEFAULT_PROFILE.avatarId}'`, "u"));
+  assert.match(sqlText, new RegExp(`letter_seal\\s+TEXT NOT NULL DEFAULT '${DEFAULT_PROFILE.letterSeal}'`, "u"));
   assert.match(
     statements.join(";"),
     /REFERENCES "rrethi_test_probe"\.membership \(circle_code, member_key\) ON DELETE CASCADE/u,
